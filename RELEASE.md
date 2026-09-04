@@ -119,6 +119,63 @@ npm run release                 # собирает и публикует
 Релиз создаётся сразу опубликованным, не черновиком: черновики видны только
 владельцу репозитория, и обновление не получил бы никто.
 
+## Сборка под Linux
+
+Для Linux выходит **AppImage** и только он: из линуксовых форматов
+electron-updater умеет обновлять сам себя лишь в нём. Один файл, права на запуск,
+запуск — установщика нет.
+
+**Собирать нужно на Linux, не на Windows.** Внутрь сборки едут два чужих
+исполняемых файла — yt-dlp (им играет YouTube) и ffmpeg (им сжимается офлайн),
+и кладёт их `npm install` под ту систему, где выполнялся. Проверено вживую:
+собранный на Windows линуксовый пакет уносит внутрь `ffmpeg.exe`, а yt-dlp не
+получает вовсе. Такая сборка собирается без единой жалобы, запускается — и молча
+не играет ни одного трека с YouTube. Человек увидит «плеер сломан», а не
+«сборка собрана не там».
+
+Поэтому `npm run build:linux` до упаковки зовёт `check-platform-binaries` и
+останавливается с объяснением, если бинарники не от той системы. Проверить
+отдельно, ничего не собирая:
+
+```bash
+node scripts/check-platform-binaries.mjs --platform=linux
+```
+
+### В контейнере, с машины на Windows
+
+Проект монтируется **только на чтение**, а сборка идёт с копии внутри
+контейнера. Так `npm ci` не тронет ни ваш `node_modules`, ни `package.json`:
+иначе в них лягут линуксовые бинарники, и следующая сборка под Windows молча
+получит зеркальную поломку.
+
+```bash
+docker run --rm -v "C:/Users/rober/Desktop/VireonMusic:/src:ro" -v "C:/wireon-build:/out" -v wireon-linux-cache:/root/.cache -e WIREON_GH_OWNER=UnikumM -e WIREON_GH_REPO=wireon1 electronuserland/builder:latest bash -lc "mkdir -p /project && tar -C /src --exclude=node_modules --exclude=release --exclude=coverage --exclude=android --exclude=dist --exclude=dist-electron --exclude=.git -cf - . | tar -C /project -xf - && cd /project && npm ci --no-audit --no-fund && npm run build:linux -- --config.directories.output=/out/linux"
+```
+
+`.git` в копию не едет, поэтому канал обновлений задаётся переменными
+`WIREON_GH_OWNER`/`WIREON_GH_REPO` — иначе сборка получилась бы без
+автообновления. Готовый `Wireon-<версия>.AppImage` появится в `C:/wireon-build/linux`.
+
+### Публикация
+
+```bash
+export GH_TOKEN=ghp_...
+npm run release:linux
+```
+
+Кладёт AppImage и `latest-linux.yml` в тот же релиз. Windows-канал (`latest.yml`)
+при этом не трогается: у каждой системы свой файл, и обновления не путаются.
+
+### Что проверить руками на живой машине
+
+Тесты сюда не дотягиваются — эти три вещи видно только на настоящем Linux:
+
+- вход через Discord: он возвращается по ссылке `wireon://`, а её принимает
+  `.desktop`-запись, которую AppImage регистрирует при первом запуске;
+- медиаклавиши: `globalShortcut` работает на X11, а на Wayland зависит от
+  окружения рабочего стола;
+- значок в меню приложений и в панели задач.
+
 ## Что стоит знать
 
 - **yt-dlp обновляется сам и отдельно от приложения.** YouTube ломает старые

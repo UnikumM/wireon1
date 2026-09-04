@@ -93,25 +93,27 @@ const RETAINED_STATE_MAX_AGE_MS = 60000;
 /** How often a listener re-measures the host's clock while in the room. */
 const CLOCK_PROBE_INTERVAL_MS = 15000;
 /**
- * Public anonymous brokers, tried in order. The room code is the only secret —
- * the same trust model as sharing a link — so nothing private goes over them:
- * track titles and positions, never account data.
+ * Своего брокера по умолчанию нет — и это осознанно.
+ *
+ * Раньше здесь лежали три публичных анонимных брокера (emqx, hivemq,
+ * mosquitto), чтобы совместное прослушивание работало без настройки. Цена
+ * оказалась не та, что предполагалась: через комнату идут не только названия
+ * треков, но и `senderId`, `senderName` и ссылка на аватар — то есть имя
+ * человека в Discord. На публичном брокере это читает кто угодно, подписавшись
+ * на `wireon/room/#`, и туда же может писать свои сообщения.
+ *
+ * Поэтому адрес брокера теперь обязателен: он берётся из
+ * `VITE_WIREON_MQTT_URL`. Если его нет, комната остаётся в пределах одной
+ * машины (`BroadcastChannel`) и честно об этом сообщает.
  */
-const DEFAULT_MQTT_WS_ENDPOINTS = [
-  'wss://broker.emqx.io:8084/mqtt',
-  'wss://broker.hivemq.com:8884/mqtt',
-  'wss://test.mosquitto.org:8081/mqtt'
-];
+const DEFAULT_MQTT_WS_ENDPOINTS: string[] = [];
 
 /**
- * Broker list override, read from the environment rather than from a file.
+ * Адреса брокера, из окружения, а не из файла.
  *
- * The public brokers above are a fallback anyone can use with no setup, but they
- * are shared with the whole internet and can disappear without notice. Anyone
- * running their own broker points `VITE_WIREON_MQTT_URL` at it (several URLs
- * separated by commas are allowed) and the public list is not touched. Nothing
- * secret belongs here either way — the value is a URL, not a credential, and it
- * is never written into the repository.
+ * `VITE_WIREON_MQTT_URL` — один адрес или несколько через запятую. Значение не
+ * секрет (это URL, а не пароль), но в репозиторий оно всё равно не попадает.
+ * Пустой список означает «межмашинного транспорта нет» — см. комментарий выше.
  */
 export function resolveBrokerEndpoints(raw?: string | null): string[] {
   const candidates = (raw ?? '')
@@ -140,7 +142,7 @@ type HostListener = (hostId: string | null) => void;
 type ClockListener = (clock: { offsetMs: number; rttMs: number }) => void;
 
 export interface GroupTransportOptions {
-  /** Broker URLs to try. Defaults to the public list above. */
+  /** Broker URLs to try. Defaults to `VITE_WIREON_MQTT_URL`; empty means local-only. */
   endpoints?: string[];
   /** Injected in tests to run a fake broker; production uses a real WebSocket. */
   socketFactory?: (url: string) => WebSocketLike;
@@ -328,6 +330,17 @@ export class GroupListenService {
       return;
     }
 
+    const endpoints = this.transportOptions.endpoints ?? configuredEndpoints();
+    if (endpoints.length === 0) {
+      // Без брокера комната живёт, но только в окнах этой машины. Сказать об
+      // этом вслух важнее, чем тихо не работать: человек иначе будет ждать
+      // друга, который никогда не подключится.
+      this.transportStatus = 'idle';
+      this.transportError = 'Адрес сервера комнат не задан — слушать вместе можно только на этом устройстве.';
+      this.notifyConnection();
+      return;
+    }
+
     const topic = this.topic();
     const leaveMessage: GroupListenMessage = {
       type: 'leave',
@@ -340,7 +353,7 @@ export class GroupListenService {
     };
 
     const client = new MqttClient({
-      endpoints: this.transportOptions.endpoints ?? configuredEndpoints(),
+      endpoints,
       // Broker-unique per session: two windows of one machine must not evict
       // each other, which is what a room-derived client id would do.
       clientId: `wireon_${this.userId}_${Date.now().toString(36)}`.slice(0, 64),

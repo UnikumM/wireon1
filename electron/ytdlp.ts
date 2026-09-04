@@ -23,6 +23,7 @@
  */
 
 import { execFile } from 'child_process';
+import { createHash } from 'crypto';
 import { chmodSync, existsSync, mkdirSync, readFileSync, renameSync, rmSync, writeFileSync } from 'fs';
 import path from 'path';
 
@@ -73,6 +74,8 @@ export interface YtDlpManagerDeps {
   log?: (message: string) => void;
   /** Запуск `--version`: единственная настоящая проверка, что файл рабочий. */
   probeVersion?: (exe: string) => Promise<string>;
+  /** Считает SHA-256 скачанного файла. Отдельно — чтобы тест мог подделать несовпадение. */
+  sha256?: (bytes: Uint8Array) => string;
   /**
    * Позвать после успешной установки.
    *
@@ -105,11 +108,18 @@ const DOWNLOAD_TIMEOUT_MS = 120_000;
  */
 const MIN_BINARY_BYTES = 1024 * 1024;
 
-/** Имя ассета в релизе для текущей платформы. */
+/**
+ * Имя ассета в релизе для текущей платформы.
+ *
+ * Для Linux берётся `yt-dlp_linux`, а не одноимённый `yt-dlp`: последний —
+ * питоновский zipapp, и без python3 в системе он не запускается вовсе. Внутри
+ * AppImage питона нет, и у человека он тоже может отсутствовать; `yt-dlp_linux`
+ * собран самодостаточным и не требует ничего.
+ */
 export function getNightlyAssetName(platform: string = process.platform): string {
   if (platform === 'win32') return 'yt-dlp.exe';
   if (platform === 'darwin') return 'yt-dlp_macos';
-  return 'yt-dlp';
+  return 'yt-dlp_linux';
 }
 
 /**
@@ -126,6 +136,20 @@ export function parseTagFromLocation(location: string): string | null {
   } catch {
     return match[1];
   }
+}
+
+/**
+ * Ищет контрольную сумму нужного файла в `SHA2-256SUMS` релиза.
+ *
+ * Формат простой и старый: `<хэш>  <имя файла>` построчно. Имя сверяется
+ * целиком — `yt-dlp` и `yt-dlp_linux` не должны путаться друг с другом.
+ */
+export function findChecksum(sums: string, assetName: string): string | null {
+  for (const line of String(sums || '').split('\n')) {
+    const match = /^([0-9a-f]{64})\s+\*?(.+?)\s*$/i.exec(line);
+    if (match && match[2] === assetName) return match[1].toLowerCase();
+  }
+  return null;
 }
 
 /** `--version` через дочерний процесс. Вынесено, чтобы тесты ничего не запускали. */
@@ -154,6 +178,7 @@ export class YtDlpManager {
 
   private cachedState: YtDlpState | null = null;
   private stateRead = false;
+  private readonly sha256: (bytes: Uint8Array) => string;
   private pending: Promise<YtDlpUpdateResult> | null = null;
   private firstCheck: ReturnType<typeof setTimeout> | null = null;
   private retry: ReturnType<typeof setTimeout> | null = null;
@@ -167,6 +192,7 @@ export class YtDlpManager {
     this.now = deps.now || (() => Date.now());
     this.logLine = deps.log || ((message: string) => console.log('[yt-dlp]', message));
     this.probeVersion = deps.probeVersion || defaultProbeVersion;
+    this.sha256 = deps.sha256 || ((bytes) => createHash('sha256').update(bytes).digest('hex'));
     this.onUpdated = deps.onUpdated || (() => {});
     this.fs = {
       existsSync,
@@ -311,6 +337,21 @@ export class YtDlpManager {
   }
 
   /**
+   * Берёт из релиза ожидаемую контрольную сумму нашего файла.
+   *
+   * Отсутствие списка — тоже отказ: без него проверять нечем, а ставить
+   * непроверенный исполняемый файл нельзя.
+   */
+  private async fetchChecksum(tag: string): Promise<string> {
+    const url = `${NIGHTLY_REPO}/releases/download/${encodeURIComponent(tag)}/SHA2-256SUMS`;
+    const res = await this.fetchImpl(url, { signal: AbortSignal.timeout(TAG_TIMEOUT_MS) });
+    if (!res.ok) throw new Error(`список контрольных сумм недоступен (HTTP ${res.status})`);
+    const expected = findChecksum(await res.text(), this.assetName);
+    if (!expected) throw new Error(`в списке сумм нет строки для ${this.assetName}`);
+    return expected;
+  }
+
+  /**
    * Качает, проверяет и только потом ставит на место.
    *
    * Сначала во временный `.part`: половина файла по рабочему пути — это
@@ -324,6 +365,23 @@ export class YtDlpManager {
     const bytes = new Uint8Array(await res.arrayBuffer());
     if (bytes.byteLength < MIN_BINARY_BYTES) {
       throw new Error(`подозрительно маленький файл: ${bytes.byteLength} байт`);
+    }
+
+    // Контрольная сумма — до первого запуска файла, а не после.
+    //
+    // Дальше по коду скачанный бинарник запускается (`--version`), то есть
+    // чужой код исполняется с правами человека. Проверка размера от подмены не
+    // спасает: подменённый файл будет ровно такого же размера. Список сумм
+    // лежит в том же релизе и подписан тем же выпуском, что и сам бинарник, —
+    // это не защита от взлома GitHub, но она ловит подмену по дороге и битую
+    // закачку, которая прошла по размеру.
+    //
+    // Не сошлось или список не отдали — не ставим вовсе. Остаться на прежней
+    // версии извлекателя не страшно: она работает, просто чуть старее.
+    const expected = await this.fetchChecksum(tag);
+    const actual = this.sha256(bytes).toLowerCase();
+    if (actual !== expected) {
+      throw new Error(`контрольная сумма не сошлась (ожидали ${expected.slice(0, 12)}…, получили ${actual.slice(0, 12)}…)`);
     }
 
     const part = `${target}.part`;

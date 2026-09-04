@@ -94,6 +94,32 @@ const POSITIVE_TTL_MS = 180 * 24 * 60 * 60 * 1000;
 // Кэш в памяти: чтобы одна и та же песня в рамках сессии не ходила даже в IndexedDB.
 const lyricsCache = new Map<string, LyricsResult | null>();
 
+/**
+ * Потолок кэша в памяти.
+ *
+ * Без него словарь растёт всю сессию: «Моя волна» за ночь проигрывает сотни
+ * треков, и текст каждого остаётся в памяти навсегда. Диск при этом ничего не
+ * теряет — в IndexedDB тексты лежат отдельно и надолго, память здесь только
+ * чтобы не ходить туда дважды за одну песню.
+ *
+ * Двести записей — это заведомо больше, чем человек успевает послушать подряд,
+ * и всё ещё единицы мегабайт.
+ */
+const LYRICS_CACHE_LIMIT = 200;
+
+/** Кладёт в кэш, вытесняя самую давнюю запись, когда упёрлись в потолок. */
+function rememberInMemory(key: string, value: LyricsResult | null): void {
+  // Переустановка двигает ключ в конец очереди: так вытесняется именно то, к
+  // чему дольше всего не обращались, а не то, что первым попало в кэш.
+  if (lyricsCache.has(key)) lyricsCache.delete(key);
+  lyricsCache.set(key, value);
+  while (lyricsCache.size > LYRICS_CACHE_LIMIT) {
+    const oldest = lyricsCache.keys().next();
+    if (oldest.done) break;
+    lyricsCache.delete(oldest.value);
+  }
+}
+
 // Уже выполняющиеся запросы, чтобы два открытия текста не удваивали трафик.
 const pendingRequests = new Map<string, Promise<LyricsResult | null>>();
 
@@ -504,8 +530,8 @@ export async function fetchLyrics(
 
 /** Кладёт результат в кэш памяти под обоими ключами. */
 function remember(cacheKey: string, trackId: string | undefined, result: LyricsResult | null): void {
-  lyricsCache.set(cacheKey, result);
-  if (trackId) lyricsCache.set(trackId, result);
+  rememberInMemory(cacheKey, result);
+  if (trackId) rememberInMemory(trackId, result);
 }
 
 /** Свободный поиск текста по строке. */
@@ -601,9 +627,9 @@ export async function setManualLyrics(
 
   // Оба ключа памяти: `fetchLyrics` сначала смотрит на «исполнитель:::название»,
   // поэтому без этого сразу после выбора вернулся бы прежний неверный текст.
-  lyricsCache.set(trackId, chosen);
+  rememberInMemory(trackId, chosen);
   if (track.title) {
-    lyricsCache.set(getLyricsCacheKey({ title: track.title, artist: track.artist || '' }), chosen);
+    rememberInMemory(getLyricsCacheKey({ title: track.title, artist: track.artist || '' }), chosen);
   }
 }
 

@@ -470,6 +470,63 @@ describe('Player Store (usePlayerStore & 2-Tier Queue)', () => {
       }
     });
 
+    it('обогнанное включение не перебивает то, что уже играет', async () => {
+      // Первый трек резолвится долго (сеть), второй — мгновенно (кэш). Человек
+      // жмёт «дальше», и первый возвращается уже после того, как играет второй.
+      let releaseSlow: () => void = () => {};
+      vi.spyOn(audioEngine, 'load').mockImplementation((track: UnifiedTrack) => {
+        if (track.id === mockTracks[0].id) {
+          return new Promise<void>((resolve) => {
+            releaseSlow = resolve;
+          });
+        }
+        return Promise.resolve();
+      });
+
+      const realAddToHistory = useLibraryStore.getState().addToHistory;
+      const historySpy = vi.fn().mockResolvedValue(true);
+      useLibraryStore.setState({ addToHistory: historySpy });
+
+      try {
+        const slow = usePlayerStore.getState().playTrack(mockTracks[0]);
+        await usePlayerStore.getState().playTrack(mockTracks[1]);
+
+        releaseSlow();
+        await slow;
+
+        const state = usePlayerStore.getState();
+        expect(state.currentTrack?.id).toBe(mockTracks[1].id);
+        expect(state.playbackState).toBe('playing');
+        expect(historySpy).toHaveBeenCalledTimes(1);
+        expect(historySpy).toHaveBeenCalledWith(expect.objectContaining({ id: mockTracks[1].id }));
+      } finally {
+        useLibraryStore.setState({ addToHistory: realAddToHistory });
+      }
+    });
+
+    it('ошибка обогнанного включения не показывается поверх играющего', async () => {
+      let failSlow: (err: Error) => void = () => {};
+      vi.spyOn(audioEngine, 'load').mockImplementation((track: UnifiedTrack) => {
+        if (track.id === mockTracks[0].id) {
+          return new Promise<void>((_resolve, reject) => {
+            failSlow = reject;
+          });
+        }
+        return Promise.resolve();
+      });
+
+      const slow = usePlayerStore.getState().playTrack(mockTracks[0]);
+      await usePlayerStore.getState().playTrack(mockTracks[1]);
+
+      failSlow(new Error('сеть отвалилась'));
+      await slow;
+
+      const state = usePlayerStore.getState();
+      expect(state.playbackState).toBe('playing');
+      expect(state.error).toBeNull();
+      expect(state.currentTrack?.id).toBe(mockTracks[1].id);
+    });
+
     it('keeps the current track when the queue is exhausted', async () => {
       vi.spyOn(audioEngine, 'load').mockResolvedValue();
 

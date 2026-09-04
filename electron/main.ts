@@ -358,6 +358,43 @@ export function isExternallyOpenableUrl(url: string): boolean {
   }
 }
 
+/**
+ * Запирает окно на своих страницах: наружу — только в системный браузер.
+ *
+ * Без этого окно приложения можно увести куда угодно. Названия треков, описания
+ * альбомов и тексты песен приходят от чужих сервисов, и любая ссылка оттуда —
+ * `target="_blank"`, `window.open`, присвоение `location.href` — открывала бы
+ * либо новое окно Electron без ограничений, либо уводила бы само приложение на
+ * посторонний сайт, откуда обратно человек уже не вернётся.
+ *
+ * Окно авторизации живёт по своим правилам (ему как раз положено ходить на
+ * discord.com) и настраивает всё это самостоятельно — см. authWindow.ts.
+ */
+export function guardWindowNavigation(win: BrowserWindow): void {
+  win.webContents.setWindowOpenHandler(({ url }) => {
+    if (isExternallyOpenableUrl(url)) {
+      void shell.openExternal(url);
+    }
+    // Новых окон Electron не открываем никогда: всё внешнее — в браузер.
+    return { action: 'deny' };
+  });
+
+  const blockNavigation = (event: Electron.Event, url: string): void => {
+    if (isAppContentUrl(url, getDevServerUrl())) {
+      return;
+    }
+    event.preventDefault();
+    if (isExternallyOpenableUrl(url)) {
+      void shell.openExternal(url);
+    }
+  };
+
+  win.webContents.on('will-navigate', blockNavigation);
+  // Отдельно от `will-navigate`: перенаправление с разрешённого адреса на чужой
+  // события навигации не вызывает.
+  win.webContents.on('will-redirect', blockNavigation);
+}
+
 /** True for every host in {@link targetUrls} — the hosts that need CORS relaxed. */
 export function isStreamingHost(url: string): boolean {
   const hostname = getHostname(url);
@@ -1200,6 +1237,7 @@ export function createWindow(): BrowserWindow {
     icon: getWindowIconPath(),
   });
   mainWindow = win;
+  guardWindowNavigation(win);
 
   let shown = false;
   let fallbackArmed = false;
@@ -1356,6 +1394,7 @@ export function createMiniWindow(): BrowserWindow {
   });
 
   loadAppContent(win);
+  guardWindowNavigation(win);
   miniWindow = win;
   return win;
 }

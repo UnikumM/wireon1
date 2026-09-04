@@ -1,8 +1,20 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!--
+    Android с девятой версии запрещает незашифрованный HTTP по умолчанию, а наш
+    сервер живёт по адресу без домена и без сертификата. Пока это так, адрес
+    приходится называть здесь поимённо: иначе система отклоняет каждый запрос
+    сама, до того как приложение что-то узнает, и на телефоне молча отваливаются
+    и резолв, и синхронизация.
+
+    Это временно. Правильное решение — домен с сертификатом и https, тогда весь
+    этот файл сведётся к localhost и эмулятору.
+-->
 <network-security-config>
     <domain-config cleartextTrafficPermitted="true">
         <domain includeSubdomains="true">localhost</domain>
         <domain includeSubdomains="true">10.0.2.2</domain>
         <domain includeSubdomains="true">wireon.pro</domain>
+        <!-- Сервер музыки и синхронизации (http и ws на 25545). -->
+        <domain includeSubdomains="false">51.38.150.35</domain>
     </domain-config>
 </network-security-config>

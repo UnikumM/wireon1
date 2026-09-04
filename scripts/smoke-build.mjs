@@ -284,6 +284,44 @@ if (targets.includes('nsis') && targets.includes('portable')) {
   );
 }
 
+// Linux ships as an AppImage: it is the only Linux format electron-updater can
+// update in place, and the .desktop entry it generates is what makes `wireon://`
+// (the Discord sign-in comes back through it) reach the app at all.
+const linuxTargets = (builder.linux?.target ?? []).map((t) => (typeof t === 'string' ? t : t.target));
+if (linuxTargets.length > 0) {
+  check(
+    'the Linux target is AppImage — the only one that self-updates',
+    linuxTargets.includes('AppImage'),
+    linuxTargets.join(', ')
+  );
+
+  const linuxIcon = builder.linux?.icon ?? '';
+  check(
+    'the Linux icon file exists',
+    Boolean(linuxIcon) && existsSync(path.join(ROOT, linuxIcon)),
+    linuxIcon || 'not set — the desktop entry would have no icon'
+  );
+
+  check(
+    'the Linux build declares a menu category',
+    Boolean(builder.linux?.category),
+    builder.linux?.category ?? 'not set — the app lands nowhere in the menu'
+  );
+
+  const appImageName = builder.appImage?.artifactName;
+  check(
+    'the AppImage writes a filename of its own',
+    Boolean(appImageName) && appImageName !== nsisName && appImageName !== portableName,
+    appImageName ?? '<default>'
+  );
+
+  check(
+    'the deep-link scheme is declared, so the desktop entry gets a MimeType',
+    (builder.protocols ?? []).some((entry) => (entry.schemes ?? []).includes('wireon')),
+    (builder.protocols ?? []).flatMap((entry) => entry.schemes ?? []).join(', ') || 'none'
+  );
+}
+
 check(
   'package.json main points at the built entry',
   Boolean(pkg.main) && existsSync(path.join(ROOT, pkg.main)),

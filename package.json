@@ -1,7 +1,7 @@
 {
   "name": "wireon",
   "private": true,
-  "version": "1.0.27",
+  "version": "1.0.28",
   "type": "module",
   "main": "dist-electron/main.js",
   "scripts": {
@@ -26,9 +26,12 @@
     "verify": "npm run typecheck:all && npm run test:coverage && npm run electron:build && npm run smoke:build && npm run smoke:boot",
     "release:prepare": "node scripts/release-prepare.mjs",
     "build:win": "npm run refresh:ytdlp && npm run electron:build && electron-builder --config electron-builder.cjs --win --x64",
+    "check:binaries": "node scripts/check-platform-binaries.mjs",
+    "build:linux": "npm run refresh:ytdlp && npm run electron:build && node scripts/check-platform-binaries.mjs --platform=linux && electron-builder --config electron-builder.cjs --linux AppImage --x64",
     "pack:win": "npm run electron:build && electron-builder --config electron-builder.cjs --dir",
     "release": "npm run refresh:ytdlp && npm run electron:build && electron-builder --config electron-builder.cjs --win nsis --x64 --publish always",
-    "release:portable": "electron-builder --config electron-builder.cjs --win portable --x64 --publish always"
+    "release:portable": "electron-builder --config electron-builder.cjs --win portable --x64 --publish always",
+    "release:linux": "npm run refresh:ytdlp && npm run electron:build && node scripts/check-platform-binaries.mjs --platform=linux && electron-builder --config electron-builder.cjs --linux AppImage --x64 --publish always"
   },
   "dependencies": {
     "@capacitor/app": "^7.1.2",

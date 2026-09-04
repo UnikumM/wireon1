@@ -37,6 +37,9 @@ const BUNDLED = path.join('C:', 'app', 'node_modules', 'youtube-dl-exec', 'bin',
 /** A payload big enough to pass the size floor. */
 const BINARY_BYTES = new Uint8Array(2 * 1024 * 1024).fill(7);
 
+/** Совпадающая пара «сумма из релиза» и «сумма скачанного» для тестов. */
+const FAKE_HASH = 'a'.repeat(64);
+
 /** The redirect GitHub answers `latest/download/...` with. */
 function tagResponse(tag = TAG, status = 302): Response {
   return {
@@ -62,7 +65,20 @@ function downloadResponse(bytes: Uint8Array = BINARY_BYTES, ok = true, status = 
   } as unknown as Response;
 }
 
-/** A fetch that answers the tag lookup, then the download. */
+/** Список контрольных сумм релиза — его модуль просит после загрузки. */
+function sumsResponse(hash = FAKE_HASH, asset = 'yt-dlp.exe', ok = true, status = 200): Response {
+  return {
+    ok,
+    status,
+    headers: { get: () => null },
+    text: async () => `${hash}  ${asset}
+0000000000000000000000000000000000000000000000000000000000000000  yt-dlp
+`,
+    body: null
+  } as unknown as Response;
+}
+
+/** A fetch that answers the tag lookup, then the download, then the checksums. */
 function fetchSequence(...responses: Response[]): typeof fetch {
   const queue = [...responses];
   return vi.fn(async () => {
@@ -90,9 +106,10 @@ describe('electron/ytdlp', () => {
     now?: () => number;
     platform?: string;
     stateDir?: string | null;
+    sha256?: (bytes: Uint8Array) => string;
   } = {}): Harness => {
     const logs: string[] = [];
-    const fetchImpl = fetchSequence(...(options.responses ?? [tagResponse(), downloadResponse()]));
+    const fetchImpl = fetchSequence(...(options.responses ?? [tagResponse(), downloadResponse(), sumsResponse()]));
     const probeVersion = vi.fn(options.probe ?? (async () => options.version ?? TAG));
     const manager = new YtDlpManager({
       bundledPath: BUNDLED,
@@ -101,6 +118,7 @@ describe('electron/ytdlp', () => {
       fetchImpl,
       now: options.now ?? (() => NOW),
       log: (message) => logs.push(message),
+      sha256: options.sha256 ?? (() => FAKE_HASH),
       probeVersion
     });
     return {
@@ -129,7 +147,8 @@ describe('electron/ytdlp', () => {
     it('asks for the artefact the platform can actually run', () => {
       expect(getNightlyAssetName('win32')).toBe('yt-dlp.exe');
       expect(getNightlyAssetName('darwin')).toBe('yt-dlp_macos');
-      expect(getNightlyAssetName('linux')).toBe('yt-dlp');
+      // Не `yt-dlp`: тот ассет — питоновский zipapp, а внутри AppImage питона нет.
+      expect(getNightlyAssetName('linux')).toBe('yt-dlp_linux');
     });
 
     it('reads the version out of the release redirect', () => {
@@ -277,15 +296,53 @@ describe('electron/ytdlp', () => {
       expect(existsSync(managed)).toBe(false);
     });
 
+    it('не ставит файл, у которого не сошлась контрольная сумма', async () => {
+      const { manager, managed, logs } = build({ sha256: () => 'b'.repeat(64) });
+
+      const result = await manager.ensureCurrent();
+
+      expect(result.updated).toBe(false);
+      expect(result.reason).toMatch(/контрольная сумма/i);
+      // Ни на рабочем пути, ни во временном: подменённый файл не запускался.
+      expect(existsSync(managed)).toBe(false);
+      expect(existsSync(`${managed}.part`)).toBe(false);
+      expect(logs.join(' ')).toMatch(/контрольная сумма/i);
+    });
+
+    it('не ставит ничего, когда списка сумм в релизе нет', async () => {
+      const { manager, managed } = build({
+        responses: [tagResponse(), downloadResponse(), sumsResponse(FAKE_HASH, 'yt-dlp.exe', false, 404)]
+      });
+
+      const result = await manager.ensureCurrent();
+
+      expect(result.updated).toBe(false);
+      expect(result.reason).toMatch(/контрольных сумм/i);
+      expect(existsSync(managed)).toBe(false);
+    });
+
+    it('не ставит ничего, когда в списке нет строки про наш файл', async () => {
+      const { manager, managed } = build({
+        responses: [tagResponse(), downloadResponse(), sumsResponse(FAKE_HASH, 'yt-dlp_linux')]
+      });
+
+      const result = await manager.ensureCurrent();
+
+      expect(result.updated).toBe(false);
+      expect(result.reason).toMatch(/нет строки/i);
+      expect(existsSync(managed)).toBe(false);
+    });
+
     it('announces the update so the stream cache can be dropped', async () => {
       const onUpdated = vi.fn();
       const manager = new YtDlpManager({
         bundledPath: BUNDLED,
         stateDir,
         platform: 'win32',
-        fetchImpl: fetchSequence(tagResponse(), downloadResponse()),
+        fetchImpl: fetchSequence(tagResponse(), downloadResponse(), sumsResponse()),
         now: () => NOW,
         log: () => {},
+        sha256: () => FAKE_HASH,
         probeVersion: async () => TAG,
         onUpdated
       });
@@ -300,9 +357,10 @@ describe('electron/ytdlp', () => {
         bundledPath: BUNDLED,
         stateDir,
         platform: 'win32',
-        fetchImpl: fetchSequence(tagResponse(), downloadResponse()),
+        fetchImpl: fetchSequence(tagResponse(), downloadResponse(), sumsResponse()),
         now: () => NOW,
         log: () => {},
+        sha256: () => FAKE_HASH,
         probeVersion: async () => TAG,
         onUpdated: () => {
           throw new Error('EPERM');
@@ -369,7 +427,7 @@ describe('electron/ytdlp', () => {
 
       const result = await manager.ensureCurrent({ force: true });
       expect(result.updated).toBe(true);
-      expect(fetchImpl).toHaveBeenCalledTimes(2);
+      expect(fetchImpl).toHaveBeenCalledTimes(3);
     });
 
     it('re-downloads when the marker is there but the binary is gone', async () => {
@@ -384,7 +442,8 @@ describe('electron/ytdlp', () => {
       const result = await manager.ensureCurrent();
       expect(result.updated).toBe(true);
       expect(existsSync(managed)).toBe(true);
-      expect(fetchImpl).toHaveBeenCalledTimes(2);
+      // Тег, бинарник и список контрольных сумм.
+      expect(fetchImpl).toHaveBeenCalledTimes(3);
     });
 
     it('treats a corrupted marker as "never updated"', async () => {
@@ -402,7 +461,7 @@ describe('electron/ytdlp', () => {
       const [a, b] = await Promise.all([manager.ensureCurrent(), manager.ensureCurrent()]);
 
       expect(a).toEqual(b);
-      expect(fetchImpl).toHaveBeenCalledTimes(2);
+      expect(fetchImpl).toHaveBeenCalledTimes(3);
     });
   });
 
@@ -429,7 +488,8 @@ describe('electron/ytdlp', () => {
         .fn()
         .mockRejectedValueOnce(new Error('ENETUNREACH'))
         .mockResolvedValueOnce(tagResponse())
-        .mockResolvedValueOnce(downloadResponse()) as unknown as typeof fetch;
+        .mockResolvedValueOnce(downloadResponse())
+        .mockResolvedValueOnce(sumsResponse()) as unknown as typeof fetch;
       const manager = new YtDlpManager({
         bundledPath: BUNDLED,
         stateDir,
@@ -437,6 +497,7 @@ describe('electron/ytdlp', () => {
         fetchImpl,
         now: () => NOW,
         log: () => {},
+        sha256: () => FAKE_HASH,
         probeVersion: async () => TAG
       });
 

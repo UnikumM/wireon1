@@ -50,5 +50,20 @@
   },
   "portable": {
     "artifactName": "${productName}-Portable-${version}.${ext}"
+  },
+  "linux": {
+    "target": [
+      {
+        "target": "AppImage",
+        "arch": ["x64"]
+      }
+    ],
+    "icon": "build/icon.png",
+    "category": "AudioVideo",
+    "synopsis": "Music player",
+    "executableName": "wireon"
+  },
+  "appImage": {
+    "artifactName": "${productName}-${version}.${ext}"
   }
 }

@@ -133,6 +133,21 @@ let radioFetchInFlight = false;
 let crossfadeTransitionInFlight = false;
 
 /**
+ * Номер последнего запрошенного включения трека.
+ *
+ * Нужен из-за разницы во времени: ссылка на один трек берётся из кэша за
+ * миллисекунды, на другой — идёт в сеть на несколько секунд. Человек жмёт
+ * «дальше» дважды, второй трек уже играет, и тут возвращается первый вызов.
+ * Сам звук защищён — движок обрывает устаревшую загрузку молча, — но всё, что
+ * идёт следом (пометка «играет», запись в историю, обложка в системе), до сих
+ * пор выполнялось и перебивало то, что человек реально слушает.
+ *
+ * Каждое включение получает номер; вернувшись из ожидания, вызов сверяет свой
+ * номер с последним и просто уходит, если его обогнали.
+ */
+let commitGeneration = 0;
+
+/**
  * Fisher-Yates non-destructive index shuffling
  */
 export function generateShuffledIndices(length: number, firstIndex?: number): number[] {
@@ -309,6 +324,7 @@ export const usePlayerStore = create<PlayerStore>((set, get) => {
   const commitTrack = async (track: UnifiedTrack, options: CommitTrackOptions = {}): Promise<void> => {
     if (!track) return;
     const addToHistory = options.addToHistory !== false;
+    const commitId = ++commitGeneration;
 
     const patch: Partial<PlayerStoreState> = {
       currentTrack: track,
@@ -336,6 +352,11 @@ export const usePlayerStore = create<PlayerStore>((set, get) => {
 
     try {
       await audioEngine.load(track, true);
+
+      // Пока ходили за ссылкой, человек мог включить другое. Тогда это включение
+      // уже никого не интересует: состояние, история и обложка принадлежат тому
+      // треку, который запросили последним.
+      if (commitId !== commitGeneration) return;
 
       set({
         playbackState: 'playing',
@@ -371,6 +392,9 @@ export const usePlayerStore = create<PlayerStore>((set, get) => {
       }
     } catch (err) {
       console.error('[usePlayerStore] Failed to start track:', err);
+      // Ошибка обогнанного включения — не новость: человек уже слушает другое,
+      // и красная надпись поверх играющего трека только пугает.
+      if (commitId !== commitGeneration) return;
       set({
         playbackState: 'error',
         isLoading: false,

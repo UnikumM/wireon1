@@ -56,6 +56,9 @@ const {
         focus: vi.fn(),
         getURL: vi.fn().mockReturnValue('file:///app/dist/index.html'),
         executeJavaScript: vi.fn().mockResolvedValue('object'),
+        // Каждое окно запирается на своих страницах (guardWindowNavigation),
+        // поэтому обработчик открытия ссылок обязан быть и у макета.
+        setWindowOpenHandler: vi.fn(),
         on: vi.fn((event: string, cb: Function) => {
           contentsListeners[event] = cb;
         }),
@@ -168,6 +171,7 @@ import {
   getPreloadPath,
   getStreamResolver,
   getWindowIconPath,
+  guardWindowNavigation,
   isAppContentUrl,
   isExternallyOpenableUrl,
   isStreamingHost,
@@ -562,6 +566,56 @@ describe('Milestone 5: Desktop Packaging & Electron Integration Test Suite', () 
       expect(isExternallyOpenableUrl('wireon://auth/callback')).toBe(false);
       expect(isExternallyOpenableUrl('data:text/html,<b>x</b>')).toBe(false);
       expect(isExternallyOpenableUrl('')).toBe(false);
+    });
+
+    it('guardWindowNavigation отдаёт внешнюю ссылку браузеру и не открывает окно', () => {
+      let openHandler: ((details: { url: string }) => { action: string }) | null = null;
+      const win = {
+        webContents: {
+          setWindowOpenHandler: (fn: (details: { url: string }) => { action: string }) => {
+            openHandler = fn;
+          },
+          on: vi.fn(),
+        },
+      } as any;
+
+      guardWindowNavigation(win);
+
+      expect(openHandler).toBeTypeOf('function');
+      expect(openHandler!({ url: 'https://lrclib.net/song/1' })).toEqual({ action: 'deny' });
+      expect(mockShellOpenExternal).toHaveBeenCalledWith('https://lrclib.net/song/1');
+
+      mockShellOpenExternal.mockClear();
+      // Схема не веб — наружу не отдаём вообще, окно всё равно запрещено.
+      expect(openHandler!({ url: 'file:///C:/Windows/system32/cmd.exe' })).toEqual({ action: 'deny' });
+      expect(mockShellOpenExternal).not.toHaveBeenCalled();
+    });
+
+    it('guardWindowNavigation не даёт увести окно приложения на чужой сайт', () => {
+      const listeners: Record<string, (event: any, url: string) => void> = {};
+      const win = {
+        webContents: {
+          setWindowOpenHandler: vi.fn(),
+          on: (event: string, fn: (event: any, url: string) => void) => {
+            listeners[event] = fn;
+          },
+        },
+      } as any;
+
+      guardWindowNavigation(win);
+
+      for (const event of ['will-navigate', 'will-redirect']) {
+        const preventDefault = vi.fn();
+        listeners[event]({ preventDefault }, 'https://evil.example/phish');
+        expect(preventDefault).toHaveBeenCalled();
+        expect(mockShellOpenExternal).toHaveBeenCalledWith('https://evil.example/phish');
+        mockShellOpenExternal.mockClear();
+
+        // Свои страницы — проходят молча.
+        const allowed = vi.fn();
+        listeners[event]({ preventDefault: allowed }, 'file:///C:/app/dist/index.html');
+        expect(allowed).not.toHaveBeenCalled();
+      }
     });
 
     it('setupWindowStateListeners sends a plain boolean payload', () => {
