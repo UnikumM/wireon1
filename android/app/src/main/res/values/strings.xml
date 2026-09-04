@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">Wireon</string>
+    <string name="title_activity_main">Wireon</string>
+    <string name="package_name">pro.wireon.music</string>
+    <string name="custom_url_scheme">pro.wireon.music</string>
+</resources>

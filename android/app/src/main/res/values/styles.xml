@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+
+    <!-- Base application theme. -->
+    <style name="AppTheme" parent="Theme.AppCompat.Light.DarkActionBar">
+        <!-- Customize your theme here. -->
+        <item name="colorPrimary">@color/colorPrimary</item>
+        <item name="colorPrimaryDark">@color/colorPrimaryDark</item>
+        <item name="colorAccent">@color/colorAccent</item>
+    </style>
+
+    <style name="AppTheme.NoActionBar" parent="Theme.AppCompat.DayNight.NoActionBar">
+        <item name="windowActionBar">false</item>
+        <item name="windowNoTitle">true</item>
+        <item name="android:background">@null</item>
+
+        <!--
+            Приложение рисуется во весь экран, под строкой состояния и полосой
+            жестов. До этого окно заканчивалось на 712 px из 800: сверху
+            оставалась системная полоса своего цвета, на светлой теме серая, и
+            над тёмным приложением она читалась как чужая деталь.
+
+            Раз полосы прозрачные, отступы под них обязан давать сам интерфейс.
+            Он это умеет: viewport-fit=cover в index.html открывает
+            env(safe-area-inset), оттуда берутся переменные safe-top и
+            safe-bottom. Пока окно не заходило под полосы, обе были нулями, и
+            проверить их было негде.
+        -->
+        <item name="android:statusBarColor">@android:color/transparent</item>
+        <item name="android:navigationBarColor">@android:color/transparent</item>
+        <!-- Значки времени и батареи светлые: под ними наш тёмный фон. -->
+        <item name="android:windowLightStatusBar">false</item>
+        <item name="android:windowLightNavigationBar">false</item>
+    </style>
+
+
+    <style name="AppTheme.NoActionBarLaunch" parent="Theme.SplashScreen">
+        <item name="android:background">@drawable/splash</item>
+    </style>
+</resources>

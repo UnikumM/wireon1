@@ -1,0 +1,125 @@
+apply plugin: 'com.android.application'
+
+android {
+    namespace "pro.wireon.music"
+    compileSdk rootProject.ext.compileSdkVersion
+    defaultConfig {
+        applicationId "pro.wireon.music"
+        minSdkVersion rootProject.ext.minSdkVersion
+        targetSdkVersion rootProject.ext.targetSdkVersion
+        versionCode 1036
+        versionName "1.0.36"
+        testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
+        ndk {
+            /*
+             * Только две архитектуры, и это не лень. Вместе с yt-dlp в APK
+             * приезжает Python, и каждая лишняя архитектура — это ещё
+             * несколько десятков мегабайт в файле, который передаётся руками.
+             * `arm64-v8a` — телефон владельца, `x86_64` — эмулятор, на котором
+             * сборка проверяется. `armeabi-v7a` добавляется одной строкой,
+             * когда появится телефон, которому он нужен.
+             */
+            abiFilters 'arm64-v8a', 'x86_64'
+        }
+        aaptOptions {
+             // Files and dirs to omit from the packaged assets dir, modified to accommodate modern web apps.
+             // Default: https://android.googlesource.com/platform/frameworks/base/+/282e181b58cf72b6ca770dc7ca5f91f135444502/tools/aapt/AaptAssets.cpp#61
+            ignoreAssetsPattern '!.svn:!.git:!.ds_store:!*.scc:.*:!CVS:!thumbs.db:!picasa.ini:!*~'
+        }
+    }
+    // Подпись читается из ~/.gradle/gradle.properties, а не из репозитория:
+    // потерянный или утёкший ключ означает, что установленное у людей
+    // приложение больше нечем обновить. Если свойств нет — собирается
+    // неподписанный релиз, и это лучше, чем сборка отладочным ключом,
+    // которую нельзя поставить поверх настоящей.
+    signingConfigs {
+        release {
+            if (project.hasProperty('WIREON_KEYSTORE')) {
+                storeFile file(WIREON_KEYSTORE)
+                storePassword WIREON_STORE_PASSWORD
+                keyAlias WIREON_KEY_ALIAS
+                keyPassword WIREON_KEY_PASSWORD
+            }
+        }
+    }
+
+    buildTypes {
+        release {
+            if (project.hasProperty('WIREON_KEYSTORE')) {
+                signingConfig signingConfigs.release
+            }
+            // R8 выключен намеренно: в сборке живёт youtubei.js, который сам
+            // разбирает ответы YouTube по именам полей. Сокращение имён здесь
+            // ломает не сборку, а воспроизведение — и только у людей.
+            minifyEnabled false
+            proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
+        }
+    }
+
+    packagingOptions {
+        /*
+         * Vite уже пожал ассеты; повторное сжатие в apk даёт проценты и
+         * заметно замедляет первый запуск.
+         *
+         * А вот `useLegacyPackaging` пришлось вернуть в `true`, и это не откат
+         * оптимизации. При `false` системные библиотеки не распаковываются из
+         * APK на диск — они грузятся прямо из него. Python и yt-dlp так не
+         * умеют: им нужны настоящие файлы, которые можно запустить и рядом с
+         * которыми лежит их собственное дерево модулей. Без распаковки
+         * `YoutubeDL.init` падает, и падает не при сборке, а у человека.
+         */
+        jniLibs { useLegacyPackaging true }
+    }
+}
+
+repositories {
+    flatDir{
+        dirs '../capacitor-cordova-android-plugins/src/main/libs', 'libs'
+    }
+}
+
+dependencies {
+    implementation fileTree(include: ['*.jar'], dir: 'libs')
+    implementation "androidx.appcompat:appcompat:$androidxAppCompatVersion"
+    implementation "androidx.coordinatorlayout:coordinatorlayout:$androidxCoordinatorLayoutVersion"
+    implementation "androidx.core:core-splashscreen:$coreSplashScreenVersion"
+    // MediaSessionCompat и MediaStyle: пульт на экране блокировки и кнопки в
+    // уведомлении. Сам звук по-прежнему играет WebView, эта библиотека нужна
+    // только чтобы система знала о воспроизведении.
+    implementation "androidx.media:media:1.7.0"
+    /*
+     * yt-dlp вместе с Python — прямо в приложении.
+     *
+     * Ради этого всё и затевалось: у сервера адрес дата-центра, и YouTube
+     * требует у него доказать, что он не робот, на каждый трек. Обходится это
+     * только чужими cookies, которые протухают за недели. У телефона адрес
+     * домашний — та же проверка на нём не срабатывает вовсе, ровно как не
+     * срабатывает на настольной сборке, где yt-dlp живёт с самого начала.
+     *
+     * Ветка `io.github.junkfood02` — та, которую ведёт автор Seal: в ней
+     * Python 3.11 (в исходной 3.8, а нынешний yt-dlp требует 3.10+) и QuickJS
+     * для `n`-challenge — то самое, что пришлось ставить руками на сервере.
+     *
+     * Лицензия GPL-3.0, и это решение владельца, принятое сознательно.
+     *
+     * `ffmpeg` и `aria2c` не подключены намеренно: нам нужна одна ссылка, а не
+     * скачивание и не перекодирование. Каждый из них — ещё десятки мегабайт.
+     */
+    implementation "io.github.junkfood02.youtubedl-android:library:0.18.1"
+    implementation project(':capacitor-android')
+    testImplementation "junit:junit:$junitVersion"
+    androidTestImplementation "androidx.test.ext:junit:$androidxJunitVersion"
+    androidTestImplementation "androidx.test.espresso:espresso-core:$androidxEspressoCoreVersion"
+    implementation project(':capacitor-cordova-android-plugins')
+}
+
+apply from: 'capacitor.build.gradle'
+
+try {
+    def servicesJSON = file('google-services.json')
+    if (servicesJSON.text) {
+        apply plugin: 'com.google.gms.google-services'
+    }
+} catch(Exception e) {
+    logger.info("google-services.json not found, google-services plugin not applied. Push Notifications won't work")
+}

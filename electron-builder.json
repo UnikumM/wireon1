@@ -1,0 +1,54 @@
+{
+  "$schema": "https://raw.githubusercontent.com/electron-userland/electron-builder/master/packages/app-builder-lib/scheme.json",
+  "appId": "com.wireon.music",
+  "productName": "Wireon",
+  "directories": {
+    "output": "release",
+    "buildResources": "build"
+  },
+  "files": [
+    "dist/**/*",
+    "dist-electron/**/*",
+    "package.json",
+    "public/**/*",
+    "!**/node_modules/*/android/**",
+    "!**/node_modules/*/ios/**",
+    "!**/node_modules/@capacitor/*/android/**",
+    "!**/node_modules/@capacitor/*/ios/**"
+  ],
+  "afterPack": "scripts/check-path-length.cjs",
+  "asarUnpack": [
+    "**/node_modules/youtube-dl-exec/bin/**",
+    "**/node_modules/ffmpeg-static/**"
+  ],
+  "protocols": [
+    {
+      "name": "Wireon",
+      "schemes": ["wireon"]
+    }
+  ],
+  "win": {
+    "target": [
+      {
+        "target": "nsis",
+        "arch": ["x64"]
+      },
+      {
+        "target": "portable",
+        "arch": ["x64"]
+      }
+    ],
+    "icon": "build/icon.png"
+  },
+  "nsis": {
+    "oneClick": false,
+    "allowToChangeInstallationDirectory": true,
+    "createDesktopShortcut": true,
+    "createStartMenuShortcut": true,
+    "shortcutName": "Wireon",
+    "artifactName": "${productName}-Setup-${version}.${ext}"
+  },
+  "portable": {
+    "artifactName": "${productName}-Portable-${version}.${ext}"
+  }
+}

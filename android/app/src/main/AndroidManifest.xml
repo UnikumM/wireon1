@@ -1,0 +1,96 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <application
+        android:allowBackup="true"
+        android:icon="@mipmap/ic_launcher"
+        android:label="@string/app_name"
+        android:roundIcon="@mipmap/ic_launcher_round"
+        android:supportsRtl="true"
+        android:networkSecurityConfig="@xml/network_security_config"
+        android:theme="@style/AppTheme">
+
+        <activity
+            android:configChanges="orientation|keyboardHidden|keyboard|screenSize|locale|smallestScreenSize|screenLayout|uiMode|navigation"
+            android:name=".MainActivity"
+            android:label="@string/title_activity_main"
+            android:theme="@style/AppTheme.NoActionBarLaunch"
+            android:launchMode="singleTask"
+            android:exported="true">
+
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+
+            <!--
+              Возврат из согласия Discord.
+
+              Схем две, и это не дублирование, а требование самого Discord.
+              Для мобильных приложений он принимает только схему вида
+              `discord-{ID приложения}` — произвольную `wireon://` отклоняет с
+              «Redirect URI is not supported by client», сколько её ни прописывай
+              в панели разработчика. Настольная сборка при этом продолжает
+              возвращаться на `wireon://`: там окно принадлежит приложению, и
+              мобильное ограничение к ней не относится.
+
+              `singleTask` у activity выше — обязательное условие: без него
+              переход открыл бы второй экземпляр приложения поверх играющего.
+            -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="wireon" />
+            </intent-filter>
+
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="discord-1539037027633332234" />
+            </intent-filter>
+
+        </activity>
+
+        <!--
+          Служба переднего плана: без неё Android усыпляет процесс через
+          минуту-другую после сворачивания, и трек обрывается на середине.
+          Тип обязателен с Android 14 — служба без него убивается сразу.
+        -->
+        <service
+            android:name=".PlaybackService"
+            android:enabled="true"
+            android:exported="false"
+            android:foregroundServiceType="mediaPlayback" />
+
+        <!-- Кнопки уведомления. Отдельным приёмником, чтобы «Играть» работала
+             и когда служба уже остановлена. -->
+        <receiver
+            android:name=".PlaybackReceiver"
+            android:enabled="true"
+            android:exported="false" />
+
+        <provider
+            android:name="androidx.core.content.FileProvider"
+            android:authorities="${applicationId}.fileprovider"
+            android:exported="false"
+            android:grantUriPermissions="true">
+            <meta-data
+                android:name="android.support.FILE_PROVIDER_PATHS"
+                android:resource="@xml/file_paths"></meta-data>
+        </provider>
+    </application>
+
+    <!-- Permissions -->
+
+    <uses-permission android:name="android.permission.INTERNET" />
+    <!-- Чтобы засыпающий телефон не обрывал играющий трек на середине. -->
+    <uses-permission android:name="android.permission.WAKE_LOCK" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <!-- С Android 14 к типу службы нужно отдельное разрешение под него. -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK" />
+    <!-- С Android 13 уведомление показывается только с разрешения. Служба
+         работает и без него — просто без пульта на экране блокировки. -->
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+</manifest>

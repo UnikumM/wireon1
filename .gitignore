@@ -1,0 +1,19 @@
+node_modules/
+dist/
+dist-electron/
+release/
+*.log
+.DS_Store
+.env
+.env.local
+coverage/
+.vite/
+
+# База синхронизации сервера: в ней лежат чужие медиатеки, привязанные к
+# идентификаторам Discord. Ей место на сервере, а не в истории репозитория.
+server/wireon_sync.db
+# Распаковка yt-dlp: брошенные каталоги отсюда однажды забили tmpfs контейнера.
+server/yt-dlp-tmp/
+server/.pytest_cache/
+__pycache__/
+*.pyc
