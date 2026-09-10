@@ -34,6 +34,16 @@ export interface HistoryRecord {
   earlySkipCount?: number;
   /** Сколько секунд трека реально прослушали в последний раз. */
   lastPlayedSeconds?: number;
+  /**
+   * Сколько секунд этого трека прослушано за всё время.
+   *
+   * Копится по каждому включению. Нужно потому, что события (`plays`) чистятся
+   * на четырёхстах днях, а «за всё время» обязано пережить чистку. Отсутствие
+   * поля означает «неизвестно» — это записи, накопленные до перехода на
+   * натуральный подсчёт, и досчитывать их из длительности нельзя: именно этим
+   * прежний подсчёт и врал.
+   */
+  totalSeconds?: number;
 }
 
 /**
@@ -54,6 +64,18 @@ export interface PlayEventRecord {
   id?: number;
   trackId: string;
   playedAt: number;
+  /**
+   * Сколько секунд из трека реально прозвучало.
+   *
+   * Отсутствует у записей, сделанных до перехода на натуральный подсчёт: там
+   * это «неизвестно», а не ноль. Подсчёт такие включения считает в числе
+   * прослушиваний и не считает во времени.
+   */
+  seconds?: number;
+  /** Трек дослушан до конца (не менее 85% длительности). */
+  completed?: boolean;
+  /** Выключен, не дойдя до порога зачёта. Такое включение не растит счётчик. */
+  skipped?: boolean;
 }
 
 export interface OfflineTrackRecord {
@@ -510,6 +532,16 @@ export interface AddToHistoryOptions {
    * Лучше пустая неделя, чем придуманная.
    */
   skipEvent?: boolean;
+  /**
+   * Не растить счётчик и не писать событие — только обновить строку трека.
+   *
+   * Нужно с переходом на натуральный подсчёт: строка обязана появиться в момент
+   * включения (иначе `recordTrackSkip` нечего обновлять — он молча выходит,
+   * когда записи нет), а вот прослушиванием включение становится позже, когда
+   * действительно прозвучали секунды. Их считает `playbackTracker` и приносит
+   * в `commitPlay`.
+   */
+  count?: boolean;
 }
 
 export async function addToHistory(
@@ -519,7 +551,8 @@ export async function addToHistory(
   if (!track || !track.id) return;
   try {
     const existing = await db.history.get(track.id);
-    const playCount = existing ? (existing.playCount || 1) + 1 : 1;
+    const counts = options.count !== false;
+    const playCount = counts ? (existing ? (existing.playCount || 1) + 1 : 1) : existing?.playCount ?? 0;
     const playedAt = getMonotonicTimestamp();
 
     const record: HistoryRecord = {
@@ -535,7 +568,7 @@ export async function addToHistory(
     };
 
     await db.history.put(record);
-    if (!options.skipEvent) {
+    if (counts && !options.skipEvent) {
       // Факт включения — отдельной записью, иначе окно («за неделю») посчитать
       // нечем: в строке выше от прошлых включений остаётся только их число.
       await db.plays.add({ trackId: track.id, playedAt });
@@ -717,6 +750,134 @@ export async function clearDislikes(): Promise<void> {
  * без него пропуск считается поздним, потому что раньше эту величину никто не
  * передавал и старые записи не должны внезапно превратиться в ранние отказы.
  */
+/**
+ * Засчитывает состоявшееся прослушивание: секунды, счётчик, событие.
+ *
+ * Отделено от `addToHistory` намеренно. Прежде включение засчитывалось в момент
+ * нажатия «играть» — до первой секунды звука, — и «время прослушивания»
+ * считалось как длительность × число включений. Выключил трек на пятой секунде
+ * — в статистике оставалось три с половиной минуты. Теперь сюда приходит то,
+ * что действительно прозвучало.
+ *
+ * @returns ключ события, чтобы дописывать в него секунды по ходу трека
+ */
+export async function commitPlay(
+  track: UnifiedTrack,
+  options: { seconds: number; completed?: boolean } = { seconds: 0 }
+): Promise<number | null> {
+  if (!track || !track.id) return null;
+  const seconds = Math.max(0, Math.round(options.seconds || 0));
+
+  try {
+    const existing = await db.history.get(track.id);
+    const playedAt = getMonotonicTimestamp();
+
+    await db.history.put({
+      ...existing,
+      id: track.id,
+      track: { ...track },
+      playedAt,
+      playCount: (existing?.playCount || 0) + 1,
+      totalSeconds: (existing?.totalSeconds || 0) + seconds,
+      lastPlayedSeconds: seconds,
+      completedCount: options.completed
+        ? (existing?.completedCount || 0) + 1
+        : existing?.completedCount,
+      lastCompletedAt: options.completed ? playedAt : existing?.lastCompletedAt
+    });
+
+    const eventId = await db.plays.add({
+      trackId: track.id,
+      playedAt,
+      seconds,
+      completed: options.completed === true
+    });
+    void prunePlayEvents(playedAt);
+    return typeof eventId === 'number' ? eventId : null;
+  } catch (err) {
+    console.error('[DB] commitPlay error:', err);
+    return null;
+  }
+}
+
+/**
+ * Дописывает секунды в уже начатое прослушивание.
+ *
+ * Значение абсолютное, а не прибавка: трекер знает, сколько всего прозвучало, и
+ * приносит итог. В строке трека при этом меняется разница — иначе одно
+ * прослушивание считалось бы в «за всё время» столько раз, сколько было сбросов.
+ */
+export async function updatePlaySeconds(
+  eventId: number,
+  seconds: number,
+  completed?: boolean
+): Promise<void> {
+  if (typeof eventId !== 'number') return;
+  const next = Math.max(0, Math.round(seconds || 0));
+
+  try {
+    const event = await db.plays.get(eventId);
+    if (!event) return;
+
+    const delta = next - (event.seconds || 0);
+    await db.plays.update(eventId, {
+      seconds: next,
+      completed: completed === true || event.completed === true
+    });
+
+    if (delta !== 0 || completed) {
+      const history = await db.history.get(event.trackId);
+      if (history) {
+        await db.history.put({
+          ...history,
+          totalSeconds: Math.max(0, (history.totalSeconds || 0) + delta),
+          lastPlayedSeconds: next,
+          completedCount:
+            completed && !event.completed
+              ? (history.completedCount || 0) + 1
+              : history.completedCount,
+          lastCompletedAt: completed && !event.completed ? Date.now() : history.lastCompletedAt
+        });
+      }
+    }
+  } catch (err) {
+    console.error('[DB] updatePlaySeconds error:', err);
+  }
+}
+
+/**
+ * Записывает включение, которое прослушиванием не стало.
+ *
+ * Событие нужно окну: «за неделю» считается по событиям, и без такой записи
+ * пропуски в окне не видны вовсе. Счётчик прослушиваний при этом не растёт.
+ */
+export async function recordAbandonedPlay(track: UnifiedTrack, seconds: number): Promise<void> {
+  if (!track || !track.id) return;
+  try {
+    const playedAt = getMonotonicTimestamp();
+    await db.plays.add({
+      trackId: track.id,
+      playedAt,
+      seconds: Math.max(0, Math.round(seconds || 0)),
+      skipped: true
+    });
+    void prunePlayEvents(playedAt);
+  } catch (err) {
+    console.error('[DB] recordAbandonedPlay error:', err);
+  }
+}
+
+/** Вся история без среза: «за всё время» обязано считаться по всей истории. */
+export async function getAllHistory(): Promise<HistoryRecord[]> {
+  try {
+    const rows = await db.history.toArray();
+    return rows.sort((a, b) => (b.playedAt || 0) - (a.playedAt || 0));
+  } catch (err) {
+    console.error('[DB] getAllHistory error:', err);
+    return [];
+  }
+}
+
 export async function recordTrackSkip(
   trackId: string,
   playedSeconds?: number

@@ -249,7 +249,9 @@ describe('Player Store (usePlayerStore & 2-Tier Queue)', () => {
       await usePlayerStore.getState().playTrack(mockTracks[0], mockTracks, 0);
       usePlayerStore.setState({ repeatMode: 'one', currentTime: 40 });
 
-      await usePlayerStore.getState().nextTrack();
+      // Явный false — «трек кончился сам». Умолчание у nextTrack теперь
+      // «человек нажал дальше», а на ручное нажатие повтор не зацикливает.
+      await usePlayerStore.getState().nextTrack(false);
       expect(seekSpy).toHaveBeenCalledWith(0);
       expect(playSpy).toHaveBeenCalled();
       expect(usePlayerStore.getState().currentTrack?.id).toBe('yt_track_1');
@@ -498,7 +500,10 @@ describe('Player Store (usePlayerStore & 2-Tier Queue)', () => {
         expect(state.currentTrack?.id).toBe(mockTracks[1].id);
         expect(state.playbackState).toBe('playing');
         expect(historySpy).toHaveBeenCalledTimes(1);
-        expect(historySpy).toHaveBeenCalledWith(expect.objectContaining({ id: mockTracks[1].id }));
+        expect(historySpy).toHaveBeenCalledWith(
+          expect.objectContaining({ id: mockTracks[1].id }),
+          expect.objectContaining({ count: false })
+        );
       } finally {
         useLibraryStore.setState({ addToHistory: realAddToHistory });
       }
@@ -1053,19 +1058,33 @@ describe('Player Store (usePlayerStore & 2-Tier Queue)', () => {
       expect(usePlayerStore.getState().activeWaveGenre).toBe('Jazz');
     });
 
-    it('records feedback "complete" on track ended and "skip" on manual skip', async () => {
+    it('отмечает пропуск на «дальше» — в том числе без аргумента', async () => {
       vi.spyOn(audioEngine, 'load').mockResolvedValue();
       const feedbackSpy = vi.spyOn(recommendationEngine, 'recordFeedback').mockResolvedValue();
 
       await usePlayerStore.getState().playTrack(mockTracks[0], mockTracks, 0);
 
-      // Natural track ended
-      await usePlayerStore.getState().onTrackEnded();
-      expect(feedbackSpy).toHaveBeenCalledWith(mockTracks[0], 'complete');
-
-      // Manual skip
       await usePlayerStore.getState().nextTrack(true);
+      expect(feedbackSpy).toHaveBeenCalledWith(mockTracks[0], 'skip');
+
+      // Кнопки на телефоне зовут nextTrack() без аргумента. Пока умолчанием был
+      // «не ручной», пропуски оттуда не считались вовсе.
+      feedbackSpy.mockClear();
+      await usePlayerStore.getState().nextTrack();
       expect(feedbackSpy).toHaveBeenCalledWith(mockTracks[1], 'skip');
+    });
+
+    it('конец трека сам по себе пропуском не считается', async () => {
+      vi.spyOn(audioEngine, 'load').mockResolvedValue();
+      const feedbackSpy = vi.spyOn(recommendationEngine, 'recordFeedback').mockResolvedValue();
+
+      await usePlayerStore.getState().playTrack(mockTracks[0], mockTracks, 0);
+      feedbackSpy.mockClear();
+
+      // Дослушивание теперь считает playbackTracker по достигнутой точке:
+      // так оно работает и при кроссфейде, где это событие не приходит вовсе.
+      await usePlayerStore.getState().onTrackEnded();
+      expect(feedbackSpy).not.toHaveBeenCalledWith(mockTracks[0], 'skip');
     });
 
     it('triggers lookahead replenishment when remaining tracks in queue <= 2', async () => {

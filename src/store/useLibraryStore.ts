@@ -31,7 +31,7 @@ export interface LibraryStoreActions {
   addTrackToPlaylist: (playlistId: string, track: UnifiedTrack) => Promise<boolean>;
   removeTrackFromPlaylist: (playlistId: string, trackIndex: number) => Promise<boolean>;
   reorderPlaylistTracks: (playlistId: string, fromIndex: number, toIndex: number) => Promise<boolean>;
-  addToHistory: (track: UnifiedTrack) => Promise<boolean>;
+  addToHistory: (track: UnifiedTrack, options?: dbService.AddToHistoryOptions) => Promise<boolean>;
   clearHistory: () => Promise<boolean>;
   clearError: () => void;
 }
@@ -221,10 +221,10 @@ export const useLibraryStore = create<LibraryStore>((set, get) => {
       }
     },
 
-    addToHistory: async (track: UnifiedTrack) => {
+    addToHistory: async (track: UnifiedTrack, options?: dbService.AddToHistoryOptions) => {
       if (!track || !track.id) return false;
       try {
-        await dbService.addToHistory(track);
+        await dbService.addToHistory(track, options);
         set((s) => ({
           history: [track, ...s.history.filter((t) => t.id !== track.id)].slice(0, 100),
           error: null

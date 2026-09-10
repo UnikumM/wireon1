@@ -9,6 +9,7 @@ import { describePlaybackError } from '../services/playbackErrors';
 import { searchAggregator } from '../services/aggregator';
 import { recommendationEngine, deriveWaveMood, clampAxis } from '../services/recommendationEngine';
 import { offlineMode } from '../services/offlineMode';
+import * as playbackTracker from '../services/playbackTracker';
 import * as dbService from '../services/db';
 import { useLibraryStore } from './useLibraryStore';
 import { useUIStore } from './useUIStore';
@@ -441,10 +442,14 @@ export const usePlayerStore = create<PlayerStore>((set, get) => {
       MediaSessionService.updatePlaybackState('playing');
 
       if (addToHistory) {
+        // Строка истории нужна сразу: без неё отметке о пропуске нечего
+        // обновлять. А вот прослушиванием включение станет позже — когда
+        // действительно прозвучат секунды. Их считает playbackTracker.
         useLibraryStore
           .getState()
-          .addToHistory(track)
+          .addToHistory(track, { count: false })
           .catch(() => {});
+        playbackTracker.beginPlay(track);
       }
 
       // Offline mode keeps a copy of whatever is actually listened to. A no-op
@@ -743,13 +748,24 @@ export const usePlayerStore = create<PlayerStore>((set, get) => {
       // На паузе — обязательно и сразу: именно в этом месте чаще всего закрывают
       // приложение, и пятисекундная задержка стоила бы потерянной позиции.
       rememberSession(true);
+      // На паузе чаще всего и закрывают приложение — секунды должны быть в базе.
+      void playbackTracker.flush();
     },
 
     resume: async () => {
       await get().play();
     },
 
-    nextTrack: async (isManualSkip: boolean = false) => {
+    /*
+     * Умолчание — «человек нажал дальше».
+     *
+     * Раньше было наоборот, и пропуск засчитывался только там, где вызов
+     * явно передавал true. Все кнопки телефона зовут `nextTrack()` без
+     * аргумента — то есть пропуски с телефона не учитывались вовсе, а вместе с
+     * ними молчал и штраф в подборе. Внутренние переходы — по концу трека, при
+     * кроссфейде и при дизлайке — передают false явно.
+     */
+    nextTrack: async (isManualSkip: boolean = true) => {
       const state = get();
 
       // Record skip feedback on manual skip
@@ -759,6 +775,9 @@ export const usePlayerStore = create<PlayerStore>((set, get) => {
 
       // Repeat one only loops on natural track end, never on a manual skip
       if (state.repeatMode === 'one' && state.currentTrack && !isManualSkip) {
+        // Круг повтора — отдельное прослушивание: закрываем прошлое и начинаем
+        // новое, иначе час одного трека на репите остался бы одним включением.
+        void playbackTracker.endPlay().then(() => playbackTracker.beginPlay(state.currentTrack!));
         audioEngine.seek(0);
         try {
           await audioEngine.play();
@@ -1608,6 +1627,7 @@ export const usePlayerStore = create<PlayerStore>((set, get) => {
       set({ currentTime: safeTime, duration: safeDuration, buffered: safeBuffered });
       MediaSessionService.updatePositionState(safeDuration, safeTime);
       rememberSession();
+      playbackTracker.noteProgress(safeTime);
 
       // DJ Crossfade early progression trigger before current track finishes
       if (
@@ -1629,10 +1649,9 @@ export const usePlayerStore = create<PlayerStore>((set, get) => {
     },
 
     onTrackEnded: async () => {
-      const current = get().currentTrack;
-      if (current) {
-        void recommendationEngine.recordFeedback(current, 'complete').catch(() => {});
-      }
+      // Дослушивание больше не отмечается отсюда: его считает playbackTracker по
+      // достигнутой точке. Так оно одинаково работает и при кроссфейде, где это
+      // событие не приходит вовсе, и при переключении на исходе трека.
       await get().nextTrack(false);
     }
   };
@@ -1673,6 +1692,7 @@ function registerMediaSessionHandlers(): void {
 /** Releases timers, the audio graph and the OS session (app teardown). */
 export function destroyPlayerRuntime(): void {
   rememberSession(true);
+  void playbackTracker.endPlay();
   clearSleepTimerHandle();
   usePlayerStore.setState({ sleepTimerEndsAt: null });
   audioEngine.destroy();
