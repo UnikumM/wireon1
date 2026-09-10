@@ -369,11 +369,31 @@ export class StreamResolver {
         }
       }
     } else if (track.source === 'soundcloud') {
-      result = await withTimeout(
-        this.scService.resolveStreamUrl(track.originalId),
-        sourceTimeoutMs(),
-        `soundcloud ${track.originalId}`
-      );
+      try {
+        result = await withTimeout(
+          this.scService.resolveStreamUrl(track.originalId),
+          sourceTimeoutMs(),
+          `soundcloud ${track.originalId}`
+        );
+        // Тридцатисекундный отрывок — это не трек. Раньше он доезжал до
+        // человека как «воспроизведение», обрываясь на середине куплета.
+        if (result?.isPreview) {
+          const full = await this.resolveViaYouTube(track);
+          if (full) {
+            console.info(`[StreamResolver] SoundCloud отдал отрывок "${track.title}" — играет версия с YouTube`);
+            result = full;
+          }
+        }
+      } catch (err) {
+        // Причины отказа разные — защищённая загрузка, ни одного пригодного
+        // потока, протухший ключ, — а для человека все они означают одно: эта
+        // песня отсюда сейчас не играет. Значит и разбираются одинаково: ищем
+        // ту же запись на YouTube и молчим, если нашли.
+        const substitute = await this.resolveViaYouTube(track);
+        if (!substitute) throw err;
+        console.warn(`[StreamResolver] SoundCloud отказал в "${track.title}" — играет версия с YouTube`);
+        result = substitute;
+      }
     } else {
       throw new Error(`Unsupported audio source: ${track.source}`);
     }
@@ -482,46 +502,11 @@ export class StreamResolver {
       );
       if (!Array.isArray(candidates) || candidates.length === 0) return null;
 
-      // Раньше здесь стояло простое «одна строка входит в другую», и подмена
-      // подсовывала не ту песню: у «Get Lucky» проходил кандидат «Get», у
-      // оригинала — ускоренная версия и каверы, лишь бы длительность попала в
-      // допуск. Теперь работает та же оценка, что и при импорте плейлистов:
-      // название, исполнитель, длительность и пометки вроде «sped up» —
-      // с порогом строже импортного. Подмена происходит молча, человек её не
-      // подтверждает, поэтому ошибиться здесь дороже.
-      // Замена обязана быть той же записью, а не «той же песней»: ускоренные
-      // версии, каверы и живые записи здесь недопустимы, даже если по очкам
-      // проходят. Просили конкретный трек — играть должен он.
-      const wantedVariants = new Set(detectVariants(`${track.title} ${track.artist || ''}`));
+      const match = this.pickSameRecording(track, candidates);
+      if (!match) return null;
 
-      // Все значимые слова названия обязаны найтись у кандидата. Оценка сама по
-      // себе этого не требует: она считает совпадение долей общего, и короткое
-      // «Test» полностью содержится в «Test YouTube Track» — то есть выглядит
-      // идеальным совпадением, оставаясь другой песней.
-      const wantedWords = normalizeForMatch(track.title)
-        .split(' ')
-        .filter((word) => word.length >= 3);
-
-      const sameRecording = candidates.filter((candidate) => {
-        const haystack = normalizeForMatch(`${candidate.title || ''} ${candidate.artist || ''}`);
-        const titleCovered = wantedWords.every((word) => haystack.includes(word));
-        const sameVariant = detectVariants(`${candidate.title || ''} ${candidate.artist || ''}`).every((marker) =>
-          wantedVariants.has(marker)
-        );
-        return titleCovered && sameVariant;
-      });
-      if (sameRecording.length === 0) return null;
-
-      const best = pickBestMatch(
-        { title: track.title, artist: track.artist, duration: track.duration },
-        sameRecording,
-        SUBSTITUTE_MIN_SCORE
-      );
-
-      if (!best) return null;
-      const match = best.candidate;
       console.info(
-        `[StreamResolver] Подмена с SoundCloud: "${match.title}" — ${match.artist} (совпадение ${Math.round(best.score)})`
+        `[StreamResolver] Подмена с SoundCloud: "${match.title}" — ${match.artist}`
       );
 
       const resolved = await withTimeout(
@@ -536,6 +521,93 @@ export class StreamResolver {
       return { ...resolved, substitutedFrom: 'soundcloud' };
     } catch (err) {
       console.warn('[StreamResolver] SoundCloud substitution failed:', err);
+      return null;
+    }
+  }
+
+  /**
+   * Из чужих результатов поиска выбирает ту же самую запись — или ничего.
+   *
+   * Общий отбор для обеих замен: с YouTube на SoundCloud и обратно. Правил три,
+   * и каждое появилось из настоящей подмены не той песни:
+   *
+   *   • все значимые слова названия обязаны найтись у кандидата. Оценка сама по
+   *     себе этого не требует — она считает долю общего, и короткое «Numb»
+   *     целиком содержится в «Numb / Encore», то есть выглядит идеальным
+   *     совпадением, оставаясь другой песней;
+   *   • пометки вроде «sped up», «cover» и «live» допустимы, только если о них
+   *     просили в самом запросе: замена обязана быть той же записью, а не той
+   *     же песней в чужом исполнении;
+   *   • порог совпадения строже импортного. Импорт человек просматривает
+   *     глазами, а замена случается сама во время воспроизведения.
+   */
+  private pickSameRecording(
+    track: UnifiedTrack,
+    candidates: ReadonlyArray<UnifiedTrack>
+  ): UnifiedTrack | null {
+    if (!Array.isArray(candidates) || candidates.length === 0) return null;
+
+    const wantedVariants = new Set(detectVariants(`${track.title} ${track.artist || ''}`));
+    const wantedWords = normalizeForMatch(track.title)
+      .split(' ')
+      .filter((word) => word.length >= 3);
+
+    const sameRecording = candidates.filter((candidate) => {
+      const haystack = normalizeForMatch(`${candidate.title || ''} ${candidate.artist || ''}`);
+      const titleCovered = wantedWords.every((word) => haystack.includes(word));
+      const sameVariant = detectVariants(`${candidate.title || ''} ${candidate.artist || ''}`).every((marker) =>
+        wantedVariants.has(marker)
+      );
+      return titleCovered && sameVariant;
+    });
+    if (sameRecording.length === 0) return null;
+
+    const best = pickBestMatch(
+      { title: track.title, artist: track.artist, duration: track.duration },
+      sameRecording,
+      SUBSTITUTE_MIN_SCORE
+    );
+    return best ? best.candidate : null;
+  }
+
+  /**
+   * Находит ту же песню на YouTube и играет её вместо трека SoundCloud.
+   *
+   * Зеркало {@link resolveViaSoundCloud}, и появилось по той же причине, только
+   * с другой стороны. SoundCloud отказывает не реже: часть загрузок лейблы
+   * публикуют только в защищённом виде, у части нет ни одного пригодного
+   * потока, а ключ доступа протухает сам по себе. До сих пор любой такой отказ
+   * доезжал до человека красной надписью — хотя ту же песню мы умеем играть с
+   * YouTube.
+   *
+   * @returns поток замены или null, если ничего достаточно близкого нет
+   */
+  private async resolveViaYouTube(track: UnifiedTrack): Promise<CachedStream | null> {
+    try {
+      const query = `${track.artist || ''} ${track.title || ''}`.trim();
+      if (query.length < 3) return null;
+
+      const candidates = await withTimeout(
+        this.ytService.search(query, 8),
+        SUBSTITUTE_TIMEOUT_MS,
+        `youtube search "${query}"`
+      );
+
+      const match = this.pickSameRecording(track, candidates);
+      if (!match) return null;
+
+      console.info(`[StreamResolver] Подмена с YouTube: "${match.title}" — ${match.artist}`);
+
+      const resolved = await withTimeout(
+        this.ytService.resolveStreamUrl(match.originalId),
+        SUBSTITUTE_TIMEOUT_MS,
+        `youtube substitute ${match.originalId}`
+      );
+      if (!resolved || !resolved.streamUrl) return null;
+
+      return { ...resolved, substitutedFrom: 'youtube' };
+    } catch (err) {
+      console.warn('[StreamResolver] YouTube substitution failed:', err);
       return null;
     }
   }

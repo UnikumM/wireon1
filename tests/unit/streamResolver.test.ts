@@ -76,6 +76,62 @@ describe('StreamResolver Service', () => {
     expect(mockResolveSc).toHaveBeenCalledTimes(1);
   });
 
+  it('отказ SoundCloud не доезжает до человека, если песня есть на YouTube', async () => {
+    // Защищённая загрузка, ни одного пригодного потока, протухший ключ — для
+    // человека это всё одно и то же: «песня не играет». Раньше любая из
+    // причин доезжала красной надписью.
+    const scTrack: UnifiedTrack = {
+      id: 'sc_only_drm',
+      source: 'soundcloud',
+      originalId: 'drm1',
+      title: 'Test YouTube Track',
+      artist: 'Test Artist',
+      duration: 200,
+      artworkUrl: ''
+    };
+
+    vi.spyOn(soundCloudService, 'resolveStreamUrl').mockRejectedValue(
+      new Error('SoundCloud track drm1 is only offered as DRM-protected audio')
+    );
+    vi.spyOn(youtubeService, 'search').mockResolvedValue([
+      { ...mockYtTrack, id: 'yt_sub', originalId: 'sub1' }
+    ]);
+    const ytResolve = vi.spyOn(youtubeService, 'resolveStreamUrl').mockResolvedValue({
+      streamUrl: 'https://googlevideo.com/substitute',
+      format: 'm4a',
+      bitrate: 128,
+      expiresAt: Date.now() + 3600 * 1000
+    });
+
+    const result = await resolver.resolve(scTrack);
+
+    expect(result.streamUrl).toBe('https://googlevideo.com/substitute');
+    expect(result.substitutedFrom).toBe('youtube');
+    expect(ytResolve).toHaveBeenCalledWith('sub1');
+  });
+
+  it('когда песни нет и на YouTube, ошибка остаётся честной', async () => {
+    const scTrack: UnifiedTrack = {
+      id: 'sc_nowhere',
+      source: 'soundcloud',
+      originalId: 'nowhere1',
+      title: 'Test YouTube Track',
+      artist: 'Test Artist',
+      duration: 200,
+      artworkUrl: ''
+    };
+
+    vi.spyOn(soundCloudService, 'resolveStreamUrl').mockRejectedValue(new Error('no transcodings'));
+    // Чужая песня в выдаче — не замена: отбор её не пропустит.
+    vi.spyOn(youtubeService, 'search').mockResolvedValue([
+      { ...mockYtTrack, id: 'yt_other', originalId: 'other1', title: 'Совсем другая песня' }
+    ]);
+    const ytResolve = vi.spyOn(youtubeService, 'resolveStreamUrl');
+
+    await expect(resolver.resolve(scTrack)).rejects.toThrow(/transcodings/);
+    expect(ytResolve).not.toHaveBeenCalled();
+  });
+
   it('propagates the hls format so the audio engine can attach hls.js', async () => {
     vi.spyOn(soundCloudService, 'resolveStreamUrl').mockResolvedValue({
       streamUrl: 'https://playback.soundcloud.cloud/abc/playlist.m3u8',
