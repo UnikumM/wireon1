@@ -11,6 +11,7 @@ import { useLibraryStore } from '../../store/useLibraryStore';
 import {
   getFirstPlayEventAt,
   getHistory,
+  getAllHistory,
   getHistoryRecords,
   getPlayEvents,
   HistoryRecord,
@@ -59,9 +60,12 @@ function buildSummaryCards(stats: ListeningStats, period: StatsPeriod): SummaryC
       testId: 'stats-total-plays'
     },
     {
-      label: 'Примерно времени',
-      value: formatListeningTime(stats.approxSeconds),
-      hint: 'Длительность × число включений, поэтому «примерно»',
+      label: 'Прослушано',
+      value: formatListeningTime(stats.listenedSeconds),
+      hint:
+        stats.playsWithoutSeconds > 0
+          ? `Только то, что реально играло. У ${pluralize(stats.playsWithoutSeconds, 'включения', 'включений', 'включений')} время неизвестно`
+          : 'Только то, что реально играло',
       testId: 'stats-time'
     },
     {
@@ -139,7 +143,10 @@ export const ForYouView: React.FC<ForYouViewProps> = ({ className = '' }) => {
         (id) => id && !known.has(id)
       );
 
-      setRecords(history);
+      // «За всё время» обязано считаться по всей истории: срез в пятьсот
+      // записей занижал и число прослушиваний, и время у тех, кто слушает
+      // давно. Миксам ниже среза достаточно — им нужна свежая часть.
+      setRecords(period === 'all' ? await getAllHistory() : history);
       setWindowRecords(missing.length > 0 ? await getHistoryRecords(missing) : []);
       setEvents(windowEvents);
       setEventsSince(firstEventAt);

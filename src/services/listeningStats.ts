@@ -42,10 +42,21 @@ export interface ListeningStats {
   uniqueTracks: number;
   uniqueArtists: number;
   /**
-   * Примерное время: длительность × число включений. Считает трек целиком,
-   * даже если его выключили на середине, поэтому это «примерно» и никак иначе.
+   * Сколько музыки действительно прозвучало, в секундах.
+   *
+   * Раньше здесь лежало «примерно»: длительность × число включений. Трек,
+   * выключенный на пятой секунде, засчитывался целиком. Теперь считаются
+   * секунды, накопленные во время воспроизведения.
    */
-  approxSeconds: number;
+  listenedSeconds: number;
+  /**
+   * Сколько включений пришло из времён, когда секунды не считались.
+   *
+   * Их время неизвестно — и досчитывать его из длительности нельзя, этим
+   * прежний подсчёт и врал. В числе прослушиваний они есть, во времени — нет,
+   * и экран об этом честно предупреждает.
+   */
+  playsWithoutSeconds: number;
   /**
    * Дослушано до конца — только там, где движок успел это записать.
    *
@@ -103,7 +114,8 @@ const EMPTY_STATS: ListeningStats = {
   totalPlays: 0,
   uniqueTracks: 0,
   uniqueArtists: 0,
-  approxSeconds: 0,
+  listenedSeconds: 0,
+  playsWithoutSeconds: 0,
   completed: 0,
   skipped: 0,
   topArtists: [],
@@ -144,8 +156,9 @@ export interface PeriodStatsInput extends ListeningStatsOptions {
  * ключ трека и время; песню к ключу даёт история. Дальше это обычные записи с
  * пересчитанным числом включений — и складывает их та же функция, что и всегда.
  *
- * Пропуски и дослушивания сюда не переносятся нарочно: их счётчик в истории не
- * знает, к какому дню относится, и приписать его окну было бы догадкой.
+ * Секунды, дослушивания и пропуски приезжают из самих событий: с переходом на
+ * натуральный подсчёт они там есть, и догадываться больше не нужно. Раньше эти
+ * поля в окно не переносились вовсе — за неделю всегда стояли нули.
  */
 function collapseEvents(
   events: PlayEventRecord[],
@@ -154,7 +167,10 @@ function collapseEvents(
   until: number
 ): HistoryRecord[] {
   const byId = new Map(records.map((record) => [record.id, record]));
-  const counted = new Map<string, { record: HistoryRecord; plays: number; playedAt: number }>();
+  const counted = new Map<
+    string,
+    { record: HistoryRecord; plays: number; playedAt: number; seconds: number; completed: number; skipped: number }
+  >();
 
   for (const event of events) {
     if (!event || !event.trackId) continue;
@@ -164,21 +180,41 @@ function collapseEvents(
     const source = byId.get(event.trackId);
     if (!source) continue;
 
+    // Брошенное включение прослушиванием не было: в числе прослушиваний оно не
+    // участвует, зато это пропуск — и в окне он теперь виден.
+    const abandoned = event.skipped === true;
+    const seconds = Math.max(0, Math.round(sane(event.seconds, 0)));
+
     const entry = counted.get(event.trackId);
     if (entry) {
-      entry.plays += 1;
+      if (!abandoned) entry.plays += 1;
+      entry.seconds += seconds;
+      if (event.completed) entry.completed += 1;
+      if (abandoned) entry.skipped += 1;
       if (playedAt > entry.playedAt) entry.playedAt = playedAt;
     } else {
-      counted.set(event.trackId, { record: source, plays: 1, playedAt });
+      counted.set(event.trackId, {
+        record: source,
+        plays: abandoned ? 0 : 1,
+        playedAt,
+        seconds,
+        completed: event.completed ? 1 : 0,
+        skipped: abandoned ? 1 : 0
+      });
     }
   }
 
-  return [...counted.values()].map(({ record, plays, playedAt }) => ({
-    id: record.id,
-    track: record.track,
-    playedAt,
-    playCount: plays
-  }));
+  return [...counted.values()]
+    .filter((entry) => entry.plays > 0 || entry.skipped > 0)
+    .map(({ record, plays, playedAt, seconds, completed, skipped }) => ({
+      id: record.id,
+      track: record.track,
+      playedAt,
+      playCount: plays,
+      totalSeconds: seconds,
+      completedCount: completed,
+      skipCount: skipped
+    }));
 }
 
 /**
@@ -216,7 +252,8 @@ export function buildListeningStats(
   const trackStats: TrackStat[] = [];
 
   let totalPlays = 0;
-  let approxSeconds = 0;
+  let listenedSeconds = 0;
+  let playsWithoutSeconds = 0;
   let completed = 0;
   let skipped = 0;
   let firstPlayedAt: number | null = null;
@@ -231,7 +268,12 @@ export function buildListeningStats(
     const track = record.track;
 
     totalPlays += plays;
-    approxSeconds += sane(track.duration) * plays;
+    // Секунды берём только настоящие. У записей, накопленных до перехода на
+    // натуральный подсчёт, их нет — такие включения считаются отдельно и во
+    // время не идут.
+    const known = sane(record.totalSeconds, 0);
+    if (known > 0) listenedSeconds += known;
+    else playsWithoutSeconds += plays;
     completed += Math.round(sane(record.completedCount));
     skipped += Math.round(sane(record.skipCount));
 
@@ -279,7 +321,8 @@ export function buildListeningStats(
     totalPlays,
     uniqueTracks: records.length,
     uniqueArtists: artists.size,
-    approxSeconds: Math.round(approxSeconds),
+    listenedSeconds: Math.round(listenedSeconds),
+    playsWithoutSeconds,
     completed,
     skipped,
     topArtists,

@@ -108,7 +108,7 @@ describe('ForYouView (миксы дня и итоги)', () => {
     expect(player().sourceQueue[0].id).toBe(player().currentTrack?.id);
   });
 
-  it('считает итоги по истории и честно называет время «примерным»', async () => {
+  it('считает итоги по истории и честно говорит, что время неизвестно', async () => {
     // Один трек включали трижды, другой — один раз.
     await addToHistory(artistA[0]);
     await addToHistory(artistA[0]);
@@ -122,9 +122,11 @@ describe('ForYouView (миксы дня и итоги)', () => {
     expect(screen.getByTestId('stats-total-plays')).toHaveTextContent('4');
     expect(screen.getByTestId('stats-total-plays')).toHaveTextContent('2 разных трека');
     expect(screen.getByTestId('stats-artists')).toHaveTextContent('2');
-    // 4 включения по 200 секунд — 13 минут с копейками.
-    expect(screen.getByTestId('stats-time')).toHaveTextContent('13 мин');
-    expect(screen.getByTestId('stats-time')).toHaveTextContent(/поэтому «примерно»/i);
+    // Секунд у этих включений нет: их писал не плеер, а сам тест. Экран
+    // обязан сказать «время неизвестно», а не досчитать его из длительности —
+    // ровно этим прежний подсчёт и врал.
+    expect(screen.getByTestId('stats-time')).toHaveTextContent('меньше минуты');
+    expect(screen.getByTestId('stats-time')).toHaveTextContent(/время неизвестно/i);
   });
 
   it('в топе первым стоит то, что слушали чаще', async () => {

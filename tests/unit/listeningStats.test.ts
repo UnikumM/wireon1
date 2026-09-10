@@ -59,11 +59,11 @@ describe('Статистика прослушанного', () => {
     const stats = buildListeningStats([], { now: NOW });
 
     expect(stats.totalPlays).toBe(0);
-    expect(stats.approxSeconds).toBe(0);
+    expect(stats.listenedSeconds).toBe(0);
     expect(stats.topArtists).toEqual([]);
     expect(stats.sources).toEqual([]);
     expect(stats.firstPlayedAt).toBeNull();
-    expect(Number.isNaN(stats.approxSeconds)).toBe(false);
+    expect(Number.isNaN(stats.listenedSeconds)).toBe(false);
   });
 
   it('считает прослушивания, треки и примерное время', () => {
@@ -79,9 +79,10 @@ describe('Статистика прослушанного', () => {
     expect(stats.totalPlays).toBe(6);
     expect(stats.uniqueTracks).toBe(3);
     expect(stats.uniqueArtists).toBe(2);
-    // 6 включений по 3 минуты.
-    expect(stats.approxSeconds).toBe(6 * 180);
-    expect(formatListeningTime(stats.approxSeconds)).toBe('18 мин');
+    // Секунд у этих записей нет — они из времён, когда время не считалось.
+    // Досчитывать его из длительности нельзя: этим прежний подсчёт и врал.
+    expect(stats.listenedSeconds).toBe(0);
+    expect(stats.playsWithoutSeconds).toBe(6);
   });
 
   it('топ артистов считает по прослушиваниям, а не по числу треков', () => {
@@ -171,7 +172,7 @@ describe('Статистика прослушанного', () => {
     // Битый трек выкинут, а запись без счётчика — это всё-таки одно включение.
     expect(stats.uniqueTracks).toBe(2);
     expect(stats.totalPlays).toBe(2);
-    expect(Number.isFinite(stats.approxSeconds)).toBe(true);
+    expect(Number.isFinite(stats.listenedSeconds)).toBe(true);
     expect(stats.topArtists.map((a) => a.artist)).toContain('Неизвестный исполнитель');
   });
 
@@ -235,8 +236,33 @@ describe('Итоги за окно', () => {
     expect(stats.topTracks[0].plays).toBe(3);
     expect(stats.topTracks[1].plays).toBe(1);
     expect(stats.topArtists[0]).toEqual({ artist: 'Свежий', plays: 3, tracks: 1 });
-    // Время окна — тоже из событий: 4 включения по 3 минуты.
-    expect(stats.approxSeconds).toBe(4 * 180);
+    // Время окна теперь приходит из самих событий. У этих его нет — значит и
+    // времени нет, а включения честно помечены как «время неизвестно».
+    expect(stats.listenedSeconds).toBe(0);
+    expect(stats.playsWithoutSeconds).toBe(4);
+  });
+
+  it('секунды, дослушивания и пропуски окна приходят из событий', () => {
+    // Раньше за неделю здесь всегда стояли нули: счётчики лежали в записи
+    // трека и не знали, к какому дню относятся, а в окно их не переносили.
+    const stats = buildPeriodStats({
+      period: 'week',
+      records: history,
+      events: [
+        { id: 1, trackId: 'yt_fresh', playedAt: NOW - DAY, seconds: 180, completed: true },
+        { id: 2, trackId: 'yt_fresh', playedAt: NOW - 2 * DAY, seconds: 40 },
+        // Брошенное включение прослушиванием не стало, но пропуском — да.
+        { id: 3, trackId: 'yt_fresh', playedAt: NOW - 3 * DAY, seconds: 7, skipped: true }
+      ],
+      now: NOW
+    });
+
+    expect(stats.listenedSeconds).toBe(227);
+    expect(stats.completed).toBe(1);
+    expect(stats.skipped).toBe(1);
+    // Два состоявшихся прослушивания, третье — отказ.
+    expect(stats.totalPlays).toBe(2);
+    expect(stats.playsWithoutSeconds).toBe(0);
   });
 
   it('месяц берёт то, что неделя отрезала', () => {
@@ -286,7 +312,7 @@ describe('Итоги за окно', () => {
 
     expect(stats.totalPlays).toBe(1);
     expect(stats.uniqueTracks).toBe(1);
-    expect(Number.isFinite(stats.approxSeconds)).toBe(true);
+    expect(Number.isFinite(stats.listenedSeconds)).toBe(true);
   });
 
   it('пустое окно — это нули, а не прошлые числа', () => {
