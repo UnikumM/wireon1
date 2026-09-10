@@ -1,3 +1,4 @@
+import { Capacitor } from '@capacitor/core';
 import React, { useCallback, useMemo, useState } from 'react';
 import { ClipboardCopy, RefreshCw, ScrollText } from 'lucide-react';
 import { Button } from '../common/Button';
@@ -66,6 +67,15 @@ export function describeUpdateState(input: UpdateSummaryInput): string {
     case 'idle':
     default:
       return 'Проверяется само, раз в несколько часов.';
+  }
+}
+
+/** Телефонная сборка: там обновление ставится иначе и живёт в своём разделе. */
+function isNativeMobile(): boolean {
+  try {
+    return Capacitor.isNativePlatform() && Capacitor.getPlatform() === 'android';
+  } catch {
+    return false;
   }
 }
 
@@ -143,6 +153,13 @@ export const AboutSettings: React.FC = () => {
 
       <div className="divider" />
 
+      {/*
+        На телефоне обновление живёт в своём разделе (MobileUpdateSection): там
+        оно и правда работает. Здешняя строка говорила про установленное
+        настольное приложение и на телефоне читалась как «у вас ничего не
+        обновляется» — хотя обновляется.
+      */}
+      {!isNativeMobile() && (
       <InfoRow label="Обновления" description={updateSummary}>
         {status === 'ready' ? (
           <Button
@@ -166,6 +183,7 @@ export const AboutSettings: React.FC = () => {
           </Button>
         )}
       </InfoRow>
+      )}
 
       {status === 'downloading' && (
         <div

@@ -17,6 +17,9 @@ public class MainActivity extends BridgeActivity {
         // yt-dlp на самом устройстве: домашний адрес вместо адреса дата-центра,
         // где YouTube требует доказать, что мы не робот.
         registerPlugin(YtDlpPlugin.class);
+        // Обновление приложения: версию и установку пакета из WebView не узнать
+        // и не запустить — это умеет только система.
+        registerPlugin(AppUpdaterPlugin.class);
         super.onCreate(savedInstanceState);
 
         /*

@@ -49,6 +49,20 @@ export interface PlayerStoreState {
   errorDetail: string | null; // the raw message behind `error`, for tooltips and bug reports
   errorCanRetry: boolean; // false when pressing play again cannot help
   isPreviewStream: boolean; // the resolved stream is a snipped preview, not the full track
+  /**
+   * Секунда, с которой продолжится трек, оставшийся с прошлого запуска.
+   *
+   * `null` — продолжать нечего. Само по себе значение ничего не запускает:
+   * трек показан на паузе, и позиция применяется в момент, когда человек
+   * нажмёт «играть». Иначе пришлось бы идти за ссылкой прямо на старте
+   * приложения — четыре-восемь секунд ради того, чего никто не просил.
+   */
+  resumePosition: number | null;
+
+  /** Свои сочетания уровня системы включены. Медиаклавиши — отдельная настройка. */
+  globalHotkeysEnabled: boolean;
+  /** Карта «действие → сочетание». Пустая строка — действию клавиша не назначена. */
+  globalHotkeys: Record<string, string>;
 
   // 2-tier Queue
   userQueue: UnifiedTrack[];
@@ -151,6 +165,10 @@ export interface PlayerStoreActions {
   setPreservePitch: (preserve: boolean) => void;
   resetPlaybackRate: () => void;
   setMediaKeysEnabled: (enabled: boolean) => void;
+  setGlobalHotkeysEnabled: (enabled: boolean) => void;
+  /** Назначает сочетание действию; пустая строка снимает назначение. */
+  setGlobalHotkey: (action: string, accelerator: string) => void;
+  resetGlobalHotkeys: () => void;
 
   // Synchronization callbacks
   syncProgress: (currentTime: number, duration: number, buffered: number) => void;

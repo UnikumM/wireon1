@@ -46,7 +46,10 @@ export const PLAYER_SETTING_KEYS = {
   waveNovelty: 'waveNovelty',
   waveEnergy: 'waveEnergy',
   waveSeedKind: 'waveSeedKind',
-  waveSeedArtist: 'waveSeedArtist'
+  waveSeedArtist: 'waveSeedArtist',
+  lastSession: 'lastSession',
+  globalHotkeysEnabled: 'globalHotkeysEnabled',
+  globalHotkeys: 'globalHotkeys'
 } as const;
 
 const WAVE_SEED_KINDS: WaveSeedKind[] = [
@@ -148,6 +151,47 @@ let crossfadeTransitionInFlight = false;
 let commitGeneration = 0;
 
 /**
+ * Что играло в момент закрытия — чтобы следующий запуск продолжил с того же места.
+ *
+ * Пишется не каждую секунду, а раз в пять: запись идёт в IndexedDB, и делать её
+ * шестьдесят раз в минуту ради числа, которое нужно один раз при старте, —
+ * лишняя работа на всё время прослушивания.
+ */
+interface LastSession {
+  track: UnifiedTrack;
+  position: number;
+  savedAt: number;
+}
+
+const SESSION_SAVE_INTERVAL_MS = 5000;
+
+/** Старше недели — уже не «продолжить», а «непонятно что». */
+const SESSION_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000;
+
+let lastSessionSavedAt = 0;
+
+function rememberSession(force = false): void {
+  const state = usePlayerStore.getState();
+  const track = state.currentTrack;
+  if (!track) return;
+
+  const now = Date.now();
+  if (!force && now - lastSessionSavedAt < SESSION_SAVE_INTERVAL_MS) return;
+  lastSessionSavedAt = now;
+
+  // Позиция у самого конца трека бесполезна: продолжать там нечего, а после
+  // перезапуска человек получил бы последние полсекунды и тишину.
+  const duration = finiteDuration(state.duration);
+  const position = duration > 0 && state.currentTime > duration - 5 ? 0 : state.currentTime;
+
+  persistSetting(PLAYER_SETTING_KEYS.lastSession, {
+    track,
+    position: Math.max(0, position),
+    savedAt: now
+  } satisfies LastSession);
+}
+
+/**
  * Fisher-Yates non-destructive index shuffling
  */
 export function generateShuffledIndices(length: number, firstIndex?: number): number[] {
@@ -193,6 +237,32 @@ function forwardMediaKeysPreference(enabled: boolean): void {
     api.setMediaKeysEnabled(enabled);
   } catch (err) {
     console.warn('[usePlayerStore] Could not forward media key preference:', err);
+  }
+}
+
+/**
+ * Сочетания уровня системы по умолчанию.
+ *
+ * Ctrl+Alt со стрелками и пробелом — редкая комбинация: одиночные клавиши
+ * заняты системой, Ctrl+Shift разбирают браузеры и мессенджеры. Значения обязаны
+ * совпадать с `DEFAULT_GLOBAL_HOTKEYS` в главном процессе: он тоже умеет
+ * работать без настроек, если они ещё не доехали.
+ */
+export const DEFAULT_GLOBAL_HOTKEYS: Record<string, string> = {
+  'play-pause': 'CommandOrControl+Alt+Space',
+  next: 'CommandOrControl+Alt+Right',
+  prev: 'CommandOrControl+Alt+Left',
+  'volume-up': 'CommandOrControl+Alt+Up',
+  'volume-down': 'CommandOrControl+Alt+Down'
+};
+
+function forwardGlobalHotkeys(enabled: boolean, bindings: Record<string, string>): void {
+  const api = typeof window !== 'undefined' ? window.electronAPI : undefined;
+  if (!api || typeof api.setGlobalHotkeys !== 'function') return;
+  try {
+    api.setGlobalHotkeys({ enabled, bindings });
+  } catch (err) {
+    console.warn('[usePlayerStore] Could not forward global hotkeys:', err);
   }
 }
 
@@ -325,6 +395,7 @@ export const usePlayerStore = create<PlayerStore>((set, get) => {
     if (!track) return;
     const addToHistory = options.addToHistory !== false;
     const commitId = ++commitGeneration;
+    lastSessionSavedAt = 0;
 
     const patch: Partial<PlayerStoreState> = {
       currentTrack: track,
@@ -522,6 +593,9 @@ export const usePlayerStore = create<PlayerStore>((set, get) => {
     errorDetail: null,
     errorCanRetry: true,
     isPreviewStream: false,
+    resumePosition: null,
+    globalHotkeysEnabled: true,
+    globalHotkeys: { ...DEFAULT_GLOBAL_HOTKEYS },
 
     // 2-tier Queue
     userQueue: [],
@@ -617,6 +691,22 @@ export const usePlayerStore = create<PlayerStore>((set, get) => {
 
       if (state.currentTrack) {
         try {
+          // Трек, оставшийся с прошлого запуска, в движке ещё не открыт: карточка
+          // на экране есть, а звука за ней нет. Открываем его здесь — в тот
+          // момент, когда человек действительно попросил играть, — и ставим на ту
+          // же секунду, где он закрыл приложение.
+          const loaded = audioEngine.getCurrentTrack();
+          if (!loaded || loaded.id !== state.currentTrack.id) {
+            const resumeAt = state.resumePosition ?? state.currentTime ?? 0;
+            set({ playbackState: 'loading', isLoading: true });
+            await audioEngine.load(state.currentTrack, true);
+            if (resumeAt > 1) {
+              audioEngine.seek(resumeAt);
+              set({ currentTime: resumeAt });
+            }
+            set({ resumePosition: null });
+          }
+
           await audioEngine.play();
           set({ playbackState: 'playing', isPlaying: true, isLoading: false, ...NO_ERROR });
           MediaSessionService.updatePlaybackState('playing');
@@ -650,6 +740,9 @@ export const usePlayerStore = create<PlayerStore>((set, get) => {
       audioEngine.pause();
       set({ playbackState: 'paused', isPlaying: false, isLoading: false });
       MediaSessionService.updatePlaybackState('paused');
+      // На паузе — обязательно и сразу: именно в этом месте чаще всего закрывают
+      // приложение, и пятисекундная задержка стоила бы потерянной позиции.
+      rememberSession(true);
     },
 
     resume: async () => {
@@ -797,8 +890,9 @@ export const usePlayerStore = create<PlayerStore>((set, get) => {
       const clamped = duration > 0 ? Math.max(0, Math.min(seconds, duration)) : Math.max(0, seconds);
 
       audioEngine.seek(clamped);
-      set({ currentTime: clamped });
+      set({ currentTime: clamped, resumePosition: null });
       MediaSessionService.updatePositionState(duration, clamped);
+      rememberSession(true);
     },
 
     setVolume: (volume: number) => {
@@ -1268,6 +1362,9 @@ export const usePlayerStore = create<PlayerStore>((set, get) => {
             preservePitch,
             waveNovelty,
             waveEnergy,
+            lastSession,
+            globalHotkeysEnabled,
+            globalHotkeys,
             waveSeedKind,
             waveSeedArtist
           ] = await Promise.all([
@@ -1287,6 +1384,9 @@ export const usePlayerStore = create<PlayerStore>((set, get) => {
             dbService.getSetting<boolean>(PLAYER_SETTING_KEYS.preservePitch, current.preservePitch),
             dbService.getSetting<number>(PLAYER_SETTING_KEYS.waveNovelty, current.waveNovelty),
             dbService.getSetting<number>(PLAYER_SETTING_KEYS.waveEnergy, current.waveEnergy),
+            dbService.getSetting<LastSession | null>(PLAYER_SETTING_KEYS.lastSession, null),
+            dbService.getSetting<boolean>(PLAYER_SETTING_KEYS.globalHotkeysEnabled, current.globalHotkeysEnabled),
+            dbService.getSetting<Record<string, string>>(PLAYER_SETTING_KEYS.globalHotkeys, current.globalHotkeys),
             dbService.getSetting<WaveSeedKind>(PLAYER_SETTING_KEYS.waveSeedKind, current.waveSeedKind),
             dbService.getSetting<string | null>(PLAYER_SETTING_KEYS.waveSeedArtist, current.waveSeedArtist)
           ]);
@@ -1352,7 +1452,36 @@ export const usePlayerStore = create<PlayerStore>((set, get) => {
           audioEngine.setCrossfade(nextCrossfadeEnabled, nextCrossfadeDuration);
           audioEngine.setLoudnessNormalization(nextLoudnessNorm);
           audioEngine.setPlaybackRate(nextRate, nextPreservePitch);
+          const nextHotkeys =
+            globalHotkeys && typeof globalHotkeys === 'object'
+              ? { ...DEFAULT_GLOBAL_HOTKEYS, ...globalHotkeys }
+              : { ...DEFAULT_GLOBAL_HOTKEYS };
+          const hotkeysOn = typeof globalHotkeysEnabled === 'boolean' ? globalHotkeysEnabled : true;
+          set({ globalHotkeysEnabled: hotkeysOn, globalHotkeys: nextHotkeys });
+
           forwardMediaKeysPreference(get().mediaKeysEnabled);
+          forwardGlobalHotkeys(hotkeysOn, nextHotkeys);
+
+          // Трек с прошлого запуска — на паузе и на своей секунде. Ничего не
+          // загружаем и не играем: человек сам решит, продолжать ли, а поход за
+          // ссылкой на старте стоил бы секунд и трафика ни за что.
+          const saved = lastSession;
+          if (
+            saved &&
+            saved.track &&
+            !get().currentTrack &&
+            Date.now() - (saved.savedAt || 0) < SESSION_MAX_AGE_MS
+          ) {
+            const position = Number.isFinite(saved.position) ? Math.max(0, saved.position) : 0;
+            set({
+              currentTrack: saved.track,
+              duration: finiteDuration(saved.track.duration),
+              currentTime: position,
+              resumePosition: position > 1 ? position : null,
+              playbackState: 'paused'
+            });
+            MediaSessionService.updateMetadata(saved.track);
+          }
 
           if (get().isShuffled && get().sourceQueue.length > 0) {
             set({
@@ -1449,6 +1578,26 @@ export const usePlayerStore = create<PlayerStore>((set, get) => {
       forwardMediaKeysPreference(enabled);
     },
 
+    setGlobalHotkeysEnabled: (enabled: boolean) => {
+      set({ globalHotkeysEnabled: enabled });
+      persistSetting(PLAYER_SETTING_KEYS.globalHotkeysEnabled, enabled);
+      forwardGlobalHotkeys(enabled, get().globalHotkeys);
+    },
+
+    setGlobalHotkey: (action: string, accelerator: string) => {
+      const next = { ...get().globalHotkeys, [action]: (accelerator || '').trim() };
+      set({ globalHotkeys: next });
+      persistSetting(PLAYER_SETTING_KEYS.globalHotkeys, next);
+      forwardGlobalHotkeys(get().globalHotkeysEnabled, next);
+    },
+
+    resetGlobalHotkeys: () => {
+      const next = { ...DEFAULT_GLOBAL_HOTKEYS };
+      set({ globalHotkeys: next });
+      persistSetting(PLAYER_SETTING_KEYS.globalHotkeys, next);
+      forwardGlobalHotkeys(get().globalHotkeysEnabled, next);
+    },
+
     // Event callbacks
     syncProgress: (currentTime: number, duration: number, buffered: number) => {
       const state = get();
@@ -1458,6 +1607,7 @@ export const usePlayerStore = create<PlayerStore>((set, get) => {
 
       set({ currentTime: safeTime, duration: safeDuration, buffered: safeBuffered });
       MediaSessionService.updatePositionState(safeDuration, safeTime);
+      rememberSession();
 
       // DJ Crossfade early progression trigger before current track finishes
       if (
@@ -1522,6 +1672,7 @@ function registerMediaSessionHandlers(): void {
 
 /** Releases timers, the audio graph and the OS session (app teardown). */
 export function destroyPlayerRuntime(): void {
+  rememberSession(true);
   clearSleepTimerHandle();
   usePlayerStore.setState({ sleepTimerEndsAt: null });
   audioEngine.destroy();

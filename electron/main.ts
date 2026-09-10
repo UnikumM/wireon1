@@ -1,6 +1,6 @@
-import { app, BrowserWindow, ipcMain, globalShortcut, protocol, session, shell } from 'electron';
+import { app, BrowserWindow, ipcMain, globalShortcut, Menu, nativeImage, protocol, session, shell, Tray } from 'electron';
 import type { Session } from 'electron';
-import { cpSync, existsSync, readFileSync } from 'fs';
+import { cpSync, existsSync, mkdirSync, readFileSync, writeFileSync } from 'fs';
 import { tmpdir } from 'os';
 import path from 'path';
 import { fileURLToPath } from 'url';
@@ -63,7 +63,262 @@ const MIGRATED_PROFILE_DIRS = ['IndexedDB', 'Local Storage', 'Session Storage'] 
 /** Milliseconds to wait for `ready-to-show` before showing the window regardless. */
 const SHOW_TIMEOUT_MS = 10_000;
 
-type MediaKeyAction = 'play-pause' | 'next' | 'prev' | 'stop';
+type MediaKeyAction = 'play-pause' | 'next' | 'prev' | 'stop' | 'volume-up' | 'volume-down';
+
+/**
+ * Свои сочетания уровня системы — в дополнение к клавишам ▶⏸⏭ на клавиатуре.
+ *
+ * Зачем они, если медиаклавиши уже есть: медиаклавиши есть не на каждой
+ * клавиатуре, их часто перехватывает другой плеер, и громкость ими не покрутить.
+ * А смысл ровно тот же — управлять, не переключаясь в окно.
+ *
+ * Ctrl+Alt здесь не от фантазии: одиночные клавиши и Ctrl+Shift разобраны
+ * системой и браузерами, а Ctrl+Alt со стрелками в Windows свободен.
+ */
+export const GLOBAL_HOTKEY_ACTIONS: ReadonlyArray<MediaKeyAction> = [
+  'play-pause',
+  'next',
+  'prev',
+  'volume-up',
+  'volume-down'
+];
+
+export const DEFAULT_GLOBAL_HOTKEYS: Readonly<Record<string, string>> = {
+  'play-pause': 'CommandOrControl+Alt+Space',
+  next: 'CommandOrControl+Alt+Right',
+  prev: 'CommandOrControl+Alt+Left',
+  'volume-up': 'CommandOrControl+Alt+Up',
+  'volume-down': 'CommandOrControl+Alt+Down'
+};
+
+/**
+ * Значок у часов: управление, не открывая окно.
+ *
+ * Что играет, трей узнаёт из тех же снимков состояния, что уходят в мини-плеер
+ * (`mini-state`): рендерер шлёт их и так, при каждом изменении. Заводить ради
+ * трея второй канал значило бы держать две копии одного и того же состояния и
+ * однажды их рассинхронизировать.
+ */
+let tray: Tray | null = null;
+let trayTrack: { title: string; artist: string; isPlaying: boolean } = {
+  title: '',
+  artist: '',
+  isPlaying: false
+};
+
+function buildTrayMenu(getWin: () => BrowserWindow | null): Menu {
+  const send = (action: MediaKeyAction) => () => {
+    const win = getWin();
+    if (win && !win.isDestroyed()) {
+      win.webContents.send('media-key-event', action);
+    }
+  };
+
+  const nothingPlaying = !trayTrack.title;
+  const heading = nothingPlaying
+    ? 'Ничего не играет'
+    : `${trayTrack.title}${trayTrack.artist ? ` — ${trayTrack.artist}` : ''}`;
+
+  return Menu.buildFromTemplate([
+    // Строка с названием — не кнопка: нажимать на неё нечего, а видеть полезно.
+    { label: heading.slice(0, 80), enabled: false },
+    { type: 'separator' },
+    { label: trayTrack.isPlaying ? 'Пауза' : 'Играть', click: send('play-pause'), enabled: !nothingPlaying },
+    { label: 'Следующий', click: send('next'), enabled: !nothingPlaying },
+    { label: 'Предыдущий', click: send('prev'), enabled: !nothingPlaying },
+    { type: 'separator' },
+    { label: 'Открыть Wireon', click: () => focusMainWindow() },
+    { label: 'Выход', click: () => app.quit() }
+  ]);
+}
+
+/** Пересобирает меню и подпись. Меню в Electron неизменяемо — только заменой. */
+function refreshTray(getWin: () => BrowserWindow | null): void {
+  if (!tray || tray.isDestroyed()) return;
+  try {
+    tray.setContextMenu(buildTrayMenu(getWin));
+    tray.setToolTip(trayTrack.title ? `${trayTrack.title} — ${trayTrack.artist}`.slice(0, 120) : 'Wireon');
+  } catch (error) {
+    console.warn('[Electron] Не удалось обновить меню в трее', error);
+  }
+}
+
+/** Снимок из рендерера: трею нужны только три поля из него. */
+export function updateTrayState(
+  state: { title?: unknown; artist?: unknown; isPlaying?: unknown } | null,
+  getWin: () => BrowserWindow | null = getMainWindow
+): void {
+  trayTrack = {
+    title: typeof state?.title === 'string' ? state.title : '',
+    artist: typeof state?.artist === 'string' ? state.artist : '',
+    isPlaying: state?.isPlaying === true
+  };
+  refreshTray(getWin);
+}
+
+/**
+ * Прописывает AppImage в меню приложений Linux.
+ *
+ * AppImage — просто файл: система про него ничего не знает, в меню он не
+ * появляется, значка у окна нет, и `wireon://` (вход через Discord возвращается
+ * именно так) открыть некому. Лечится одним файлом с описанием в
+ * `~/.local/share/applications`, который принято создавать самому.
+ *
+ * Пишется один раз и переписывается, только если приложение переехало: человек
+ * мог поправить файл под себя, и затирать это на каждом запуске — хамство.
+ */
+export function ensureLinuxDesktopEntry(): string | null {
+  if (process.platform !== 'linux') return null;
+
+  // Вне AppImage адрес запуска — временный (dev-режим, распакованная папка), и
+  // ярлык на него завтра будет вести в никуда.
+  const appImage = process.env.APPIMAGE;
+  if (!appImage || !existsSync(appImage)) return null;
+
+  try {
+    const home = app.getPath('home');
+    const dir = path.join(home, '.local', 'share', 'applications');
+    const file = path.join(dir, 'wireon.desktop');
+
+    const contents = [
+      '[Desktop Entry]',
+      'Type=Application',
+      'Name=Wireon',
+      'Comment=Музыкальный плеер',
+      `Exec="${appImage}" %U`,
+      'Icon=wireon',
+      'Terminal=false',
+      'Categories=AudioVideo;Audio;Player;',
+      'MimeType=x-scheme-handler/wireon;',
+      'StartupWMClass=Wireon',
+      ''
+    ].join('\n');
+
+    if (existsSync(file)) {
+      const current = readFileSync(file, 'utf-8');
+      // Тот же путь запуска — трогать нечего.
+      if (current.includes(`Exec="${appImage}"`)) return file;
+    }
+
+    mkdirSync(dir, { recursive: true });
+    writeFileSync(file, contents, 'utf-8');
+    console.log(`[Electron] Ярлык для меню приложений записан: ${file}`);
+    return file;
+  } catch (error) {
+    // Без ярлыка приложение работает — просто не показывается в меню.
+    console.warn('[Electron] Не удалось создать ярлык в меню приложений', error);
+    return null;
+  }
+}
+
+export function createTray(getWin: () => BrowserWindow | null = getMainWindow): Tray | null {
+  if (tray && !tray.isDestroyed()) return tray;
+  try {
+    const icon = nativeImage.createFromPath(getWindowIconPath());
+    // Полноразмерная картинка в трее выглядит мыльной кляксой: система её
+    // ужимает как умеет. Шестнадцать точек — то, что там и показывается.
+    tray = new Tray(icon.isEmpty() ? icon : icon.resize({ width: 16, height: 16 }));
+    tray.on('click', () => focusMainWindow());
+    refreshTray(getWin);
+    return tray;
+  } catch (error) {
+    // Без значка приложение вполне живёт — падать из-за него нельзя.
+    console.warn('[Electron] Значок в трее создать не удалось', error);
+    tray = null;
+    return null;
+  }
+}
+
+export function destroyTray(): void {
+  if (tray && !tray.isDestroyed()) {
+    tray.destroy();
+  }
+  tray = null;
+}
+
+let globalHotkeyRegistration: MediaKeyRegistration = { registered: [], busy: [] };
+let boundGlobalHotkeys: string[] = [];
+
+/** Итог последней попытки занять свои сочетания — для экрана диагностики. */
+export function getGlobalHotkeyRegistration(): MediaKeyRegistration {
+  return globalHotkeyRegistration;
+}
+
+/**
+ * Снимает ранее занятые сочетания. Именно свои, поимённо: `unregisterAll`
+ * отобрал бы заодно медиаклавиши, которые живут отдельной настройкой.
+ */
+export function unregisterGlobalHotkeys(shortcuts: typeof globalShortcut): void {
+  boundGlobalHotkeys.forEach((accelerator) => {
+    try {
+      shortcuts.unregister(accelerator);
+    } catch (error) {
+      console.warn(`[Electron] Не удалось освободить сочетание ${accelerator}`, error);
+    }
+  });
+  boundGlobalHotkeys = [];
+  globalHotkeyRegistration = { registered: [], busy: [] };
+}
+
+/**
+ * Занимает сочетания под действия плеера.
+ *
+ * Пустая строка означает «этому действию сочетание не назначено» — так человек
+ * выключает отдельную кнопку, не выключая остальные.
+ */
+export function registerGlobalHotkeys(
+  shortcuts: typeof globalShortcut,
+  getWin: () => BrowserWindow | null,
+  bindings: Record<string, string> = DEFAULT_GLOBAL_HOTKEYS
+): MediaKeyRegistration {
+  unregisterGlobalHotkeys(shortcuts);
+
+  const registered: string[] = [];
+  const busy: string[] = [];
+
+  GLOBAL_HOTKEY_ACTIONS.forEach((action) => {
+    const accelerator = (bindings[action] || '').trim();
+    if (!accelerator) return;
+
+    try {
+      const ok = shortcuts.register(accelerator, () => {
+        const win = getWin();
+        if (win && !win.isDestroyed()) {
+          win.webContents.send('media-key-event', action);
+        }
+      });
+      if (ok === false) {
+        busy.push(accelerator);
+      } else {
+        registered.push(accelerator);
+        boundGlobalHotkeys.push(accelerator);
+      }
+    } catch (error) {
+      busy.push(accelerator);
+      console.warn(`[Electron] Не удалось занять сочетание ${accelerator}`, error);
+    }
+  });
+
+  if (busy.length > 0) {
+    console.warn(`[Electron] Сочетания заняты другим приложением: ${busy.join(', ')}`);
+  }
+
+  globalHotkeyRegistration = { registered, busy };
+  return globalHotkeyRegistration;
+}
+
+/** Итог попытки занять медиаклавиши: что досталось нам, а что держит кто-то другой. */
+export interface MediaKeyRegistration {
+  registered: string[];
+  busy: string[];
+}
+
+let lastMediaKeyRegistration: MediaKeyRegistration = { registered: [], busy: [] };
+
+/** Последняя попытка — её показывает экран диагностики. */
+export function getMediaKeyRegistration(): MediaKeyRegistration {
+  return lastMediaKeyRegistration;
+}
 
 const MEDIA_KEY_MAP: ReadonlyArray<{ key: string; action: MediaKeyAction }> = [
   { key: 'MediaPlayPause', action: 'play-pause' },
@@ -621,20 +876,45 @@ export function setupWindowStateListeners(win: BrowserWindow): void {
 export function registerMediaKeys(
   shortcuts: typeof globalShortcut,
   getWin: () => BrowserWindow | null
-): void {
+): MediaKeyRegistration {
+  const registered: string[] = [];
+  const busy: string[] = [];
+
   MEDIA_KEY_MAP.forEach(({ key, action }) => {
     try {
-      shortcuts.register(key, () => {
+      // `register` не бросает, когда клавиша уже занята другим приложением, —
+      // он возвращает false. Раньше результат не смотрели вовсе, и настройки
+      // бодро показывали «медиаклавиши включены», пока их держал, например,
+      // открытый Spotify или браузер. Человек жал кнопку на клавиатуре, ничего
+      // не происходило, и понять причину было неоткуда.
+      const ok = shortcuts.register(key, () => {
         const win = getWin();
         if (win && !win.isDestroyed()) {
           win.webContents.send('media-key-event', action);
         }
       });
+      if (ok === false) {
+        busy.push(key);
+      } else {
+        registered.push(key);
+      }
     } catch (error) {
+      busy.push(key);
       console.warn(`[Electron] Failed to register global shortcut: ${key}`, error);
     }
   });
-  mediaKeysEnabled = true;
+
+  if (busy.length > 0) {
+    console.warn(
+      `[Electron] Медиаклавиши заняты другим приложением: ${busy.join(', ')}. ` +
+        'Закройте другой плеер и включите их снова.'
+    );
+  }
+
+  lastMediaKeyRegistration = { registered, busy };
+  // «Включены» — только если хоть одна клавиша действительно наша.
+  mediaKeysEnabled = registered.length > 0;
+  return lastMediaKeyRegistration;
 }
 
 /**
@@ -648,6 +928,7 @@ export function unregisterMediaKeys(shortcuts: typeof globalShortcut): void {
       console.warn(`[Electron] Failed to unregister global shortcut: ${key}`, error);
     }
   });
+  lastMediaKeyRegistration = { registered: [], busy: [] };
   mediaKeysEnabled = false;
 }
 
@@ -766,6 +1047,8 @@ export function setupIpcHandlers(
   // Main renderer → mini player. Dropped silently when nothing is listening,
   // which is the common case (the mini player is usually closed).
   ipc.on('mini-state', (_event, state: unknown) => {
+    // Тем же снимком живёт значок у часов.
+    updateTrayState(state as { title?: unknown; artist?: unknown; isPlaying?: unknown } | null, getWin);
     const mini = getMiniWindow();
     if (mini) {
       mini.webContents.send('mini-state', state);
@@ -809,6 +1092,16 @@ export function setupIpcHandlers(
       registerMediaKeys(shortcuts, getWin);
     } else {
       unregisterMediaKeys(shortcuts);
+    }
+  });
+
+  // Свои сочетания уровня системы: приходят из настроек целиком, вместе с
+  // выключателем — так проще, чем держать половину состояния здесь.
+  ipc.on('set-global-hotkeys', (_event, payload: { enabled?: boolean; bindings?: Record<string, string> } | null) => {
+    if (payload && payload.enabled) {
+      registerGlobalHotkeys(shortcuts, getWin, payload.bindings || DEFAULT_GLOBAL_HOTKEYS);
+    } else {
+      unregisterGlobalHotkeys(shortcuts);
     }
   });
 
@@ -937,6 +1230,8 @@ export function setupIpcHandlers(
       ytDlpVersion: ytdlp.version,
       cookiesBrowser: resolver.getCookiesFromBrowser(),
       botCheckSeen: resolver.hasSeenBotCheck(),
+      mediaKeys: getMediaKeyRegistration(),
+      globalHotkeys: getGlobalHotkeyRegistration(),
       logPath: app && typeof app.getPath === 'function' ? path.join(app.getPath('userData'), 'logs', 'streams.log') : null,
     };
   });
@@ -1668,6 +1963,11 @@ if (app) {
       getYtDlpManager().start();
       createWindow();
       registerMediaKeys(globalShortcut, getMainWindow);
+      // Сочетания и трей поднимаются со значениями по умолчанию: настройки
+      // приедут из рендерера через секунду-другую и заменят их своими.
+      registerGlobalHotkeys(globalShortcut, getMainWindow);
+      createTray(getMainWindow);
+      ensureLinuxDesktopEntry();
       void discordRpc.connect();
 
       app.on('activate', () => {
@@ -1684,6 +1984,7 @@ if (app) {
     });
 
     app.on('will-quit', () => {
+      destroyTray();
       globalShortcut.unregisterAll();
       discordRpc.destroy();
       updateService?.dispose();

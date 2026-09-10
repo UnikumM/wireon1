@@ -393,6 +393,78 @@ export class YouTubeService {
   }
 
   /**
+   * Треки плейлиста YouTube Music — как они есть, без поиска и подбора.
+   *
+   * Это лучший случай переноса из всех: плейлист уже состоит из тех самых
+   * записей, которые мы играем. Ничего искать не нужно, значит и подменить
+   * нечего — ни каверов, ни ускоренных версий, ни «той же песни у другого
+   * исполнителя». Списку остаётся только приехать целиком.
+   *
+   * `browseId` для плейлиста — это его идентификатор с приставкой `VL`.
+   */
+  public async getPlaylistTracks(playlistId: string, limit: number = 500): Promise<UnifiedTrack[]> {
+    const id = (playlistId || '').trim();
+    if (!id) return [];
+
+    const payload = {
+      context: {
+        client: {
+          clientName: 'WEB_REMIX',
+          clientVersion: '1.20240101.01.00',
+          hl: 'ru',
+          gl: 'RU'
+        }
+      },
+      browseId: id.startsWith('VL') ? id : `VL${id}`
+    };
+
+    const response = await this.fetchWithTimeout('https://music.youtube.com/youtubei/v1/browse', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'User-Agent':
+          'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
+        'X-YouTube-Client-Name': '67',
+        Origin: 'https://music.youtube.com',
+        Referer: 'https://music.youtube.com/'
+      },
+      body: JSON.stringify(payload)
+    });
+
+    if (!response.ok) throw new Error(`InnerTube HTTP error: ${response.status}`);
+    return this.parsePlaylistResponse(await response.json(), limit);
+  }
+
+  /**
+   * Разбирает ответ плейлиста.
+   *
+   * Внутри лежат ровно такие же записи, как в поиске, только в другой обёртке —
+   * поэтому обёртка переписывается на поисковую, а разбор берётся готовый.
+   * Две ветки: у YouTube Music сейчас в ходу и одноколоночная раскладка, и
+   * двухколоночная, и какая приедет — заранее неизвестно.
+   */
+  public parsePlaylistResponse(data: any, limit: number = 500): UnifiedTrack[] {
+    const sections =
+      data?.contents?.singleColumnBrowseResultsRenderer?.tabs?.[0]?.tabRenderer?.content?.sectionListRenderer
+        ?.contents ||
+      data?.contents?.twoColumnBrowseResultsRenderer?.secondaryContents?.sectionListRenderer?.contents ||
+      [];
+
+    const items: any[] = [];
+    for (const section of sections) {
+      const shelf = section?.musicPlaylistShelfRenderer || section?.musicShelfRenderer;
+      if (shelf?.contents) items.push(...shelf.contents);
+    }
+
+    if (items.length === 0) return [];
+
+    return this.parseInnerTubeResponse(
+      { contents: { sectionListRenderer: { contents: [{ musicShelfRenderer: { contents: items } }] } } },
+      limit
+    );
+  }
+
+  /**
    * Parse InnerTube Search JSON payload
    */
   public parseInnerTubeResponse(data: any, limit: number = 20): UnifiedTrack[] {

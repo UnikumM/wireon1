@@ -10,7 +10,7 @@
  */
 
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { render, screen, fireEvent, act, waitFor } from '@testing-library/react';
+import { render, screen, fireEvent, act, waitFor, within } from '@testing-library/react';
 import '../setup';
 
 import { SettingsView } from '../../src/components/settings/SettingsView';
@@ -864,12 +864,38 @@ describe('Settings (src/components/settings)', () => {
       installDesktopBridge();
       render(<ShortcutsSettings />);
 
-      expect(screen.getByText('Играть / пауза')).toBeInTheDocument();
-      expect(screen.getByText('Палитра команд')).toBeInTheDocument();
-      expect(screen.getByText('Ctrl')).toBeInTheDocument();
-      expect(screen.queryByText('⌘')).toBeNull();
+      // «Играть / пауза» есть в обоих списках — сочетаний поверх программ и
+      // внутренних, — поэтому ищем внутри нужного раздела, а не по всей странице.
+      const cheatsheet = screen.getByTestId('settings-section-shortcuts');
+      expect(within(cheatsheet).getByText('Играть / пауза')).toBeInTheDocument();
+      expect(within(cheatsheet).getByText('Палитра команд')).toBeInTheDocument();
+      expect(within(cheatsheet).getByText('Ctrl')).toBeInTheDocument();
+      expect(within(cheatsheet).queryByText('⌘')).toBeNull();
       // One row per binding, so the cheatsheet cannot silently lose one.
-      expect(screen.getAllByRole('listitem')).toHaveLength(11);
+      expect(within(cheatsheet).getAllByRole('listitem')).toHaveLength(11);
+    });
+
+    it('даёт назначить своё сочетание поверх других программ', async () => {
+      installDesktopBridge();
+      render(<ShortcutsSettings />);
+
+      const section = screen.getByTestId('settings-section-global-hotkeys');
+
+      const button = within(section).getByRole('button', { name: 'Изменить сочетание: Следующий трек' });
+      expect(button).toHaveTextContent('Ctrl + Alt + →');
+
+      fireEvent.click(button);
+      expect(button).toHaveTextContent('нажмите сочетание…');
+
+      // Одинокая буква сочетанием не считается: запись продолжается.
+      fireEvent.keyDown(window, { key: 'j', code: 'KeyJ' });
+      expect(button).toHaveTextContent('нажмите сочетание…');
+
+      fireEvent.keyDown(window, { key: 'j', code: 'KeyJ', ctrlKey: true, shiftKey: true });
+      await flushAsync();
+
+      expect(usePlayerStore.getState().globalHotkeys.next).toBe('CommandOrControl+Shift+J');
+      expect(button).toHaveTextContent('Ctrl + Shift + J');
     });
 
     it('uses the Command glyph on macOS', () => {

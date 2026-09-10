@@ -409,6 +409,33 @@ describe('StreamResolver Service', () => {
       expect(scResolve).toHaveBeenCalledWith('alt789');
     });
 
+    it('не подменяет ускоренной версией и обрывком названия', async () => {
+      vi.spyOn(youtubeService, 'resolveStreamUrl').mockImplementation(() => new Promise(() => {}));
+      // Обе записи проходили прежнюю проверку «одна строка входит в другую»:
+      // у первой название — кусок нужного, вторая помечена как ускоренная.
+      vi.spyOn(soundCloudService, 'search').mockResolvedValue([
+        { ...scCandidate, id: 'sc_short', originalId: 'short1', title: 'Test' },
+        {
+          ...scCandidate,
+          id: 'sc_fast',
+          originalId: 'fast1',
+          title: 'Test YouTube Track (sped up)',
+          duration: 190
+        }
+      ]);
+      const scResolve = vi.spyOn(soundCloudService, 'resolveStreamUrl').mockResolvedValue(scStream);
+
+      // Свой идентификатор: у общего трека в кэше уже лежит ссылка из
+      // предыдущих проверок, и подмена бы даже не понадобилась.
+      const freshTrack = { ...mockYtTrack, id: 'yt_no_substitute', originalId: 'no_substitute' };
+      const pending = resolver.resolve(freshTrack).catch((err) => err);
+      await vi.advanceTimersByTimeAsync(SOURCE_TIMEOUT_MS + 100);
+      await pending;
+
+      // Ни одна из двух записей не должна была уйти в воспроизведение.
+      expect(scResolve).not.toHaveBeenCalled();
+    });
+
     it('не выдаёт обрезанное превью за подмену', async () => {
       vi.spyOn(youtubeService, 'resolveStreamUrl').mockImplementation(
         () => new Promise(() => {})

@@ -8,14 +8,84 @@ import { getOpenOverlayCount } from './useDismissable';
 const SEEK_STEP_SECONDS = 5;
 
 /** Keys the user is typing into must never be stolen. */
+/**
+ * Элементы, которым клавиши нужны самим.
+ *
+ * Отсюда растёт жалоба «бинды работают не на всех экранах». Сочетания слушает
+ * одно окно, а списки треков, вкладки медиатеки и караоке забирают стрелки и
+ * пробел под свою навигацию — и делают это через `preventDefault`. Обработчик
+ * стоял после них и видел уже погашенное событие, поэтому на этих экранах
+ * молчал целиком, даже там, где список ничего не перехватывал.
+ *
+ * Теперь наоборот: слушаем в фазе перехвата, до всех, но уступаем, когда
+ * клавиша адресована конкретному элементу под курсором. Кнопке нужен пробел,
+ * строке списка — стрелки, ползунку — обе; всё остальное на экране клавиш не
+ * ждёт, и там работает плеер.
+ */
+const CONTROL_KEYS = new Set([
+  ' ',
+  'Spacebar',
+  'Enter',
+  'ArrowLeft',
+  'ArrowRight',
+  'ArrowUp',
+  'ArrowDown',
+  'Home',
+  'End',
+  'PageUp',
+  'PageDown'
+]);
+
+function isFromInteractiveControl(target: EventTarget | null): boolean {
+  if (!(target instanceof HTMLElement)) return false;
+  return (
+    target.closest(
+      'button, a[href], select, input[type="range"], input[type="checkbox"], input[type="radio"], [role="button"], [role="tab"], [role="option"], [role="row"], [role="slider"], [role="menuitem"], [role="listbox"], [tabindex]:not([tabindex="-1"])'
+    ) !== null
+  );
+}
+
+/** Поля, куда человек печатает. Ползунок и флажок сюда не относятся. */
+const TEXT_INPUT_TYPES = new Set([
+  'text',
+  'search',
+  'email',
+  'url',
+  'tel',
+  'password',
+  'number',
+  'date',
+  'time',
+  'datetime-local',
+  'month',
+  'week'
+]);
+
+function isTextInput(element: HTMLElement): boolean {
+  if (element.tagName === 'TEXTAREA') return true;
+  if (element.tagName !== 'INPUT') return false;
+  const type = (element as HTMLInputElement).type || 'text';
+  return TEXT_INPUT_TYPES.has(type);
+}
+
+/**
+ * Клавиша адресована полю ввода, а не плееру.
+ *
+ * Раньше сюда попадал любой `input`, включая ползунки громкости и перемотки.
+ * Из-за этого после щелчка по полосе трека приложение переставало слышать
+ * клавиши вовсе: `M` не выключал звук, потому что фокус «печатал» в ползунок.
+ * Печатают только в текстовые поля — их и проверяем.
+ */
 function isFromTextEntry(target: EventTarget | null): boolean {
   if (!(target instanceof HTMLElement)) return false;
+
+  // Сначала редактируемая область: `isContentEditable` есть не везде (в тестовой
+  // среде его нет вовсе), поэтому опираемся на сам атрибут.
   if (target.isContentEditable) return true;
+  if (target.closest('[contenteditable=""], [contenteditable="true"]')) return true;
 
-  const tag = target.tagName;
-  if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return true;
-
-  return target.closest('input, textarea, select, [contenteditable=""], [contenteditable="true"]') !== null;
+  const field = target.closest('input, textarea');
+  return field instanceof HTMLElement ? isTextInput(field) : false;
 }
 
 /**
@@ -28,6 +98,10 @@ export function useKeyboardShortcuts(): void {
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.defaultPrevented) return;
       if (isFromTextEntry(event.target)) return;
+      // Уступаем только те клавиши, которыми элемент под фокусом реально
+      // управляется. Раньше уступали все подряд, и после щелчка по кнопке или
+      // ползунку переставало работать вообще всё, включая `M`.
+      if (CONTROL_KEYS.has(event.key) && isFromInteractiveControl(event.target)) return;
 
       const player = usePlayerStore.getState();
       const ui = useUIStore.getState();
@@ -205,7 +279,9 @@ export function useKeyboardShortcuts(): void {
       }
     };
 
-    window.addEventListener('keydown', onKeyDown);
-    return () => window.removeEventListener('keydown', onKeyDown);
+    // Перехват, а не всплытие: иначе экраны со своей навигацией по клавишам
+    // гасят событие раньше, чем оно доходит сюда.
+    window.addEventListener('keydown', onKeyDown, true);
+    return () => window.removeEventListener('keydown', onKeyDown, true);
   }, []);
 }

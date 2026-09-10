@@ -17,9 +17,9 @@ import { searchAggregator } from './aggregator';
 import * as dbService from './db';
 import { useLibraryStore } from '../store/useLibraryStore';
 import { UNKNOWN_ARTIST, UNKNOWN_TITLE } from '../utils/placeholders';
-import { pickBestMatch, rankCandidates, type MatchConfidence } from './trackMatching';
+import { normalizeForMatch, pickBestMatch, rankCandidates, type MatchConfidence } from './trackMatching';
 
-export type PlatformType = 'spotify' | 'yandex' | 'vk' | 'apple';
+export type PlatformType = 'spotify' | 'yandex' | 'vk' | 'apple' | 'youtube';
 
 export interface ParsedPlaylistItem {
   title: string;
@@ -80,7 +80,30 @@ export interface ImportMatch {
  * Лучше показать список из шести строк, чем подсунуть шесть чужих записей:
  * именно из-за автоматических «почти совпадений» переносы и выходили кривыми.
  */
-const MIN_IMPORT_MATCH_SCORE = 62;
+/**
+ * Порог, ниже которого импорт честно пишет «не нашли».
+ *
+ * Поднят с 62: на живых плейлистах примерно половина строк приезжала чужой
+ * песней — того же исполнителя, но не той. Пустая строка, которую человек
+ * дочинит руками, честнее подмены, которую он заметит через неделю в наушниках.
+ */
+const MIN_IMPORT_MATCH_SCORE = 78;
+
+/**
+ * Все значимые слова названия обязаны найтись у кандидата.
+ *
+ * Оценка считает совпадение долей общего, поэтому короткое название целиком
+ * содержится в длинном и выглядит идеальным: «Numb» отлично «совпадает» с
+ * «Numb / Encore». Здесь это отсекается до подсчёта очков.
+ */
+function coversTitle(target: string, candidate: UnifiedTrack): boolean {
+  const words = normalizeForMatch(target)
+    .split(' ')
+    .filter((word) => word.length >= 3);
+  if (words.length === 0) return true;
+  const haystack = normalizeForMatch(`${candidate.title || ''} ${candidate.artist || ''}`);
+  return words.every((word) => haystack.includes(word));
+}
 
 /**
  * Utility: unescapes standard HTML entities from scraped text or JSON snippets
@@ -131,11 +154,27 @@ export function parseTimeString(timeStr: string): number {
 
 export class PlaylistImporterService {
   /**
+   * Достаёт идентификатор плейлиста из любой формы ссылки YouTube.
+   */
+  public extractYouTubePlaylistId(url: string): string | null {
+    const match = /[?&]list=([A-Za-z0-9_-]+)/.exec(url || '') || /\/playlist\/([A-Za-z0-9_-]+)/.exec(url || '');
+    return match ? match[1] : null;
+  }
+
+  /**
    * Identifies platform from URL string
    */
   public detectPlatform(url: string): PlatformType | null {
     if (!url || typeof url !== 'string') return null;
     const clean = url.trim().toLowerCase();
+
+    // YouTube Music первым: его плейлист переносится точно, без поиска и подбора.
+    if (
+      (clean.includes('youtube.com') || clean.includes('youtu.be')) &&
+      (clean.includes('list=') || clean.includes('/playlist'))
+    ) {
+      return 'youtube';
+    }
 
     if (
       clean.includes('spotify.com/playlist') ||
@@ -806,9 +845,10 @@ export class PlaylistImporterService {
               { title: cleanTitle || title, artist: cleanArtist || undefined, album: item.album, duration: item.duration },
               candidates
             );
+            const covering = candidates.filter((candidate) => coversTitle(cleanTitle || title, candidate));
             const best = pickBestMatch(
               { title: cleanTitle || title, artist: cleanArtist || undefined, album: item.album, duration: item.duration },
-              candidates,
+              covering,
               MIN_IMPORT_MATCH_SCORE
             );
 

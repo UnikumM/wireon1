@@ -29,6 +29,14 @@ export function useMediaKeys(): void {
           player.pause();
           player.seekTo(0);
           break;
+        // Громкость шагами по пять процентов: десять — уже прыжок, один —
+        // приходится долбить клавишу.
+        case 'volume-up':
+          player.setVolume(Math.min(1, player.volume + 0.05));
+          break;
+        case 'volume-down':
+          player.setVolume(Math.max(0, player.volume - 0.05));
+          break;
       }
     });
 

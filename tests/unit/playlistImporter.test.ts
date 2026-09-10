@@ -103,7 +103,9 @@ describe('Unit: Playlist Importer Service (M5)', () => {
     });
 
     it('returns null for unsupported domains or invalid strings', () => {
-      expect(detectPlatform('https://youtube.com/playlist?list=PL123')).toBeNull();
+      // YouTube больше не «неподдерживаемый»: его плейлист переносится точно,
+      // без поиска и подбора, — см. youtubePlaylistImport.test.ts.
+      expect(detectPlatform('https://youtube.com/playlist?list=PL123')).toBe('youtube');
       expect(detectPlatform('https://soundcloud.com/user/sets/playlist')).toBeNull();
       expect(detectPlatform('https://google.com')).toBeNull();
       expect(detectPlatform('not-a-valid-url')).toBeNull();

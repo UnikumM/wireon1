@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { useUIStore } from '../../store/useUIStore';
 import { ErrorBoundary } from '../common/ErrorBoundary';
 import { Toast } from '../common/Toast';
@@ -19,6 +19,7 @@ import { MobileFullscreenPlayer } from './MobileFullscreenPlayer';
 import { MobileNavBar } from './MobileNavBar';
 import { MobilePlayerBar } from './MobilePlayerBar';
 import { TrackActionsSheet } from './TrackActionsSheet';
+import { checkForUpdate } from '../../services/androidUpdater';
 
 /**
  * Всё приложение на телефоне.
@@ -42,6 +43,31 @@ import { TrackActionsSheet } from './TrackActionsSheet';
  * краем.
  */
 export const MobileApp: React.FC = () => {
+  /**
+   * Проверка обновлений при запуске.
+   *
+   * Одна и тихая: если новое есть — короткое сообщение с приглашением в
+   * настройки, если нет — человек ничего не замечает. Ни скачивания, ни
+   * установки без спроса: сорок мегабайт по мобильному тарифу решает не
+   * приложение.
+   */
+  useEffect(() => {
+    let alive = true;
+    const timer = setTimeout(() => {
+      void checkForUpdate().then((update) => {
+        if (!alive || !update) return;
+        useUIStore
+          .getState()
+          .showToast(`Вышла версия ${update.version} — обновить можно в настройках`, 'info');
+      });
+    }, 8000);
+
+    return () => {
+      alive = false;
+      clearTimeout(timer);
+    };
+  }, []);
+
   const activeView = useUIStore((s) => s.activeView);
   const actionsTrack = useUIStore((s) => s.actionsTrack);
   const closeTrackActions = useUIStore((s) => s.closeTrackActions);

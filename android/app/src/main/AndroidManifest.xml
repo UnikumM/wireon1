@@ -93,4 +93,8 @@
     <!-- С Android 13 уведомление показывается только с разрешения. Служба
          работает и без него — просто без пульта на экране блокировки. -->
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <!-- Установка обновления. Разрешение лишь позволяет ПОКАЗАТЬ системное окно
+         установки: подтверждает её человек, и первый раз Android отдельно
+         спросит, доверять ли Wireon установку пакетов. -->
+    <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
 </manifest>

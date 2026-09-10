@@ -231,6 +231,76 @@ describe('Interaction layer', () => {
       expect(ui().isQueueOpen).toBe(false);
     });
 
+    it('работает на экранах, где список забирает клавиши себе', () => {
+      // Так выглядели «бинды не на всех экранах»: экран со своей навигацией по
+      // клавишам гасил событие, и плеер не получал вообще ничего.
+      const ListScreen: React.FC = () => {
+        useKeyboardShortcuts();
+        return (
+          <div
+            data-testid="track-list"
+            onKeyDown={(event) => event.preventDefault()}
+            style={{ height: 10 }}
+          />
+        );
+      };
+
+      render(<ListScreen />);
+      const list = screen.getByTestId('track-list');
+
+      fireEvent.keyDown(list, { key: 'm' });
+      expect(player().isMuted).toBe(true);
+    });
+
+    it('уступает клавишу элементу, которому она нужна самому', () => {
+      // Строка списка ловит стрелки под свою навигацию, кнопка — пробел.
+      // Перехватывать их у них нельзя, иначе сломается ходьба по спискам.
+      const RowScreen: React.FC = () => {
+        useKeyboardShortcuts();
+        return (
+          <div role="row" tabIndex={0} data-testid="row">
+            <button type="button" data-testid="row-button">
+              Играть
+            </button>
+          </div>
+        );
+      };
+
+      render(<RowScreen />);
+      usePlayerStore.setState({ currentTrack: trackA, duration: 100, currentTime: 50 });
+
+      // Стрелки — строке списка, пробел — кнопке: ими управляют именно они.
+      fireEvent.keyDown(screen.getByTestId('row'), { key: 'ArrowRight' });
+      fireEvent.keyDown(screen.getByTestId('row-button'), { key: ' ' });
+      expect(player().currentTime).toBe(50);
+      expect(player().isPlaying).toBe(false);
+
+      // А клавиши, которых элементу не нужно, доходят до плеера как обычно.
+      fireEvent.keyDown(screen.getByTestId('row'), { key: 'm' });
+      expect(player().isMuted).toBe(true);
+    });
+
+    it('клавиши работают, когда фокус стоит на ползунке громкости', () => {
+      // Отсюда шла жалоба «M не работает»: после щелчка по полосе трека фокус
+      // оставался в ползунке, а тот считался полем ввода — и плеер переставал
+      // слышать клавиши целиком.
+      const SliderScreen: React.FC = () => {
+        useKeyboardShortcuts();
+        return <input type="range" data-testid="seek" defaultValue="10" />;
+      };
+
+      render(<SliderScreen />);
+      const slider = screen.getByTestId('seek');
+
+      // Стрелки остаются ползунку: ими двигают именно его.
+      fireEvent.keyDown(slider, { key: 'ArrowRight' });
+      expect(player().currentTime).toBe(0);
+
+      // А всё остальное снова доходит до плеера.
+      fireEvent.keyDown(slider, { key: 'm' });
+      expect(player().isMuted).toBe(true);
+    });
+
     it('leaves browser and OS chords alone', () => {
       render(<ShortcutHost />);
 

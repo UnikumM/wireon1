@@ -1,6 +1,6 @@
 import type { MiniSkinId } from '../styles/miniSkins';
 
-export type MediaKeyAction = 'play-pause' | 'next' | 'prev' | 'stop';
+export type MediaKeyAction = 'play-pause' | 'next' | 'prev' | 'stop' | 'volume-up' | 'volume-down';
 
 /** Commands the detached mini player sends to the window that owns audio. */
 export type MiniPlayerCommand =
@@ -129,6 +129,7 @@ export interface ElectronAPI {
   onWindowStateChange: (callback: (isMaximized: boolean) => void) => () => void;
   onMediaKey: (callback: (action: MediaKeyAction) => void) => () => void;
   setMediaKeysEnabled: (enabled: boolean) => void;
+  setGlobalHotkeys: (payload: { enabled: boolean; bindings: Record<string, string> }) => void;
   /** Opens an http(s) URL in the system browser; rejects for any other scheme. */
   openExternal: (url: string) => Promise<void>;
   /** Subscribes to `wireon://` deep links. Returns its own unsubscribe function. */

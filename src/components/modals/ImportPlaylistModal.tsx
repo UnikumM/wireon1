@@ -1,4 +1,7 @@
 import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
+import { youtubeService } from '../../services/youtube';
+import { getClientId, getFreshAccessToken, runSpotifyLogin } from '../../services/spotifyAuth';
+import { fetchLikedSongs, fetchPlaylistItems, fetchPlaylists, SpotifyPlaylistSummary } from '../../services/spotifyLibrary';
 import {
   CheckCircle2,
   AlertCircle,
@@ -82,6 +85,12 @@ interface PlatformBadgeConfig {
  * значения отсюда уезжают в тему целиком.
  */
 const PLATFORM_CONFIG: Record<PlatformType, PlatformBadgeConfig> = {
+  youtube: {
+    name: 'YouTube Music',
+    color: '#FF0033',
+    bg: 'rgba(255, 0, 51, 0.15)',
+    border: 'rgba(255, 0, 51, 0.4)'
+  },
   spotify: {
     name: 'Spotify',
     color: '#1DB954',
@@ -112,6 +121,96 @@ const PLATFORM_CONFIG: Record<PlatformType, PlatformBadgeConfig> = {
 function titleFromFilename(filename: string): string {
   return filename.replace(/\.(wireon\.)?[a-z0-9]{2,5}$/i, '').trim() || UNTITLED_PLAYLIST;
 }
+
+/**
+ * Импорт из Spotify по-настоящему: через вход, а не через публичную страницу.
+ *
+ * Разбор ссылки рядом читает страницу плейлиста, а она отдаёт первую сотню
+ * треков и ничего не знает про «Любимые» и приватные списки. Отсюда же
+ * приезжает всё целиком.
+ */
+const SpotifyLibraryBlock: React.FC<{ onPicked: (title: string, items: ParsedPlaylistItem[]) => void }> = ({
+  onPicked
+}) => {
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [playlists, setPlaylists] = useState<SpotifyPlaylistSummary[] | null>(null);
+
+  const available = Boolean(getClientId()) && typeof window !== 'undefined' && Boolean(window.electronAPI?.onDeepLink);
+  if (!available) return null;
+
+  const load = async (token: string) => {
+    setPlaylists(await fetchPlaylists(token));
+  };
+
+  const connect = async () => {
+    setBusy(true);
+    setError(null);
+    try {
+      const token = (await getFreshAccessToken()) || (await runSpotifyLogin()).accessToken;
+      await load(token);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const pick = async (kind: 'liked' | 'playlist', playlist?: SpotifyPlaylistSummary) => {
+    setBusy(true);
+    setError(null);
+    try {
+      const token = await getFreshAccessToken();
+      if (!token) throw new Error('Вход в Spotify устарел — войдите заново');
+      const items =
+        kind === 'liked' ? await fetchLikedSongs(token) : await fetchPlaylistItems(token, playlist!.id);
+      if (items.length === 0) {
+        setError('В этом списке нет треков.');
+        return;
+      }
+      onPicked(kind === 'liked' ? 'Любимые треки из Spotify' : playlist!.name, items);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <div style={{ marginTop: 'var(--space-5)', paddingTop: 'var(--space-4)', borderTop: '1px solid var(--border-subtle)' }}>
+      <p style={{ margin: '0 0 var(--space-3)', fontSize: 'var(--text-sm)', color: 'var(--text-secondary)' }}>
+        Или войдите в Spotify — тогда приедут все плейлисты и «Любимые» целиком, а не первая сотня треков.
+      </p>
+
+      {error && (
+        <p style={{ margin: '0 0 var(--space-2)', fontSize: 'var(--text-xs)', color: 'var(--danger, #ff6b6b)' }}>{error}</p>
+      )}
+
+      {!playlists && (
+        <Button variant="secondary" onClick={connect} disabled={busy} data-testid="spotify-connect-btn">
+          {busy ? 'Ждём Spotify…' : 'Войти в Spotify'}
+        </Button>
+      )}
+
+      {playlists && (
+        <ul style={{ listStyle: 'none', margin: 0, padding: 0, display: 'grid', gap: 'var(--space-2)', maxHeight: '260px', overflowY: 'auto' }}>
+          <li>
+            <Button variant="secondary" onClick={() => pick('liked')} disabled={busy} data-testid="spotify-liked-btn">
+              Любимые треки
+            </Button>
+          </li>
+          {playlists.map((playlist) => (
+            <li key={playlist.id}>
+              <Button variant="secondary" onClick={() => pick('playlist', playlist)} disabled={busy}>
+                {playlist.name} · {playlist.trackCount}
+              </Button>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  );
+};
 
 export const ImportPlaylistModal: React.FC<ImportPlaylistModalProps> = ({
   isOpen,
@@ -181,6 +280,51 @@ export const ImportPlaylistModal: React.FC<ImportPlaylistModalProps> = ({
     setError(null);
 
     try {
+      // Плейлист YouTube Music переносится как есть: он уже состоит из тех
+      // самых записей, которые мы играем, — искать и подбирать нечего, а
+      // значит и подменить нечем.
+      if (playlistImporter.detectPlatform(trimmed) === 'youtube') {
+        const listId = playlistImporter.extractYouTubePlaylistId(trimmed);
+        const tracks = listId ? await youtubeService.getPlaylistTracks(listId) : [];
+        if (tracks.length === 0) {
+          setError('Не удалось прочитать этот плейлист. Проверьте, что он доступен по ссылке всем.');
+          setIsLoading(false);
+          return;
+        }
+
+        setPreview({
+          title: 'Плейлист из YouTube Music',
+          items: [],
+          readyTracks: tracks,
+          origin: { kind: 'platform', platform: 'youtube' }
+        });
+        setStep('preview');
+        setIsLoading(false);
+        return;
+      }
+
+      // Ссылка на Spotify, когда вход уже сделан: список берётся у них по-честному
+      // и целиком. Публичная страница отдаёт первую сотню треков и молчит об
+      // остальных — именно отсюда бралось «перенеслось не всё».
+      if (playlistImporter.detectPlatform(trimmed) === 'spotify') {
+        const spotifyId = /playlist[/:]([a-zA-Z0-9]+)/.exec(trimmed)?.[1];
+        const token = spotifyId ? await getFreshAccessToken() : null;
+        if (spotifyId && token) {
+          const items = await fetchPlaylistItems(token, spotifyId);
+          if (items.length > 0) {
+            setPreview({
+              title: 'Плейлист из Spotify',
+              items,
+              readyTracks: [],
+              origin: { kind: 'platform', platform: 'spotify' }
+            });
+            setStep('preview');
+            setIsLoading(false);
+            return;
+          }
+        }
+      }
+
       const parsed = await playlistImporter.parsePlaylistUrl(trimmed);
       if (!parsed.items || parsed.items.length === 0) {
         setError('В этом плейлисте не нашлось ни одного трека. Проверьте, что он открыт для всех.');
@@ -583,6 +727,20 @@ export const ImportPlaylistModal: React.FC<ImportPlaylistModalProps> = ({
               </Button>
             </div>
           </form>
+        )}
+
+        {step === 'input' && (
+          <SpotifyLibraryBlock
+            onPicked={(title, items) => {
+              setPreview({
+                title,
+                items,
+                readyTracks: [],
+                origin: { kind: 'platform', platform: 'spotify' }
+              });
+              setStep('preview');
+            }}
+          />
         )}
 
         {/* Step 2: Preview Parsed Playlist */}

@@ -131,6 +131,25 @@ vi.mock('electron', () => ({
   shell: {
     openExternal: (...args: any[]) => mockShellOpenExternal(...args),
   },
+  Tray: class {
+    setContextMenu = vi.fn();
+    setToolTip = vi.fn();
+    destroy = vi.fn();
+    isDestroyed = () => false;
+    on = vi.fn();
+    constructor(public image: any) {
+      ((globalThis as any).__wireonTrays ||= []).push(this);
+    }
+  },
+  Menu: {
+    buildFromTemplate: (template: any[]) => {
+      ((globalThis as any).__wireonMenus ||= []).push(template);
+      return { template };
+    },
+  },
+  nativeImage: {
+    createFromPath: () => ({ isEmpty: () => false, resize: () => ({ resized: true }) }),
+  },
   contextBridge: {
     exposeInMainWorld: vi.fn(),
   },
@@ -178,6 +197,11 @@ import {
   migrateLegacyUserData,
   DEEP_LINK_SCHEMES,
   registerDeepLinkProtocol,
+  areMediaKeysEnabled,
+  createTray,
+  destroyTray,
+  getMediaKeyRegistration,
+  updateTrayState,
   registerMediaKeys,
   resetDeepLinkState,
   rewriteRequestHeaders,
@@ -288,6 +312,7 @@ describe('Milestone 5: Desktop Packaging & Electron Integration Test Suite', () 
           'sendMiniCommand',
           'sendMiniState',
           'setAlwaysOnTop',
+          'setGlobalHotkeys',
           'setMediaKeysEnabled',
           'setMiniPlayerMode',
           'setYouTubeCookiesBrowser',
@@ -673,6 +698,75 @@ describe('Milestone 5: Desktop Packaging & Electron Integration Test Suite', () 
 
       registeredShortcuts['MediaStop']();
       expect(mockWin.webContents.send).toHaveBeenCalledWith('media-key-event', 'stop');
+    });
+
+    it('registerMediaKeys замечает клавиши, занятые другим приложением', () => {
+      // Электрон не бросает, когда клавишу держит чужой плеер, — он возвращает
+      // false. Раньше это игнорировалось, и настройки врали, что всё включено.
+      mockShortcuts.register.mockImplementation((key: string, cb: Function) => {
+        registeredShortcuts[key] = cb;
+        return key !== 'MediaPlayPause';
+      });
+
+      const report = registerMediaKeys(mockShortcuts, () => mockWin as any);
+
+      expect(report.busy).toEqual(['MediaPlayPause']);
+      expect(report.registered).toEqual(['MediaNextTrack', 'MediaPreviousTrack', 'MediaStop']);
+      expect(getMediaKeyRegistration()).toEqual(report);
+    });
+
+    it('registerMediaKeys не считает клавиши включёнными, если не досталось ни одной', () => {
+      mockShortcuts.register.mockReturnValue(false);
+
+      const report = registerMediaKeys(mockShortcuts, () => mockWin as any);
+
+      expect(report.registered).toEqual([]);
+      expect(report.busy).toHaveLength(4);
+      expect(areMediaKeysEnabled()).toBe(false);
+    });
+
+    it('createTray показывает, что играет, и предлагает паузу', () => {
+      // Значок мог остаться от предыдущей проверки: createTray намеренно не
+      // создаёт второй.
+      destroyTray();
+      (globalThis as any).__wireonTrays = [];
+      (globalThis as any).__wireonMenus = [];
+
+      createTray(() => mockWin as any);
+      updateTrayState({ title: 'Get Lucky', artist: 'Daft Punk', isPlaying: true }, () => mockWin as any);
+
+      const trays = (globalThis as any).__wireonTrays as any[];
+      const menus = (globalThis as any).__wireonMenus as any[];
+      expect(trays).toHaveLength(1);
+      const template = menus[menus.length - 1];
+      const labels = template.map((item: any) => item.label).filter(Boolean);
+      expect(labels[0]).toBe('Get Lucky — Daft Punk');
+      expect(labels).toContain('Пауза');
+      expect(labels).toContain('Открыть Wireon');
+
+      // Кнопка «Следующий» шлёт то же событие, что и клавиша на клавиатуре.
+      template.find((item: any) => item.label === 'Следующий').click();
+      expect(mockWin.webContents.send).toHaveBeenCalledWith('media-key-event', 'next');
+
+      destroyTray();
+    });
+
+    it('в трее не предлагается управлять, когда ничего не играет', () => {
+      // Значок мог остаться от предыдущей проверки: createTray намеренно не
+      // создаёт второй.
+      destroyTray();
+      (globalThis as any).__wireonTrays = [];
+      (globalThis as any).__wireonMenus = [];
+
+      createTray(() => mockWin as any);
+      updateTrayState(null, () => mockWin as any);
+
+      const menus = (globalThis as any).__wireonMenus as any[];
+      const template = menus[menus.length - 1];
+      expect(template[0].label).toBe('Ничего не играет');
+      expect(template.find((item: any) => item.label === 'Играть').enabled).toBe(false);
+
+      destroyTray();
     });
 
     it('unregisterMediaKeys releases every media key', () => {
@@ -1311,6 +1405,7 @@ describe('Milestone 5: Desktop Packaging & Electron Integration Test Suite', () 
         minimize: vi.fn(),
         maximize: vi.fn(),
         close: vi.fn(),
+        setGlobalHotkeys: vi.fn(),
         isMaximized: vi.fn().mockResolvedValue(false),
         getPlatform: vi.fn().mockReturnValue('win32'),
         onWindowStateChange: vi.fn((cb) => {

@@ -24,6 +24,7 @@ import { AccountSettings } from '../settings/AccountSettings';
 import { DesktopSettings } from '../settings/DesktopSettings';
 import { DiagnosticsSettings } from '../settings/DiagnosticsSettings';
 import { ShortcutsSettings } from '../settings/ShortcutsSettings';
+import { MobileUpdateSection } from '../settings/MobileUpdateSection';
 import { AboutSettings } from '../settings/AboutSettings';
 import { ICON } from '../../styles/icons';
 
@@ -150,7 +151,14 @@ export const MobileSettingsView: React.FC = () => {
       label: 'О программе',
       hint: 'Версия и обновления',
       icon: <Info size={ICON.lg} />,
-      render: () => <AboutSettings />
+      render: () => (
+        <>
+          {/* Обновление на телефоне ставится не так, как на компьютере, — у него
+              свой раздел рядом с версией. */}
+          <MobileUpdateSection />
+          <AboutSettings />
+        </>
+      )
     });
     return entries;
   }, []);

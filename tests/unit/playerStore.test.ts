@@ -686,6 +686,94 @@ describe('Player Store (usePlayerStore & 2-Tier Queue)', () => {
       expect(state.volume).toBe(0.42);
     });
 
+    it('запоминает, что играло, и предлагает продолжить с той же секунды', async () => {
+      vi.spyOn(audioEngine, 'load').mockResolvedValue();
+      const seekSpy = vi.spyOn(audioEngine, 'seek').mockImplementation(() => {});
+      vi.spyOn(audioEngine, 'play').mockResolvedValue();
+      vi.spyOn(audioEngine, 'getCurrentTrack').mockReturnValue(null);
+
+      // Слушали и закрыли приложение на 95-й секунде.
+      await usePlayerStore.getState().playTrack(mockTracks[0]);
+      usePlayerStore.getState().syncProgress(95, 200, 100);
+      usePlayerStore.getState().pause();
+      await Promise.resolve();
+
+      const saved = await dbService.getSetting<{ track: UnifiedTrack; position: number }>(
+        'lastSession',
+        { track: mockTracks[1], position: -1 }
+      );
+      expect(saved.track.id).toBe(mockTracks[0].id);
+      expect(saved.position).toBeCloseTo(95, 0);
+
+      // Новый запуск: ничего не играет и не загружается.
+      usePlayerStore.setState({
+        currentTrack: null,
+        currentTime: 0,
+        playbackState: 'idle',
+        isPlaying: false,
+        resumePosition: null,
+        settingsHydrated: false
+      });
+
+      await usePlayerStore.getState().hydrateSettings();
+
+      let state = usePlayerStore.getState();
+      expect(state.currentTrack?.id).toBe(mockTracks[0].id);
+      expect(state.playbackState).toBe('paused');
+      expect(state.isPlaying).toBe(false);
+      expect(state.resumePosition).toBeCloseTo(95, 0);
+
+      // И только по «играть» трек открывается и встаёт на ту же секунду.
+      await usePlayerStore.getState().play();
+
+      state = usePlayerStore.getState();
+      expect(seekSpy).toHaveBeenCalledWith(expect.closeTo(95, 0));
+      expect(state.playbackState).toBe('playing');
+      expect(state.resumePosition).toBeNull();
+    });
+
+    it('не предлагает продолжить трек, доигранный до конца', async () => {
+      vi.spyOn(audioEngine, 'load').mockResolvedValue();
+
+      await usePlayerStore.getState().playTrack(mockTracks[0]);
+      // Последние секунды: продолжать там нечего.
+      usePlayerStore.getState().syncProgress(199, 200, 200);
+      usePlayerStore.getState().pause();
+      await Promise.resolve();
+
+      const saved = await dbService.getSetting<{ position: number }>('lastSession', { position: -1 });
+      expect(saved.position).toBe(0);
+    });
+
+    it('передаёт глобальные сочетания в главный процесс и запоминает их', async () => {
+      const setGlobalHotkeys = vi.fn();
+      (window as any).electronAPI = { setGlobalHotkeys };
+
+      try {
+        usePlayerStore.getState().setGlobalHotkey('next', 'CommandOrControl+Shift+Right');
+        await Promise.resolve();
+
+        expect(setGlobalHotkeys).toHaveBeenCalledWith(
+          expect.objectContaining({
+            enabled: true,
+            bindings: expect.objectContaining({ next: 'CommandOrControl+Shift+Right' })
+          })
+        );
+
+        const saved = await dbService.getSetting<Record<string, string>>('globalHotkeys', {});
+        expect(saved.next).toBe('CommandOrControl+Shift+Right');
+        // Остальные действия остались на своих клавишах.
+        expect(saved['play-pause']).toBe('CommandOrControl+Alt+Space');
+
+        // Выключатель уходит туда же, вместе с картой.
+        setGlobalHotkeys.mockClear();
+        usePlayerStore.getState().setGlobalHotkeysEnabled(false);
+        expect(setGlobalHotkeys).toHaveBeenCalledWith(expect.objectContaining({ enabled: false }));
+      } finally {
+        delete (window as any).electronAPI;
+      }
+    });
+
     it('persists volume, repeat mode and eq settings through the db service', async () => {
       usePlayerStore.getState().setVolume(0.33);
       usePlayerStore.getState().setRepeatMode('one');

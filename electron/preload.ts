@@ -126,6 +126,8 @@ export interface ElectronAPI {
   onWindowStateChange: (callback: (isMaximized: boolean) => void) => () => void;
   onMediaKey: (callback: (action: MediaKeyAction) => void) => () => void;
   setMediaKeysEnabled: (enabled: boolean) => void;
+  /** Свои сочетания уровня системы: выключатель и карта «действие → сочетание». */
+  setGlobalHotkeys: (payload: { enabled: boolean; bindings: Record<string, string> }) => void;
   openExternal: (url: string) => Promise<void>;
   onDeepLink: (callback: (url: string) => void) => () => void;
   /** Runs the Discord consent screen in a window owned by the app. */
@@ -221,6 +223,9 @@ export const electronAPI: ElectronAPI = {
   },
   setMediaKeysEnabled: (enabled: boolean): void => {
     ipcRenderer.send('set-media-keys-enabled', enabled);
+  },
+  setGlobalHotkeys: (payload: { enabled: boolean; bindings: Record<string, string> }): void => {
+    ipcRenderer.send('set-global-hotkeys', payload);
   },
   openExternal: (url: string): Promise<void> => {
     return ipcRenderer.invoke('open-external', url);

@@ -1,7 +1,7 @@
 import { UnifiedTrack } from '../types/music';
 import { youtubeService, YouTubeService } from './youtube';
 import { soundCloudService, SoundCloudService } from './soundcloud';
-import { normalizeForMatch } from './trackMatching';
+import { detectVariants, normalizeForMatch, pickBestMatch } from './trackMatching';
 import { db, getSetting, setSetting } from './db';
 import { detectPlatform } from './nativeBridge';
 
@@ -37,6 +37,15 @@ const PREFETCH_COOLDOWN_MS = 30000;
 
 /** How far a substitute's length may differ from the original, in seconds. */
 const SUBSTITUTE_DURATION_TOLERANCE_S = 20;
+
+/**
+ * Насколько уверенным должно быть совпадение, чтобы играть замену.
+ *
+ * Строже, чем при импорте (там 55): импорт человек просматривает и правит
+ * руками, а подмена случается сама во время воспроизведения. Цена ошибки разная:
+ * там неверная строка в списке, здесь — чужая песня вместо той, что попросили.
+ */
+const SUBSTITUTE_MIN_SCORE = 85;
 
 /**
  * Сколько ждём ответа источника, прежде чем считать попытку зависшей.
@@ -473,23 +482,47 @@ export class StreamResolver {
       );
       if (!Array.isArray(candidates) || candidates.length === 0) return null;
 
-      const wantTitle = normalizeForMatch(track.title);
-      const wantArtist = normalizeForMatch(track.artist);
+      // Раньше здесь стояло простое «одна строка входит в другую», и подмена
+      // подсовывала не ту песню: у «Get Lucky» проходил кандидат «Get», у
+      // оригинала — ускоренная версия и каверы, лишь бы длительность попала в
+      // допуск. Теперь работает та же оценка, что и при импорте плейлистов:
+      // название, исполнитель, длительность и пометки вроде «sped up» —
+      // с порогом строже импортного. Подмена происходит молча, человек её не
+      // подтверждает, поэтому ошибиться здесь дороже.
+      // Замена обязана быть той же записью, а не «той же песней»: ускоренные
+      // версии, каверы и живые записи здесь недопустимы, даже если по очкам
+      // проходят. Просили конкретный трек — играть должен он.
+      const wantedVariants = new Set(detectVariants(`${track.title} ${track.artist || ''}`));
 
-      const match = candidates.find((candidate) => {
-        const haveTitle = normalizeForMatch(candidate.title);
-        const haveArtist = normalizeForMatch(candidate.artist);
-        const titleOk = haveTitle.includes(wantTitle) || wantTitle.includes(haveTitle);
-        const artistOk =
-          !wantArtist || haveArtist.includes(wantArtist) || wantArtist.includes(haveArtist);
-        const durationOk =
-          !track.duration ||
-          !candidate.duration ||
-          Math.abs(candidate.duration - track.duration) <= SUBSTITUTE_DURATION_TOLERANCE_S;
-        return titleOk && artistOk && durationOk;
+      // Все значимые слова названия обязаны найтись у кандидата. Оценка сама по
+      // себе этого не требует: она считает совпадение долей общего, и короткое
+      // «Test» полностью содержится в «Test YouTube Track» — то есть выглядит
+      // идеальным совпадением, оставаясь другой песней.
+      const wantedWords = normalizeForMatch(track.title)
+        .split(' ')
+        .filter((word) => word.length >= 3);
+
+      const sameRecording = candidates.filter((candidate) => {
+        const haystack = normalizeForMatch(`${candidate.title || ''} ${candidate.artist || ''}`);
+        const titleCovered = wantedWords.every((word) => haystack.includes(word));
+        const sameVariant = detectVariants(`${candidate.title || ''} ${candidate.artist || ''}`).every((marker) =>
+          wantedVariants.has(marker)
+        );
+        return titleCovered && sameVariant;
       });
+      if (sameRecording.length === 0) return null;
 
-      if (!match) return null;
+      const best = pickBestMatch(
+        { title: track.title, artist: track.artist, duration: track.duration },
+        sameRecording,
+        SUBSTITUTE_MIN_SCORE
+      );
+
+      if (!best) return null;
+      const match = best.candidate;
+      console.info(
+        `[StreamResolver] Подмена с SoundCloud: "${match.title}" — ${match.artist} (совпадение ${Math.round(best.score)})`
+      );
 
       const resolved = await withTimeout(
         this.scService.resolveStreamUrl(match.originalId),
