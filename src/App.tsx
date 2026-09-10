@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import './styles/global.css';
 
+import { KaraokeView } from './components/lyrics/KaraokeView';
 import { AppShell } from './components/layout/AppShell';
 import { ErrorBoundary } from './components/common/ErrorBoundary';
 import { SearchResults } from './components/search/SearchResults';
@@ -203,6 +204,15 @@ export const App: React.FC = () => {
             <AccountPrompt />
             {/* Список изменений после обновления — тоже сам решает. */}
             <WhatsNewGate />
+            {/*
+              Текст песни живёт здесь, а не внутри полосы плеера.
+              У полосы стоит `backdrop-filter` на стеклянных обликах, а он
+              делает элемент системой координат для потомков с
+              `position: fixed` — панель схлопывалась в 92 пикселя высоты
+              полосы, и текста на экране не было вовсе. Панель сама решает,
+              показываться ли.
+            */}
+            <KaraokeView />
           </>
         }
         onCreatePlaylistClick={() => setIsCreatePlaylistOpen(true)}

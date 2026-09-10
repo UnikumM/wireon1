@@ -481,6 +481,18 @@
   --badge-soundcloud-text: #b4611f;
   --badge-soundcloud-bg: rgba(180, 97, 31, 0.09);
   --badge-soundcloud-border: rgba(180, 97, 31, 0.22);
+  --badge-spotify-text: #1a7f45;
+  --badge-spotify-bg: rgba(26, 127, 69, 0.09);
+  --badge-spotify-border: rgba(26, 127, 69, 0.22);
+  --badge-yandex-text: #c2413c;
+  --badge-yandex-bg: rgba(194, 65, 60, 0.09);
+  --badge-yandex-border: rgba(194, 65, 60, 0.22);
+  --badge-vk-text: #2c62a8;
+  --badge-vk-bg: rgba(44, 98, 168, 0.09);
+  --badge-vk-border: rgba(44, 98, 168, 0.22);
+  --badge-apple-text: #6b4fb0;
+  --badge-apple-bg: rgba(107, 79, 176, 0.09);
+  --badge-apple-border: rgba(107, 79, 176, 0.22);
 
   --shadow-xs: 0 1px 2px rgba(4, 6, 10, 0.088);
   --shadow-sm: 0 1px 3px rgba(4, 6, 10, 0.102), 0 3px 8px rgba(4, 6, 10, 0.075);

@@ -61,6 +61,14 @@ function offenders(rule: RegExp, skip?: RegExp): string[] {
   );
 }
 
+/** Строка внутри вызова `createPortal` — значит узел уходит из текущего дерева. */
+function isInsidePortal(lines: string[], index: number): boolean {
+  for (let cursor = index; cursor >= 0 && cursor > index - 12; cursor -= 1) {
+    if (/createPortal\(/.test(lines[cursor])) return true;
+  }
+  return false;
+}
+
 describe('оформление в обход темы', () => {
   it('насыщенность шрифта берётся из токена, а не числом', () => {
     // Число ищется в любом месте значения, а не только сразу после двоеточия:
@@ -121,6 +129,27 @@ describe('оформление в обход темы', () => {
       found,
       `движение мимо темы: не схлопнется ни ручкой «Движение», ни prefers-reduced-motion:\n${found.join('\n')}`
     ).toEqual([]);
+  });
+
+  it('полноэкранные слои не живут внутри полосы плеера', () => {
+    // Находка, стоившая невидимого текста песни.
+    //
+    // У полосы плеера на стеклянных обликах стоит `backdrop-filter`, а он
+    // делает элемент системой координат для потомков с `position: fixed`.
+    // Слой с `inset: 0` внутри полосы получает не окно, а её девяносто два
+    // пикселя высоты: панель с текстом схлопывалась в полоску, а ловец кликов
+    // меню переставал ловить клики мимо. Полноэкранным слоям место в оболочке
+    // приложения или в портале.
+    const playerBar = readFileSync(path.join(SRC, 'components/player/PlayerBar.tsx'), 'utf8');
+    const lines = playerBar.split('\n');
+
+    const trapped = lines
+      .map((line, index) => ({ line, index, at: `PlayerBar.tsx:${index + 1}` }))
+      .filter(({ line }) => /position:\s*'fixed'/.test(line) && /inset:\s*0/.test(line))
+      // Портал выносит узел из-под `backdrop-filter` — это и есть лечение.
+      .filter(({ index }) => !isInsidePortal(lines, index));
+
+    expect(trapped.map((entry) => entry.at)).toEqual([]);
   });
 
   it('сам предохранитель ловит нарушения, а не просто молчит', () => {

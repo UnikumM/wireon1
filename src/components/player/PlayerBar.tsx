@@ -1,3 +1,4 @@
+import { createPortal } from 'react-dom';
 import React, { useEffect, useState } from 'react';
 import {
   AlertTriangle,
@@ -38,7 +39,6 @@ import { PlayerProgress } from './PlayerProgress';
 import { TransportControls } from './TransportControls';
 
 import { TempoControl } from './TempoControl';
-import { KaraokeView } from '../lyrics/KaraokeView';
 import { focusMenuItem, useCountdown } from './playerHooks';
 import { ICON } from '../../styles/icons';
 
@@ -900,8 +900,17 @@ export const PlayerBar: React.FC<PlayerBarProps> = ({ className = '' }) => {
 
             {isMenuOpen && (
               <>
-                {/* Invisible catcher: a press anywhere else closes the menu. */}
-                <div {...backdropProps} style={{ position: 'fixed', inset: 0, zIndex: 1 }} />
+                {/*
+                  Ловец кликов мимо меню — через портал в body.
+                  Внутри полосы он бесполезен: на стеклянных обликах у неё
+                  стоит `backdrop-filter`, а он делает элемент системой
+                  координат для `position: fixed`, и ловец покрывал 92 пикселя
+                  полосы вместо всего окна — меню не закрывалось кликом мимо.
+                */}
+                {createPortal(
+                  <div {...backdropProps} style={{ position: 'fixed', inset: 0, zIndex: 'var(--z-header)' }} />,
+                  document.body
+                )}
                 <div
                   ref={menuRef}
                   role="menu"
@@ -1032,10 +1041,6 @@ export const PlayerBar: React.FC<PlayerBarProps> = ({ className = '' }) => {
           </div>
         </div>
       </div>
-
-      {/* Панель с текстом — часть модуля «Текст песни»: без кнопки её нечем
-          закрыть, так что убирать надо обе половины сразу. */}
-      {modules.lyrics && <KaraokeView />}
     </div>
   );
 };

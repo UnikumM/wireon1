@@ -71,7 +71,7 @@ export const MobileUpdateSection: React.FC = () => {
       description={`Установлена версия ${installed}.`}
     >
       {error && (
-        <p style={{ margin: 0, fontSize: 'var(--text-sm)', color: 'var(--danger, #ff6b6b)' }}>{error}</p>
+        <p style={{ margin: 0, fontSize: 'var(--text-sm)', color: 'var(--danger)' }}>{error}</p>
       )}
 
       {update ? (

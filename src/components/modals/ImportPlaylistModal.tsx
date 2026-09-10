@@ -75,46 +75,29 @@ interface PlatformBadgeConfig {
 }
 
 /**
- * Фирменные цвета сервисов-источников.
+ * Метка площадки берётся из темы, а не из фирменной палитры сервиса.
  *
- * Единственные литералы, оставшиеся в файле, и намеренно: это опознавательный
- * знак чужого бренда, а не наш оттенок, — зелёный Spotify обязан остаться
- * зелёным Spotify при любой теме. Для YouTube и SoundCloud такие тона уже
- * приглушены до нашей пастели токенами `--badge-*` в theme.css; этим четырём
- * парных токенов пока нет, поэтому цвет лежит здесь. Как только они появятся,
- * значения отсюда уезжают в тему целиком.
+ * Раньше здесь стояли фирменные цвета литералами — единственное место в
+ * приложении, красившееся мимо темы. На светлых темах чистый `#FF0033` на белом
+ * оказывался единственным кричащим пятном в окне. Приглушённые до нашей пастели
+ * пары `--badge-*` уже описаны в theme.css и имеют светлый вариант.
  */
+function badge(name: string, token: string): PlatformBadgeConfig {
+  return {
+    name,
+    color: `var(--badge-${token}-text)`,
+    bg: `var(--badge-${token}-bg)`,
+    border: `var(--badge-${token}-border)`
+  };
+}
+
+/** Метки площадок в окне импорта. Цвета — из темы, см. `badge` выше. */
 const PLATFORM_CONFIG: Record<PlatformType, PlatformBadgeConfig> = {
-  youtube: {
-    name: 'YouTube Music',
-    color: '#FF0033',
-    bg: 'rgba(255, 0, 51, 0.15)',
-    border: 'rgba(255, 0, 51, 0.4)'
-  },
-  spotify: {
-    name: 'Spotify',
-    color: '#1DB954',
-    bg: 'rgba(29, 185, 84, 0.15)',
-    border: 'rgba(29, 185, 84, 0.4)'
-  },
-  yandex: {
-    name: 'Yandex Music',
-    color: '#FC3F1D',
-    bg: 'rgba(252, 63, 29, 0.15)',
-    border: 'rgba(252, 63, 29, 0.4)'
-  },
-  vk: {
-    name: 'VK Music',
-    color: '#0077FF',
-    bg: 'rgba(0, 119, 255, 0.15)',
-    border: 'rgba(0, 119, 255, 0.4)'
-  },
-  apple: {
-    name: 'Apple Music',
-    color: '#FA243C',
-    bg: 'rgba(250, 36, 60, 0.15)',
-    border: 'rgba(250, 36, 60, 0.4)'
-  }
+  youtube: badge('YouTube Music', 'youtube'),
+  spotify: badge('Spotify', 'spotify'),
+  yandex: badge('Yandex Music', 'yandex'),
+  vk: badge('VK Music', 'vk'),
+  apple: badge('Apple Music', 'apple')
 };
 
 /** `nochnaya-doroga-2026-08-18.wireon.json` → `nochnaya-doroga-2026-08-18`. */
@@ -183,7 +166,7 @@ const SpotifyLibraryBlock: React.FC<{ onPicked: (title: string, items: ParsedPla
       </p>
 
       {error && (
-        <p style={{ margin: '0 0 var(--space-2)', fontSize: 'var(--text-xs)', color: 'var(--danger, #ff6b6b)' }}>{error}</p>
+        <p style={{ margin: '0 0 var(--space-2)', fontSize: 'var(--text-xs)', color: 'var(--danger)' }}>{error}</p>
       )}
 
       {!playlists && (

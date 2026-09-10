@@ -14,6 +14,7 @@ import {
   RotateCcw
 } from 'lucide-react';
 import { usePlayerStore } from '../../store/usePlayerStore';
+import { usePlayerLayoutStore } from '../../store/usePlayerLayoutStore';
 import { useUIStore } from '../../store/useUIStore';
 import { useDismissable, useDominantColor } from '../../hooks';
 import { useMobileShell } from '../../hooks/useMobileShell';
@@ -52,6 +53,9 @@ const OFFSET_STEP_S = 0.5;
  */
 export const KaraokeView: React.FC<KaraokeViewProps> = ({ className = '', onClose }) => {
   const isLyricsOpen = useUIStore((s) => s.isLyricsOpen);
+  // Панель — часть модуля «Текст песни»: выключили модуль, значит и панели нет.
+  // Раньше это условие стояло в PlayerBar, но панель оттуда переехала.
+  const lyricsModuleOn = usePlayerLayoutStore((s) => s.modules.lyrics);
   const setLyricsOpen = useUIStore((s) => s.setLyricsOpen);
   const showToast = useUIStore((s) => s.showToast);
 
@@ -269,7 +273,7 @@ export const KaraokeView: React.FC<KaraokeViewProps> = ({ className = '', onClos
     showToast('Вернулись к автоматическому подбору', 'info');
   }, [currentTrack, loadLyrics, showToast]);
 
-  if (!isLyricsOpen) return null;
+  if (!isLyricsOpen || !lyricsModuleOn) return null;
 
   const hasLines = Boolean(lyrics && !lyrics.instrumental && lyrics.lines.length > 0);
   const isDoubtful = hasLines && lyrics?.confidence === 'low' && !lyrics?.manual;
@@ -849,14 +853,21 @@ export const KaraokeView: React.FC<KaraokeViewProps> = ({ className = '', onClos
               const isPast = lyrics.synced && activeLineIndex >= 0 && index < activeLineIndex;
               const distance = lyrics.synced && activeLineIndex >= 0 ? Math.abs(index - activeLineIndex) : 0;
 
+              // Пол прозрачности — 0.45, а не 0.28.
+              //
+              // Строки красятся в `--text-muted`, и на светлых темах при 0.28
+              // контраст падал примерно до 1.2:1 — соседние строки читались как
+              // пустое место, а не как приглушённый текст. Активная строка
+              // выделяется цветом и весом, так что ей затемнение соседей уже не
+              // нужно настолько сильное.
               let opacity = 0.85;
               if (lyrics.synced) {
                 if (isActive) {
                   opacity = 1;
                 } else if (isPast) {
-                  opacity = Math.max(0.32, 0.65 - distance * 0.08);
+                  opacity = Math.max(0.45, 0.65 - distance * 0.06);
                 } else {
-                  opacity = Math.max(0.28, 0.7 - distance * 0.08);
+                  opacity = Math.max(0.45, 0.72 - distance * 0.06);
                 }
               }
 
