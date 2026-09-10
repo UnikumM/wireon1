@@ -10,6 +10,7 @@ import { PlaylistView } from './components/library/PlaylistView';
 import { CreatePlaylistModal } from './components/library/CreatePlaylistModal';
 import { SettingsView } from './components/settings/SettingsView';
 import { WaveView } from './components/wave/WaveView';
+import { HomeView } from './components/home/HomeView';
 import { ForYouView } from './components/foryou/ForYouView';
 import { ArtistHubView } from './components/artist/ArtistHubView';
 import { PlayerBar } from './components/player/PlayerBar';
@@ -138,10 +139,11 @@ export const App: React.FC = () => {
         return <SearchResults />;
       case 'wave':
         return <WaveView />;
-      // `home` — маршрут телефонной ленты. Отдельного экрана под неё на широком
-      // окне нет, и она ведёт в «Для вас»: содержимое то же, собранное для мыши.
-      // Без этой строки окно, расширенное с телефонной ширины, теряло бы место.
+      // `home` — главная: витрина с тем, на чём остановились, и подборками.
+      // «Для вас» осталась отдельно: там итоги прослушивания, и переезжать им
+      // на главную незачем — это разные вопросы, «что включить» и «что было».
       case 'home':
+        return <HomeView />;
       case 'foryou':
         return <ForYouView />;
       case 'library':

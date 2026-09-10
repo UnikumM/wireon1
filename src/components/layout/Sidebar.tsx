@@ -1,12 +1,12 @@
 import React from 'react';
-import { Search, Library, Heart, ListMusic, Plus, Music, Settings, Disc3, Radio, Sparkles } from 'lucide-react';
+import { Home, Search, Library, Heart, ListMusic, Plus, Music, Settings, Disc3, Radio, Sparkles } from 'lucide-react';
 import { useUIStore } from '../../store/useUIStore';
 import { useLibraryStore } from '../../store/useLibraryStore';
 import { Button } from '../common/Button';
 import { UserProfile } from '../auth/UserProfile';
 import { ICON } from '../../styles/icons';
 
-type NavViewId = 'search' | 'wave' | 'foryou' | 'library' | 'favorites' | 'playlists' | 'settings';
+type NavViewId = 'home' | 'search' | 'wave' | 'foryou' | 'library' | 'favorites' | 'playlists' | 'settings';
 
 interface NavItem {
   id: NavViewId;
@@ -15,6 +15,8 @@ interface NavItem {
 }
 
 const NAV_ITEMS: NavItem[] = [
+  // Первым пунктом — то, с чего человек начинает: чем он занимался вчера.
+  { id: 'home', label: 'Главная', icon: <Home size={ICON.lg} /> },
   { id: 'search', label: 'Поиск', icon: <Search size={ICON.lg} /> },
   { id: 'wave', label: 'Поток', icon: <Radio size={ICON.lg} /> },
   /*

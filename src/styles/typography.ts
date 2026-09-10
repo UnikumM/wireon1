@@ -126,7 +126,7 @@ export function isTypeScaleId(value: unknown): value is TypeScaleId {
 }
 
 /** Названия ступеней в том порядке, в каком они растут. */
-const STEP_NAMES = ['xs', 'sm', 'base', 'lg', 'xl', '2xl', '3xl'] as const;
+const STEP_NAMES = ['xs', 'sm', 'base', 'lg', 'xl', '2xl', '3xl', '4xl'] as const;
 type StepName = (typeof STEP_NAMES)[number];
 
 interface Step {
@@ -150,7 +150,11 @@ const STEPS: Readonly<Record<StepName, Step>> = {
   lg: { size: 17, leading: 1.4, tracking: -0.008 },
   xl: { size: 22, leading: 1.28, tracking: -0.016 },
   '2xl': { size: 29, leading: 1.18, tracking: -0.022 },
-  '3xl': { size: 38, leading: 1.08, tracking: -0.03 }
+  '3xl': { size: 38, leading: 1.08, tracking: -0.03 },
+  // Витринная ступень: заголовок героя на главной. Единственное место, где
+  // текст читается как изображение, а не как надпись, — поэтому строка
+  // поджата почти до кегля, а трекинг ушёл дальше в минус.
+  '4xl': { size: 56, leading: 1.04, tracking: -0.034 }
 };
 
 /* ==========================================================================
@@ -264,7 +268,10 @@ export const NARROW_TYPE_ADJUST: Readonly<Record<string, number>> = {
   lg: 1.09,
   xl: 1,
   '2xl': 0.9,
-  '3xl': 0.8
+  '3xl': 0.8,
+  // На узком окне витринный кегль обязан ужаться сильнее прочих: 56 px в
+  // ширину 320 не помещается ни одним словом.
+  '4xl': 0.62
 };
 
 /** Совместимость: множитель по умолчанию для ступеней вне таблицы. */
