@@ -1,5 +1,15 @@
 import { UnifiedTrack } from '../types/music';
-import { FEEDBACK_DELTA } from './waveMemory';
+import {
+  FEEDBACK_DELTA,
+  activeBoosts,
+  applyArtistFeedback,
+  emptyWaveMemory,
+  loadWaveMemory,
+  rememberServed,
+  servedIdSet,
+  updateWaveMemory,
+  type WaveFeedbackKind
+} from './waveMemory';
 import { normalizeArtistKey } from './tasteProfile';
 import {
   getFavorites,
@@ -36,6 +46,14 @@ export interface WaveConfig {
 
 export type FeedbackAction = 'like' | 'dislike' | 'skip' | 'more_like_this' | 'complete';
 
+/** Какое действие человека какой поправкой ложится в память волны. */
+const MEMORY_FEEDBACK: Partial<Record<FeedbackAction, WaveFeedbackKind>> = {
+  like: 'like',
+  dislike: 'dislike',
+  skip: 'skip',
+  more_like_this: 'more_like_this'
+};
+
 export interface UserProfile {
   artistAffinities: Map<string, number>;
   genreAffinities?: Map<string, number>;
@@ -54,6 +72,14 @@ export interface UserProfile {
   artistPlaylistCounts: Map<string, number>;
   /** Когда трек слушали в последний раз. Нужно для «Забытого» и объяснений. */
   lastPlayedAt?: Map<string, number>;
+  /**
+   * Что «Поток» уже выдавал — в прошлый раз и в позапрошлый запуск приложения.
+   *
+   * Мягкий штраф, а не фильтр: у человека с узким вкусом жёсткое исключение
+   * высушит выдачу до «Поток закончился». Повтор возможен — но только когда
+   * предложить больше нечего.
+   */
+  servedTrackIds?: Set<string>;
 }
 
 export interface ScoredCandidate {
@@ -141,6 +167,16 @@ const WAVE_SEED_RADIO_SUFFICIENT = 8;
 const RADIO_CHAIN_HOPS = 3;
 /** Во столько раз падает счёт трека, который пропускали и не дослушивали. */
 const SKIPPED_TRACK_PENALTY = 0.35;
+
+/**
+ * Во столько обходится трек, который «Поток» уже выдавал.
+ *
+ * Штраф, а не запрет: у человека с сотней треков в библиотеке жёсткое
+ * исключение уже выданного оставляет пустую очередь. Полтора очка из трёх —
+ * достаточно, чтобы любой незнакомый кандидат обошёл повтор, и мало, чтобы
+ * повтор исчез навсегда.
+ */
+const SERVED_TRACK_PENALTY = 0.5;
 /** Со скольких пропусков подряд трек считается отвергнутым. */
 export const SKIPS_BEFORE_PENALTY = 2;
 
@@ -502,13 +538,18 @@ export class RecommendationEngineService implements RecommendationEngine {
    * W_artist = playCount + 3.0 * isFavorite + 1.5 * inPlaylist + sessionBoost
    */
   public async buildUserProfile(): Promise<UserProfile> {
-    const [history, favorites, playlists, dislikes] = await Promise.all([
+    const now = Date.now();
+    const [history, favorites, playlists, dislikes, memory] = await Promise.all([
       getHistory(200).catch(() => []),
       getFavorites().catch(() => []),
       getPlaylists().catch(() => []),
       // Не `getDislikedTrackIds`: нужны ещё и артисты, а это то же самое чтение.
-      getDislikes().catch(() => [])
+      getDislikes().catch(() => []),
+      loadWaveMemory(now).catch(() => emptyWaveMemory(now))
     ]);
+    // Поправки от лайков и «больше такого» живут отдельно от истории: они должны
+    // действовать сразу, а не после того, как трек доиграет до конца.
+    const memoryBoosts = activeBoosts(memory, now);
     const dislikedTrackIds = new Set(dislikes.map((record) => record.id));
 
     const artistPlayCounts = new Map<string, number>();
@@ -606,7 +647,8 @@ export class RecommendationEngineService implements RecommendationEngine {
       ...artistFavoriteCounts.keys(),
       ...artistPlaylistCounts.keys(),
       ...artistDislikes.keys(),
-      ...this.sessionBoosts.keys()
+      ...this.sessionBoosts.keys(),
+      ...memoryBoosts.keys()
     ]);
 
     for (const normArtist of allArtists) {
@@ -636,7 +678,8 @@ export class RecommendationEngineService implements RecommendationEngine {
         Math.abs(FEEDBACK_DELTA.early_skip) * (artistEarlySkips.get(normArtist) || 0) +
         Math.abs(FEEDBACK_DELTA.dislike) * (artistDislikes.get(normArtist) || 0);
 
-      const score = plays + 3.0 * favs + 1.5 * plCount + boost - penalty;
+      const score =
+        plays + 3.0 * favs + 1.5 * plCount + boost + (memoryBoosts.get(normArtist) || 0) - penalty;
       artistAffinities.set(normArtist, score);
     }
 
@@ -668,7 +711,8 @@ export class RecommendationEngineService implements RecommendationEngine {
       artistPlayCounts,
       artistFavoriteCounts,
       artistPlaylistCounts,
-      lastPlayedAt
+      lastPlayedAt,
+      servedTrackIds: servedIdSet(memory)
     };
   }
 
@@ -900,10 +944,26 @@ export class RecommendationEngineService implements RecommendationEngine {
       config.seedKind === 'artist' ||
       config.seedKind === 'track' ||
       Boolean(config.seedArtist);
-    return this.arrangeCandidates(
+    const arranged = this.arrangeCandidates(
       scoredCandidates,
       limit,
       seededByArtist ? MAX_TRACKS_PER_SEED_ARTIST : MAX_TRACKS_PER_ARTIST
+    );
+    this.rememberServedTracks(arranged);
+    return arranged;
+  }
+
+  /**
+   * Помечает выданное, чтобы следующий запуск не начался с того же самого.
+   *
+   * Без `await`: запись в настройки не должна задерживать выдачу, а её отказ —
+   * ломать «Поток». Хуже памяти только отсутствие музыки.
+   */
+  private rememberServedTracks(tracks: readonly UnifiedTrack[]): void {
+    const ids = tracks.map((track) => track?.id).filter((id): id is string => Boolean(id));
+    if (ids.length === 0) return;
+    void updateWaveMemory((state) => rememberServed(state, ids)).catch((err) =>
+      console.error('[RecommendationEngine] wave memory remember failed:', err)
     );
   }
 
@@ -1087,7 +1147,9 @@ export class RecommendationEngineService implements RecommendationEngine {
 
     // Радио трека — это «похоже на вот это», поэтому исходному артисту здесь
     // позволено больше, чем в обычной волне, но не вся выдача целиком.
-    return this.arrangeCandidates(scoredCandidates, limit, MAX_TRACKS_PER_SEED_ARTIST);
+    const arranged = this.arrangeCandidates(scoredCandidates, limit, MAX_TRACKS_PER_SEED_ARTIST);
+    this.rememberServedTracks(arranged);
+    return arranged;
   }
 
   /**
@@ -1095,6 +1157,16 @@ export class RecommendationEngineService implements RecommendationEngine {
    */
   public async recordFeedback(track: UnifiedTrack, action: FeedbackAction): Promise<void> {
     if (!track || !track.id) return;
+
+    // Поправка в память волны — раньше всего остального: она единственная
+    // действует сразу, до того как трек доиграет и попадёт в историю. Именно
+    // её отсутствие давало «жму сердечко, а ему всё равно».
+    const memoryKind = MEMORY_FEEDBACK[action];
+    if (memoryKind) {
+      await updateWaveMemory((state) => applyArtistFeedback(state, track.artist, memoryKind)).catch(
+        (err) => console.error('[RecommendationEngine] wave memory update failed:', err)
+      );
+    }
 
     switch (action) {
       case 'like':
@@ -1425,7 +1497,10 @@ export class RecommendationEngineService implements RecommendationEngine {
     // ответ «не надо», просто без нажатия на «не нравится».
     const skipPenalty = profile.skippedTrackIds?.has(track.id) ? SKIPPED_TRACK_PENALTY : 1.0;
 
-    score *= recencyPenalty * skipPenalty;
+    // 8. Уже выдавали — в этот запуск приложения или в прошлый.
+    const servedPenalty = profile.servedTrackIds?.has(track.id) ? SERVED_TRACK_PENALTY : 1.0;
+
+    score *= recencyPenalty * skipPenalty * servedPenalty;
 
     return {
       track,

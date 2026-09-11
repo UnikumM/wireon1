@@ -25,6 +25,7 @@ import {
 import { UnifiedTrack } from '../../src/types/music';
 import { YouTubeService } from '../../src/services/youtube';
 import { SoundCloudService } from '../../src/services/soundcloud';
+import { resetWaveMemoryCache } from '../../src/services/waveMemory';
 
 const mockYtTrack1: UnifiedTrack = {
   id: 'yt_track1',
@@ -93,6 +94,9 @@ describe('RecommendationEngineService', () => {
 
   beforeEach(async () => {
     await clearAllData();
+    // Память волны живёт в модуле, а не в базе: без сброса второй тест видел бы
+    // лайки первого.
+    resetWaveMemoryCache();
 
     mockYtService = {
       search: vi.fn().mockResolvedValue([mockYtTrack1, mockYtTrack2]),
@@ -374,6 +378,35 @@ describe('RecommendationEngineService', () => {
       const scored = engine.scoreCandidate(mockYtTrack1, configWithGenre, profile);
 
       expect(scored.genreBonus).toBe(0.25);
+    });
+
+    it('лайк поднимает артиста сразу, не дожидаясь конца трека', async () => {
+      // «Жму сердечко, а ему всё равно»: поправки лежали в базе, но на вес
+      // влияли только через историю прослушиваний — то есть не влияли, пока
+      // трек не доиграет.
+      const before = (await engine.buildUserProfile()).artistAffinities.get(
+        normalizeArtist(mockYtTrack1.artist)
+      );
+      await engine.recordFeedback(mockYtTrack1, 'more_like_this');
+      const after = (await engine.buildUserProfile()).artistAffinities.get(
+        normalizeArtist(mockYtTrack1.artist)
+      );
+
+      expect(after || 0).toBeGreaterThan(before || 0);
+    });
+
+    it('уже выданное штрафуется, но не исчезает', async () => {
+      const profile = await engine.buildUserProfile();
+      const config: WaveConfig = { mood: 'energy' };
+      const fresh = engine.scoreCandidate(mockYtTrack1, config, profile);
+
+      const served: typeof profile = { ...profile, servedTrackIds: new Set([mockYtTrack1.id]) };
+      const repeat = engine.scoreCandidate(mockYtTrack1, config, served);
+
+      expect(repeat.score).toBeLessThan(fresh.score);
+      // Именно штраф, а не фильтр: с узкой библиотекой жёсткое исключение
+      // оставляет «Поток закончился» вместо музыки.
+      expect(repeat.score).toBeGreaterThan(0);
     });
 
     it('свежесть считается по времени, а не по позиции в истории', () => {
