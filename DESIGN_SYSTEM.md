@@ -25,7 +25,7 @@ Blur is not banned outright any more, but it is **fenced off**: `--glass-*` and
 the `.glass` / `.glass-strong` classes exist for layers that float over *other*
 content — the mini player window, its popover, the queue drawer, modals
 (`global.css` §10). Blurring the whole app window costs real frames and turns the
-interface into a smear, so the sidebar, header and player bar stay opaque. The
+interface into a smear, so the header and the player bar stay opaque. The
 blur radius comes from the active preset (`glassBlur`, 0 for `obsidian`) and a
 user can force it off, so **never rely on blur to make text legible** — the same
 markup has to read at `blur(0)`.
@@ -79,7 +79,7 @@ illustration.
 |---|---|---|
 | `--bg-base` | `#0e0f12` | The app canvas. Also the `BrowserWindow` backgroundColor and the `theme-color` meta — **change all three together or the window flashes the wrong colour on open.** |
 | `--surface-sunken` | `#0a0b0d` | Recessed wells: text inputs, inset progress rails, drop targets, empty-state boxes. |
-| `--surface-1` | `#141619` | Structural chrome that sits *on* the canvas: sidebar, header, player bar, the mini window. |
+| `--surface-1` | `#141619` | Structural chrome that sits *on* the canvas: header, player bar, the mini window. |
 | `--surface-2` | `#191b20` | Content containers on the canvas: cards, list rows, panels. |
 | `--surface-3` | `#1f2127` | Floating layers: menus, dropdowns, popovers, queue drawer, toasts. Also the hover target for `--surface-2` cards. |
 | `--surface-4` | `#26282e` | Highest layer: modals, tooltips. |
@@ -215,7 +215,7 @@ eye nothing — and it steals meaning from the one accent glyph on screen that *
 saying something.
 
 **`Sparkles` in particular is down to one use in the whole app**: the "Для вас"
-section, in the sidebar and in the command palette, where it stands for
+section, in the header nav and in the command palette, where it stands for
 recommendations. Everywhere else it was decoration marking "this bit is clever",
 which is the clearest sign of a generated interface, and it was replaced by an icon
 that names the actual subject. If you need a glyph, name the thing — `ListMusic`
@@ -223,9 +223,8 @@ for a queue, `Mic` for lyrics, `Radio` for autoplay. Reach for `Sparkles` only i
 the subject really is "recommended for you", and check whether that one use is
 already taken.
 
-**One documented exception:** the brand mark in the sidebar (`Disc3` on an accent
-tile) is identity, not state. It is the only permanently-accent decoration in the
-app, it appears once, and it never moves.
+**One documented exception:** the brand mark at the left of the header nav is
+identity, not state. It appears once and it never moves.
 
 Budget: at most **one** accent-filled element per visual region. Everything else
 uses `--accent-soft` + `--border-accent`, or accent-coloured text.
@@ -283,7 +282,7 @@ shape picker. Never assume a specific pixel count in a component.
 |---|---|---|
 | `--radius-xs` | `8px` | Badges, `.kbd`, tiny tags, colour swatches. |
 | `--radius-sm` | `10px` | Buttons, icon buttons, menu items, list rows, inputs. |
-| `--radius-md` | `14px` | Cards, panels, menus, dropdowns, the sidebar. |
+| `--radius-md` | `14px` | Cards, panels, menus, dropdowns. |
 | `--radius-lg` | `18px` | Large panels, album artwork, the queue drawer. |
 | `--radius-xl` | `24px` | Modals, hero artwork, the fullscreen player. |
 | `--radius-full` | `9999px` | Pills, chips, avatars, slider rails and thumbs. **Not** preset-driven: a circle stays a circle under every preset. |
@@ -469,18 +468,38 @@ press scale and marquee. **You do not need to write a reduced-motion block.**
 
 ## 9. Layout, spacing, typography
 
-Layout tokens — names are fixed by the contract; the shell reads them. The header
-and the player bar are deliberately tight: 56 px and 84 px hand 14 px back to the
-content and still clear what they hold (52 px artwork and a `--control-xl` play
-button in the bar) with room to spare.
+Layout tokens — names are fixed by the contract; the shell reads them. There is
+no sidebar token any more: the sections live in the header (§9.1), and the width
+the panel used to hold went to the content.
 
 | Token | Value |
 |---|---|
-| `--sidebar-width-expanded` | `260px` |
-| `--sidebar-width-collapsed` | `72px` |
-| `--header-height` | `56px` |
-| `--player-bar-height` | `84px` |
+| `--header-height` | `72px` |
+| `--player-bar-height` | `88px` |
 | `--queue-drawer-width` | `380px` |
+
+### 9.1 The header carries the sections
+
+Primary navigation runs across the top (`TopNav.tsx`, `.wireon-topnav` in
+`global.css` §14), not down the side. The reason is the showcase direction: the
+largest thing on screen has to be the music itself, and a 264 px panel held that
+width permanently for eight rows pressed once a session — the artwork in what was
+left came out stamp-sized.
+
+Consequences worth knowing before you add anything to the header:
+
+- **The selected section is marked by an underline, not by colour alone.** It
+  grows on a spring from `aria-current='page'`; a left rail would read as a
+  divider between items in a horizontal row.
+- **Settings are not a section.** They sit with the account on the right, because
+  they are a utility and because a ninth item stopped the row fitting a 1440 px
+  window — the label clipped to «Нас».
+- **Below 1200 px the labels go and the icons stay.** Measured at 900 px: only
+  «Главн» was visible and the rest left the edge with nothing to say so. The name
+  survives in `aria-label` and the tooltip, and `.hide-on-medium` drops the
+  command-palette button first, because sections matter more.
+- **The section title was removed.** It repeated the highlighted nav item word for
+  word. It remains only under 768 px, where the row of sections is gone.
 
 Spacing — **every** gap, padding and margin comes from this scale:
 
@@ -692,11 +711,11 @@ they come with the surface.
 | Element | Surface | Border | Shadow | Radius | Class |
 |---|---|---|---|---|---|
 | App canvas / view background | `--bg-base` | — | — | — | — |
-| **Sidebar** | `--surface-1` | `--border-subtle` on the inner edge only | none | 0 (full-height) | `.panel` |
-| **Header** | `--surface-1` | `--border-subtle` on the bottom edge | none | 0 | `.panel` |
+| **Header** (holds the section nav) | `--surface-1` | `--border-subtle` on the bottom edge | none | 0 | `.panel` |
 | **Player bar** | `--surface-1` | `--border-subtle` on the top edge | none | 0 | `.panel` |
 | Section well / empty state | `--surface-sunken` | `--border-subtle` | none | `--radius-md` | `.panel-inset` |
 | **Cards** (playlist, album, result) | `--surface-2` | `--border-subtle` | none at rest, `--shadow-md` on hover | `--radius-md` | `.card` / `.card-interactive` |
+| **Cover cards** (album, mix, artist) | none — the artwork *is* the object | none | `--shadow-md`, `--shadow-lg` on hover | `--radius-lg` on the art | `.cover-card` |
 | **Track rows** | transparent | none at rest | none | `--radius-sm` | `.card-interactive` or row styling |
 | **Menus / dropdowns / popovers** | `--surface-3` | `--border` | `--shadow-md` | `--radius-md` | `.panel-raised` |
 | **Queue drawer** | `--surface-3` | `--border` on the leading edge | `--shadow-lg` | `--radius-lg` on the inner corners | `.panel-raised` |
@@ -707,8 +726,14 @@ they come with the surface.
 | Fullscreen player | `--bg-base` | — | — | — | — |
 
 Notes:
-- Full-bleed chrome (sidebar/header/player bar) gets **one** hairline on the edge
-  that faces content, and **no** shadow — the surface step is the separation.
+- Full-bleed chrome (header/player bar) gets **one** hairline on the edge that
+  faces content, and **no** shadow — the surface step is the separation.
+- A cover card has no panel at all. In the showcase language the artwork is the
+  object and empty space separates it from its neighbours; the hover response is
+  therefore the art lifting, not a background appearing behind it. There used to
+  be two of these — a bare one on the home page and a framed one in search — and
+  the same content in two dresses reads as two kinds of thing. One component now:
+  `CoverCard`.
 - A floating layer always gets a real border (`--border`, not `--border-subtle`)
   *and* a shadow. One without the other reads as a mistake in a matte system.
 - Track rows are transparent at rest so a long list stays quiet; they only gain
@@ -798,9 +823,10 @@ replacements were:
 
 Still-live hooks that never had CSS of their own and are not aliases:
 `.wireon-*`, `.window-controls`, `.window-btn`, `.minimize-btn`, `.maximize-btn`,
-`.close-btn`, `.sidebar-nav-item`, `.sidebar-playlist-item`. They are
-semantic/test hooks; their visuals come from inline styles. (`.quick-tag-chip` is
-gone — it became `.chip`.)
+`.close-btn`. They are semantic/test hooks; their visuals come from inline
+styles. (`.sidebar-nav-item` and `.sidebar-playlist-item` are gone with the
+sidebar; the section row is `.topnav-item`, and it is styled in CSS, not inline.
+`.quick-tag-chip` is gone too — it became `.chip`.)
 
 ### Regression check
 
@@ -862,17 +888,20 @@ introducing a pun, "и" chaining two half-thoughts — cut them. Short beats cle
 
 ## 15. Narrow windows
 
-**One breakpoint: `768px`.** No intermediate states. This is a desktop app in a
-resizable window, not a site serving phones and tablets; a second breakpoint
-doubles the number of layouts to keep honest for a size nobody runs.
+**Two breakpoints: `1200px` and `768px`.** The second one was added with the
+top navigation and earns its keep: between the phone layout and a full-width
+window there is a band where seven labelled sections plus the header buttons do
+not fit one line, and measuring it is the only way to know.
 
-At `768px` the sidebar leaves and `MobileNav` takes over. Two utilities in
-`global.css` §20 handle the swap:
+At `1200px` the section labels go and the icons stay. At `768px` the row of
+sections goes entirely and `MobileNav` takes over. Three utilities in
+`global.css` §20 handle the swaps:
 
 | Class | Effect |
 |---|---|
 | `.hide-on-mobile` | Visible normally, `display: none` under 768px. |
 | `.show-on-mobile` | `display: none` normally, shown under 768px. |
+| `.hide-on-medium` | Visible normally, `display: none` under 1200px. |
 
 `.show-on-mobile` cannot hardcode the shown `display` — one element needs `flex`,
 another `inline-block` — so it reads `--show-on-mobile-display` (default `block`)
@@ -888,12 +917,14 @@ and the element supplies its own:
 **Put the class on a wrapper if the component sets `display` inline.** A
 stylesheet rule cannot beat an inline style, so `.show-on-mobile` on a root that
 already carries `display: inline-block` does nothing at all. `UserProfile` is
-exactly this case. The sidebar has the same problem in reverse: `.wireon-sidebar`
-keeps its `display` and `width` in CSS *precisely* so the breakpoint can hide it.
+exactly this case.
 
-**Nothing may exist only inside the sidebar.** When it leaves, anything it was
-holding has to survive elsewhere — the account pill moves to the header, which is
-why the header copy is `.show-on-mobile` rather than always-on.
+**Nothing may exist only inside a layer a breakpoint removes.** When the section
+labels go, the name has to survive in `aria-label`; when the whole row goes, the
+section has to be reachable from `MobileNav`. The account pill used to be the
+standing example of getting this wrong: it lived in the sidebar footer with a
+`.show-on-mobile` copy in the header, and both copies answered to one
+`data-testid`.
 
 ### Phones: safe areas, and what the bar keeps
 
@@ -988,8 +1019,11 @@ of these were removed:
 
 - the queue button in the header — the player bar already had one, with the same
   `toggleQueue`, the same glyph and the same count, a screen-height apart;
-- the account pill in the header on wide windows — the sidebar footer has it, and
-  both copies even shared a `data-testid`, so two elements answered to one name.
+- the account pill, which existed twice while the sidebar did — once in its
+  footer and once in the header — with both copies sharing a `data-testid`, so
+  two elements answered to one name. With the sidebar gone there is one;
+- the section title in the header on wide windows — it said the same word as the
+  highlighted nav item, a centimetre away.
 
 Before adding a control, check the command palette and the player bar. If it is
 reachable there, it probably does not need a second home.
