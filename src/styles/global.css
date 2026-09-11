@@ -1825,6 +1825,31 @@ svg.lucide[width='48'] {
 }
 
 /**
+ * Имя исполнителя, по которому можно перейти на его страницу.
+ *
+ * Переход работал и раньше, но узнать об этом было неоткуда: имя выглядело
+ * ровно как обычная вторая строка карточки — тот же кегль, тот же цвет,
+ * никакого отклика. Человек так и сказал: «непонятный заход на профиль
+ * авторов». Подчёркивание появляется по наведению и по фокусу с клавиатуры, а
+ * не стоит всегда: сплошь подчёркнутый список читается хуже.
+ */
+.artist-link {
+  color: var(--text-secondary);
+  cursor: pointer;
+  text-decoration: underline;
+  text-decoration-color: transparent;
+  text-underline-offset: 2px;
+  transition: color var(--dur-fast) var(--ease-out),
+    text-decoration-color var(--dur-fast) var(--ease-out);
+}
+
+.artist-link:hover,
+.artist-link:focus-visible {
+  color: var(--text-primary);
+  text-decoration-color: currentColor;
+}
+
+/**
  * Обложка, которая одновременно кнопка: нажимают на то, что меняют.
  *
  * Сброс вида кнопки живёт здесь, а не в атрибуте: инлайновый `background`

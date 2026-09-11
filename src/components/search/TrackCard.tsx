@@ -572,7 +572,7 @@ export const TrackCard: React.FC<TrackCardProps> = ({
           </h3>
 
           <p
-            className="text-truncate"
+            className="text-truncate artist-link"
             onClick={handleArtistClick}
             role="button"
             tabIndex={0}
@@ -585,7 +585,7 @@ export const TrackCard: React.FC<TrackCardProps> = ({
             }}
             style={{
               fontSize: 'var(--text-base)',
-              color: 'var(--text-secondary)',
+              // Цвет — в `.artist-link`: инлайновый погасил бы наведение.
               margin: 0,
               cursor: 'pointer',
               display: 'inline-block',
@@ -698,7 +698,7 @@ export const TrackCard: React.FC<TrackCardProps> = ({
             {track.title}
           </span>
           <span
-            className="text-truncate"
+            className="text-truncate artist-link"
             onClick={handleArtistClick}
             role="button"
             tabIndex={0}
@@ -711,7 +711,9 @@ export const TrackCard: React.FC<TrackCardProps> = ({
             }}
             style={{
               fontSize: 'var(--text-sm)',
-              color: 'var(--text-secondary)',
+              // Цвета здесь нет нарочно: он живёт в `.artist-link` вместе с
+              // наведением, а инлайновое объявление старше правила таблицы и
+              // погасило бы отклик целиком.
               cursor: 'pointer',
               display: 'inline-block',
               width: 'fit-content'
@@ -817,7 +819,7 @@ export const TrackCard: React.FC<TrackCardProps> = ({
           {track.title}
         </span>
         <span
-          className="text-truncate"
+          className="text-truncate artist-link"
           onClick={handleArtistClick}
           role="button"
           tabIndex={0}
@@ -830,8 +832,7 @@ export const TrackCard: React.FC<TrackCardProps> = ({
           }}
           style={{
             fontSize: 'var(--text-sm)',
-            color: 'var(--text-secondary)',
-            cursor: 'pointer',
+            // Цвет — в `.artist-link`: инлайновый погасил бы наведение.
             display: 'inline-block',
             /*
               * `width: fit-content` без потолка отменял обрезку: коробка росла
