@@ -356,16 +356,13 @@ export function hasPollutedTitle(track: UnifiedTrack): boolean {
  * Производные от профиля величины, нужные каждому кандидату.
  *
  * Считались внутри `scoreCandidate`, то есть заново на каждый трек: `Math.max`
- * по всем артистам и `indexOf` по всей истории. На пятидесяти кандидатах это
- * тысячи лишних проходов ровно за теми же числами, а на большой библиотеке
- * `Math.max(...values)` ещё и рискует переполнить стек аргументов. Кэш висит на
- * самом объекте профиля: профиль пересобирается на каждую волну, поэтому
- * устареть он не может.
+ * по всем артистам. На пятидесяти кандидатах это тысячи лишних проходов ровно
+ * за тем же числом, а на большой библиотеке `Math.max(...values)` ещё и рискует
+ * переполнить стек аргументов. Кэш висит на самом объекте профиля: профиль
+ * пересобирается на каждую волну, поэтому устареть он не может.
  */
 interface ProfileIndex {
   maxAffinity: number;
-  /** Позиция трека в истории: 0 — играл только что. */
-  recencyRank: Map<string, number>;
 }
 
 const profileIndexCache = new WeakMap<UserProfile, ProfileIndex>();
@@ -379,15 +376,28 @@ function profileIndex(profile: UserProfile): ProfileIndex {
     if (Number.isFinite(value) && value > maxAffinity) maxAffinity = value;
   }
 
-  const recencyRank = new Map<string, number>();
-  let rank = 0;
-  for (const id of profile.recentTrackIds) {
-    recencyRank.set(id, rank++);
-  }
-
-  const index: ProfileIndex = { maxAffinity, recencyRank };
+  const index: ProfileIndex = { maxAffinity };
   profileIndexCache.set(profile, index);
   return index;
+}
+
+/**
+ * Насколько трек «отдохнул» с прошлого включения: 1 — не играл вовсе, 0.05 —
+ * играл только что.
+ *
+ * Прежде свежесть мерилась позицией в истории: «недавним» считалось попадание в
+ * первые десять записей. Для человека, включающего пять треков в день, десятая
+ * запись — позавчерашняя, а для того, кто слушает весь день, — та, что играла
+ * час назад. Одна и та же цифра означала разное. Теперь меряется время.
+ */
+export function freshnessScore(lastPlayedAt: number | undefined, now: number): number {
+  if (!lastPlayedAt || !Number.isFinite(lastPlayedAt) || lastPlayedAt <= 0) return 1;
+  const hours = Math.max(0, now - lastPlayedAt) / (60 * 60 * 1000);
+  if (hours < 6) return 0.05;
+  if (hours < 24) return 0.25;
+  if (hours < 24 * 7) return 0.6;
+  if (hours < 24 * 30) return 0.85;
+  return 1;
 }
 
 export type WavePickReasonKind =
@@ -1285,12 +1295,13 @@ export class RecommendationEngineService implements RecommendationEngine {
   public scoreCandidate(
     track: UnifiedTrack,
     config: WaveConfig,
-    profile: UserProfile
+    profile: UserProfile,
+    now: number = Date.now()
   ): ScoredCandidate {
     const normArtist = normalizeArtist(track.artist);
     const titleLower = (track.title || '').toLowerCase();
     const artistLower = (track.artist || '').toLowerCase();
-    const { maxAffinity, recencyRank } = profileIndex(profile);
+    const { maxAffinity } = profileIndex(profile);
 
     // 1. Calculate Affinity Score (W_affinity in [0, 1])
     let affinityScore = 0;
@@ -1397,13 +1408,14 @@ export class RecommendationEngineService implements RecommendationEngine {
       noveltyScore * weights.gamma +
       genreBonus;
 
-    // 6. Recency Penalty
-    let recencyPenalty = 1.0;
-    const recencyPosition = recencyRank.get(track.id);
-    if (recencyPosition !== undefined) {
-      // Ближе к началу истории — значит играл совсем недавно.
-      recencyPenalty = recencyPosition < 10 ? 0.2 : 0.6;
-    }
+    // 6. Recency Penalty — по времени с прошлого включения, а не по позиции.
+    // У трека из истории без отметки времени (старые записи) берётся середина
+    // шкалы: «играл когда-то», но не «играл только что».
+    const lastPlayed = profile.lastPlayedAt?.get(track.id);
+    const recencyPenalty =
+      lastPlayed === undefined && profile.recentTrackIds.has(track.id)
+        ? 0.6
+        : freshnessScore(lastPlayed, now);
 
     // 7. Штраф за пропуски: трек, который выключали и не дослушивали, — это
     // ответ «не надо», просто без нажатия на «не нравится».

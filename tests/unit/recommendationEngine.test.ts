@@ -8,6 +8,7 @@ import {
   isRadioFriendly,
   isTopUpEligible,
   hasPollutedTitle,
+  freshnessScore,
   WaveConfig
 } from '../../src/services/recommendationEngine';
 import {
@@ -373,6 +374,20 @@ describe('RecommendationEngineService', () => {
       const scored = engine.scoreCandidate(mockYtTrack1, configWithGenre, profile);
 
       expect(scored.genreBonus).toBe(0.25);
+    });
+
+    it('свежесть считается по времени, а не по позиции в истории', () => {
+      // Вся суть правки: у человека, слушающего пять треков в день, десятая
+      // запись истории — позавчерашняя, а у слушающего весь день — часовой
+      // давности. Позиция в списке об этом не знает, время знает.
+      const now = Date.parse('2026-09-11T12:00:00Z');
+      const hour = 60 * 60 * 1000;
+
+      expect(freshnessScore(undefined, now)).toBe(1);
+      expect(freshnessScore(now - hour, now)).toBe(0.05);
+      expect(freshnessScore(now - 12 * hour, now)).toBe(0.25);
+      expect(freshnessScore(now - 3 * 24 * hour, now)).toBe(0.6);
+      expect(freshnessScore(now - 200 * 24 * hour, now)).toBe(1);
     });
 
     it('applies history recency penalty to recently played tracks', async () => {
