@@ -17,6 +17,8 @@ import { useLibraryStore } from '../../src/store/useLibraryStore';
 import { useUIStore } from '../../src/store/useUIStore';
 import { UnifiedTrack } from '../../src/types/music';
 import { resetPlayerStore, resetLibraryStore, resetUIStore, flushAsync } from '../helpers/testUtils';
+import * as discover from '../../src/services/discover';
+import * as subscriptions from '../../src/services/subscriptions';
 
 function track(id: string, title: string): UnifiedTrack {
   return {
@@ -101,5 +103,45 @@ describe('Главная', () => {
     // Ни истории, ни текущего трека: экран обязан остаться, а кнопка — молчать.
     expect(screen.getByTestId('home-view')).toBeInTheDocument();
     expect(screen.getByTestId('home-hero-play')).toBeDisabled();
+  });
+
+  it('полки площадки открываются, а не включаются вслепую', async () => {
+    vi.spyOn(discover, 'getNewReleases').mockResolvedValue([
+      {
+        title: 'Альбомы и синглы',
+        items: [
+          {
+            id: 'ytc_MPREb_x',
+            kind: 'album',
+            source: 'youtube',
+            ref: 'MPREb_x',
+            title: 'Legend',
+            subtitle: 'Альбом • ELITE',
+            artworkUrl: ''
+          }
+        ]
+      }
+    ]);
+    vi.spyOn(discover, 'getCharts').mockResolvedValue([]);
+
+    render(<HomeView />);
+    await flushAsync();
+
+    fireEvent.click(screen.getByTestId('home-shelf-item-ytc_MPREb_x'));
+    expect(useUIStore.getState().activeView).toBe('collection');
+    expect(useUIStore.getState().activeCollection).toMatchObject({ ref: 'MPREb_x' });
+  });
+
+  it('без подписок и без сети ряды просто не показываются', async () => {
+    vi.spyOn(discover, 'getNewReleases').mockResolvedValue([]);
+    vi.spyOn(discover, 'getCharts').mockResolvedValue([]);
+    vi.spyOn(subscriptions, 'checkNewReleases').mockResolvedValue([]);
+
+    render(<HomeView />);
+    await flushAsync();
+
+    // Пустой ряд с заголовком хуже отсутствующего: он обещает содержимое.
+    expect(screen.queryByTestId('home-releases')).toBeNull();
+    expect(screen.getByTestId('home-daily')).toBeInTheDocument();
   });
 });
