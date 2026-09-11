@@ -1,4 +1,4 @@
-import { AudioSource, UnifiedTrack } from '../types/music';
+import { AudioSource, SearchCollection, UnifiedTrack } from '../types/music';
 import { youtubeService, YouTubeService } from './youtube';
 import { soundCloudService, SoundCloudService } from './soundcloud';
 import { streamResolver, StreamResolver } from './streamResolver';
@@ -20,6 +20,7 @@ export interface SearchAggregateResult {
 
 export interface ISearchAggregator {
   search(query: string, options?: SearchOptions): Promise<SearchAggregateResult>;
+  searchCollections(query: string, options?: SearchOptions): Promise<SearchCollection[]>;
   resolveStream(track: UnifiedTrack): Promise<string>;
   getSuggestions(query: string): Promise<string[]>;
   getRelatedTracks(track: UnifiedTrack, limit?: number): Promise<UnifiedTrack[]>;
@@ -94,6 +95,8 @@ export class SearchAggregator implements ISearchAggregator {
   private resolver: StreamResolver;
   private searchCache: Map<string, { timestamp: number; data: SearchAggregateResult }> = new Map();
   private cacheTTL = 60000; // 1 minute query cache
+  /** Тот же кэш, но для подборок: срок жизни общий с поиском треков. */
+  private collectionsCache: Map<string, { timestamp: number; data: SearchCollection[] }> = new Map();
 
   constructor(
     ytService: YouTubeService = youtubeService,
@@ -260,6 +263,50 @@ export class SearchAggregator implements ISearchAggregator {
 
     this.writeCache(cacheKey, result);
     return result;
+  }
+
+  /**
+   * Альбомы, исполнители и плейлисты по тому же запросу.
+   *
+   * Отдельным методом, а не полем в `search`: вкладки открывают по одной, и
+   * тянуть подборки при каждом наборе в строке поиска было бы платой за то,
+   * чего человек чаще всего не откроет. Кэш общий с поиском треков — ключ
+   * помечен видом, поэтому возвраты на вкладку бесплатны.
+   */
+  public async searchCollections(
+    query: string,
+    options: SearchOptions = {}
+  ): Promise<SearchCollection[]> {
+    const trimmed = (query || '').trim();
+    if (!trimmed) return [];
+
+    const source = options.source || 'all';
+    const limit = options.limit || 20;
+    const cacheKey = `${trimmed}::${source}::${limit}::collections`;
+
+    const cached = this.collectionsCache.get(cacheKey);
+    if (cached && Date.now() - cached.timestamp < this.cacheTTL) return cached.data;
+
+    const perSource = source === 'all' ? Math.ceil(limit / 2) : limit;
+    const [yt, sc] = await Promise.all([
+      source === 'soundcloud'
+        ? Promise.resolve<SearchCollection[]>([])
+        : this.ytService.searchCollections(trimmed, perSource).catch(() => []),
+      source === 'youtube'
+        ? Promise.resolve<SearchCollection[]>([])
+        : this.scService.searchCollections(trimmed, perSource).catch(() => [])
+    ]);
+
+    // YouTube впереди: там альбомы и исполнители заведены как таковые, а у
+    // SoundCloud это люди и подборки, и совпадение по имени там слабее.
+    const merged = [...yt, ...sc].slice(0, limit);
+    this.collectionsCache.set(cacheKey, { timestamp: Date.now(), data: merged });
+    while (this.collectionsCache.size > MAX_CACHE_ENTRIES) {
+      const oldest = this.collectionsCache.keys().next().value;
+      if (oldest === undefined) break;
+      this.collectionsCache.delete(oldest);
+    }
+    return merged;
   }
 
   /**

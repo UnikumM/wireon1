@@ -1,5 +1,5 @@
 import { detectPlatform, getStreamBridge } from './nativeBridge';
-import { UnifiedTrack } from '../types/music';
+import { SearchCollection, UnifiedTrack } from '../types/music';
 import { formatDuration, parseDurationToSeconds } from '../utils/time';
 import { UNKNOWN_ARTIST } from '../utils/placeholders';
 
@@ -226,6 +226,25 @@ export function splitMetadataRuns(runs: string[]): { meta: string[]; duration: s
   return { meta, duration };
 }
 
+
+/**
+ * Вид найденного по `pageType` из ответа, с откатом на приставку ключа.
+ *
+ * `MPREb_` — альбом, `UC` — канал исполнителя, `VL`/`PL` — плейлист. Приставки
+ * держатся у YouTube годами, но `pageType` всё же честнее: он про смысл, а не
+ * про то, как выглядит строка.
+ */
+function collectionKindOf(pageType: unknown, browseId: string): 'album' | 'artist' | 'playlist' | null {
+  const type = String(pageType || '');
+  if (type.includes('ARTIST')) return 'artist';
+  if (type.includes('ALBUM')) return 'album';
+  if (type.includes('PLAYLIST')) return 'playlist';
+  if (browseId.startsWith('MPREb_')) return 'album';
+  if (browseId.startsWith('UC')) return 'artist';
+  if (browseId.startsWith('VL') || browseId.startsWith('PL')) return 'playlist';
+  return null;
+}
+
 export class YouTubeService {
   private invidiousInstances: string[];
   private pipedInstances: string[];
@@ -390,6 +409,121 @@ export class YouTubeService {
 
     const data = await response.json();
     return this.parseInnerTubeResponse(data, limit);
+  }
+
+  /**
+   * Альбомы, исполнители и плейлисты по тому же запросу.
+   *
+   * Один запрос на все три вкладки, а не три с разными фильтрами: в поиск
+   * уходит та же самая строка **без** фильтра «Songs», и YouTube Music сам
+   * возвращает выдачу полками — песни, альбомы, исполнители, плейлисты. Три
+   * запроса с подобранными `params` дали бы то же самое втрое дороже, да ещё и
+   * на непрозрачных строках, которые ломаются молча.
+   */
+  public async searchCollections(query: string, limit: number = 10): Promise<SearchCollection[]> {
+    const trimmed = (query || '').trim();
+    if (!trimmed) return [];
+
+    const payload = {
+      context: {
+        client: {
+          clientName: 'WEB_REMIX',
+          clientVersion: '1.20240101.01.00',
+          hl: 'ru',
+          gl: 'RU'
+        }
+      },
+      query: trimmed
+    };
+
+    try {
+      const response = await this.fetchWithTimeout('https://music.youtube.com/youtubei/v1/search', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'User-Agent':
+            'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
+          'X-YouTube-Client-Name': '67',
+          Origin: 'https://music.youtube.com',
+          Referer: 'https://music.youtube.com/'
+        },
+        body: JSON.stringify(payload)
+      });
+      if (!response.ok) throw new Error(`InnerTube HTTP error: ${response.status}`);
+      return this.parseCollectionsResponse(await response.json(), limit);
+    } catch (err) {
+      console.warn('[YouTubeService] Collections search failed:', err);
+      return [];
+    }
+  }
+
+  /**
+   * Достаёт из поисковой выдачи всё, что не трек.
+   *
+   * Вид определяется по `pageType`, а не по заголовку полки: заголовки приходят
+   * на языке запроса, и «Albums» против «Альбомы» развели бы одно и то же на
+   * две ветки. Приставка идентификатора — запасной признак на случай, если
+   * `pageType` не пришёл.
+   */
+  public parseCollectionsResponse(data: any, limit: number = 10): SearchCollection[] {
+    const results: SearchCollection[] = [];
+    const seen = new Set<string>();
+
+    const sections =
+      data?.contents?.tabbedSearchResultsRenderer?.tabs?.[0]?.tabRenderer?.content?.sectionListRenderer
+        ?.contents ||
+      data?.contents?.sectionListRenderer?.contents ||
+      [];
+
+    for (const section of sections) {
+      const items = section?.musicShelfRenderer?.contents || [];
+      for (const item of items) {
+        if (results.length >= limit) break;
+        const renderer = item?.musicResponsiveListItemRenderer;
+        if (!renderer) continue;
+
+        const browse =
+          renderer.navigationEndpoint?.browseEndpoint ||
+          renderer.overlay?.musicItemThumbnailOverlayRenderer?.content?.musicPlayButtonRenderer
+            ?.playNavigationEndpoint?.browseEndpoint;
+        const browseId: string = browse?.browseId || '';
+        if (!browseId) continue;
+
+        const kind = collectionKindOf(
+          browse?.browseEndpointContextSupportedConfigs?.browseEndpointContextMusicConfig?.pageType,
+          browseId
+        );
+        if (!kind) continue;
+        if (seen.has(browseId)) continue;
+        seen.add(browseId);
+
+        const flexColumns = renderer.flexColumns || [];
+        const title =
+          flexColumns[0]?.musicResponsiveListItemFlexColumnRenderer?.text?.runs?.[0]?.text || '';
+        if (!title) continue;
+
+        const subtitleRuns: string[] = (
+          flexColumns[1]?.musicResponsiveListItemFlexColumnRenderer?.text?.runs || []
+        ).map((run: any) => run?.text || '');
+        // Разделители « • » приходят отдельными кусками — склеиваем как есть.
+        const subtitle = subtitleRuns.join('').trim() || undefined;
+
+        const thumbnails = renderer.thumbnail?.musicThumbnailRenderer?.thumbnail?.thumbnails || [];
+        const artworkUrl = thumbnails.length > 0 ? thumbnails[thumbnails.length - 1].url || '' : '';
+
+        results.push({
+          id: `ytc_${browseId}`,
+          kind,
+          source: 'youtube',
+          ref: browseId,
+          title,
+          subtitle,
+          artworkUrl
+        });
+      }
+    }
+
+    return results;
   }
 
   /**

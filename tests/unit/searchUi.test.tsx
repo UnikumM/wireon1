@@ -9,7 +9,7 @@ import { offlineStorage } from '../../src/services/offlineStorage';
 import { usePlayerStore } from '../../src/store/usePlayerStore';
 import { useUIStore } from '../../src/store/useUIStore';
 import { useLibraryStore } from '../../src/store/useLibraryStore';
-import { UnifiedTrack } from '../../src/types/music';
+import { SearchCollection, UnifiedTrack } from '../../src/types/music';
 
 // Recent-search persistence must not touch IndexedDB from a component test.
 vi.mock('../../src/services/db', async (importOriginal) => {
@@ -306,6 +306,86 @@ describe('search UI', () => {
       });
       expect(searchSpy).toHaveBeenCalledTimes(1);
       expect(searchSpy).toHaveBeenCalledWith('Synthwave', expect.objectContaining({ source: 'all' }));
+    });
+  });
+
+  // ==========================================
+  // Вкладки выдачи
+  // ==========================================
+  describe('SearchResults tabs', () => {
+    const album: SearchCollection = {
+      id: 'ytc_MPREb_album',
+      kind: 'album',
+      source: 'youtube',
+      ref: 'MPREb_album',
+      title: 'Random Access Memories',
+      subtitle: 'Daft Punk • 2013',
+      artworkUrl: ''
+    };
+
+    it('подборки не запрашиваются, пока смотрят треки', async () => {
+      vi.spyOn(searchAggregator, 'search').mockResolvedValue(aggregate([makeTrack('yt_a')]));
+      vi.spyOn(searchAggregator, 'getSuggestions').mockResolvedValue([]);
+      const collectionsSpy = vi
+        .spyOn(searchAggregator, 'searchCollections')
+        .mockResolvedValue([album]);
+
+      await renderSearchResults();
+      await act(async () => {
+        useUIStore.setState({ searchQuery: 'daft punk' });
+      });
+
+      await waitFor(() => expect(screen.getByTestId('track-hero-yt_a')).toBeTruthy());
+      // Вкладку не открывали — значит и платить за неё не за что.
+      expect(collectionsSpy).not.toHaveBeenCalled();
+    });
+
+    it('вкладка «Альбомы» показывает альбомы, а не треки', async () => {
+      vi.spyOn(searchAggregator, 'search').mockResolvedValue(aggregate([makeTrack('yt_a')]));
+      vi.spyOn(searchAggregator, 'getSuggestions').mockResolvedValue([]);
+      vi.spyOn(searchAggregator, 'searchCollections').mockResolvedValue([
+        album,
+        { ...album, id: 'ytc_artist', kind: 'artist', title: 'Daft Punk' }
+      ]);
+
+      await renderSearchResults();
+      await act(async () => {
+        useUIStore.setState({ searchQuery: 'daft punk' });
+      });
+      await waitFor(() => expect(screen.getByTestId('track-hero-yt_a')).toBeTruthy());
+
+      await act(async () => {
+        fireEvent.click(screen.getByTestId('search-tab-albums'));
+      });
+
+      await waitFor(() => expect(screen.getByTestId('collection-ytc_MPREb_album')).toBeTruthy());
+      // Исполнитель пришёл тем же запросом, но у него своя вкладка.
+      expect(screen.queryByTestId('collection-ytc_artist')).toBeNull();
+      expect(screen.queryByTestId('track-hero-yt_a')).toBeNull();
+    });
+
+    it('исполнитель открывает свой экран, а не список треков', async () => {
+      vi.spyOn(searchAggregator, 'search').mockResolvedValue(aggregate([makeTrack('yt_a')]));
+      vi.spyOn(searchAggregator, 'getSuggestions').mockResolvedValue([]);
+      vi.spyOn(searchAggregator, 'searchCollections').mockResolvedValue([
+        { ...album, id: 'ytc_artist', kind: 'artist', title: 'Daft Punk', ref: 'UCxyz' }
+      ]);
+
+      await renderSearchResults();
+      await act(async () => {
+        useUIStore.setState({ searchQuery: 'daft punk' });
+      });
+      await act(async () => {
+        fireEvent.click(screen.getByTestId('search-tab-artists'));
+      });
+
+      await waitFor(() => expect(screen.getByTestId('collection-ytc_artist')).toBeTruthy());
+      await act(async () => {
+        fireEvent.click(screen.getByTestId('collection-ytc_artist'));
+      });
+
+      expect(useUIStore.getState().activeView).toBe('artist');
+      expect(useUIStore.getState().selectedArtistName).toBe('Daft Punk');
     });
   });
 });

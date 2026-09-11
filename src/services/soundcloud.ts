@@ -1,4 +1,4 @@
-import { UnifiedTrack } from '../types/music';
+import { SearchCollection, UnifiedTrack } from '../types/music';
 import { formatDuration } from '../utils/time';
 
 export interface SoundCloudStreamResult {
@@ -462,6 +462,39 @@ export class SoundCloudService {
       }
     }
 
+    const data = await this.searchEndpoint('tracks', trimmedQuery, limit);
+    if (!data) {
+      console.warn(`[SoundCloudService] Search for "${trimmedQuery}" produced no results`);
+      return [];
+    }
+    return this.parseTracksResponse(data, limit);
+  }
+
+  /**
+   * Один поисковый запрос к SoundCloud со всем перебором ключей.
+   *
+   * Перебор жил внутри поиска треков, и когда понадобилось искать ещё и людей с
+   * плейлистами, его пришлось бы переписать второй и третий раз. Ключи у нас
+   * протухают часто — из четырёх живым обычно остаётся один, — и три копии
+   * ротации означали бы три разных представления о том, какой ключ сейчас
+   * рабочий.
+   *
+   * `null` — «не ответили»; пустая выдача возвращается объектом.
+   */
+  private async searchEndpoint(
+    kind: 'tracks' | 'users' | 'playlists_without_albums' | 'albums',
+    query: string,
+    limit: number
+  ): Promise<any | null> {
+    return this.apiGet(`/search/${kind}`, { q: query, limit: String(limit), offset: '0' });
+  }
+
+  /**
+   * Любой запрос к api-v2 с перебором ключей.
+   *
+   * `null` — «не ответили»; пустая выдача возвращается объектом.
+   */
+  private async apiGet(path: string, params: Record<string, string>): Promise<any | null> {
     // One attempt per pooled client_id, plus one final attempt with a freshly
     // discovered id.
     const maxAttempts = Math.min(this.clientIds.length, MAX_CLIENT_IDS);
@@ -477,8 +510,8 @@ export class SoundCloudService {
       }
 
       try {
-        const searchUrl = `https://api-v2.soundcloud.com/search/tracks?q=${encodeURIComponent(trimmedQuery)}&client_id=${clientId}&limit=${limit}&offset=0`;
-        const response = await this.fetchWithTimeout(searchUrl, {
+        const search = new URLSearchParams({ ...params, client_id: clientId });
+        const response = await this.fetchWithTimeout(`https://api-v2.soundcloud.com${path}?${search}`, {
           headers: { 'Accept': 'application/json' }
         });
 
@@ -503,7 +536,7 @@ export class SoundCloudService {
         const data = await response.json();
         // Ключ отработал — снимаем с него отметку негодного, если она была.
         this.noteClientIdWorked(clientId);
-        return this.parseTracksResponse(data, limit);
+        return data;
       } catch (err) {
         console.warn(`[SoundCloudService] Search attempt ${attempt + 1} failed:`, err);
         if (attempt < maxAttempts - 1) {
@@ -519,8 +552,119 @@ export class SoundCloudService {
       }
     }
 
-    console.warn(`[SoundCloudService] Search for "${trimmedQuery}" produced no results`);
-    return [];
+    return null;
+  }
+
+  /**
+   * Люди и их подборки — вторая и третья вкладки поиска.
+   *
+   * У SoundCloud нет исполнителей как отдельной сущности: есть люди, и это они
+   * же. Альбомы там — тоже плейлисты, просто с отметкой, поэтому берутся одним
+   * запросом и разводятся по `is_album`.
+   */
+  public async searchCollections(query: string, limit: number = 10): Promise<SearchCollection[]> {
+    const trimmed = (query || '').trim();
+    if (!trimmed) return [];
+
+    const [users, playlists] = await Promise.all([
+      this.searchEndpoint('users', trimmed, limit),
+      this.searchEndpoint('playlists_without_albums', trimmed, limit)
+    ]);
+
+    return [
+      ...this.parseUsersResponse(users, limit),
+      ...this.parsePlaylistsResponse(playlists, limit)
+    ];
+  }
+
+  /** Люди SoundCloud как карточки исполнителей. */
+  public parseUsersResponse(data: any, limit: number = 10): SearchCollection[] {
+    const items = Array.isArray(data?.collection) ? data.collection : [];
+    const results: SearchCollection[] = [];
+
+    for (const item of items) {
+      if (results.length >= limit) break;
+      const name = item?.username || item?.permalink;
+      if (!item?.id || !name) continue;
+
+      const followers = Number(item.followers_count);
+      results.push({
+        id: `scu_${item.id}`,
+        kind: 'artist',
+        source: 'soundcloud',
+        ref: item.permalink_url || String(item.id),
+        title: name,
+        subtitle: Number.isFinite(followers) && followers > 0 ? `${followers} подписчиков` : undefined,
+        // `-t500x500` — крупный размер той же картинки: в списке мелкая мылится.
+        artworkUrl: String(item.avatar_url || '').replace('-large', '-t500x500')
+      });
+    }
+
+    return results;
+  }
+
+  /** Плейлисты и альбомы SoundCloud. */
+  public parsePlaylistsResponse(data: any, limit: number = 10): SearchCollection[] {
+    const items = Array.isArray(data?.collection) ? data.collection : [];
+    const results: SearchCollection[] = [];
+
+    for (const item of items) {
+      if (results.length >= limit) break;
+      if (!item?.id || !item?.title) continue;
+
+      const count = Number(item.track_count);
+      results.push({
+        id: `scp_${item.id}`,
+        kind: item.is_album === true ? 'album' : 'playlist',
+        source: 'soundcloud',
+        ref: item.permalink_url || String(item.id),
+        title: item.title,
+        subtitle:
+          item.user?.username ||
+          (Number.isFinite(count) && count > 0 ? `${count} треков` : undefined),
+        artworkUrl: String(item.artwork_url || item.user?.avatar_url || '').replace(
+          '-large',
+          '-t500x500'
+        )
+      });
+    }
+
+    return results;
+  }
+
+  /**
+   * Треки плейлиста или альбома SoundCloud по его ссылке.
+   *
+   * В два приёма, и это не наша причуда: `/resolve` отдаёт плейлист, где первые
+   * несколько треков приходят целиком, а остальные — одними идентификаторами.
+   * Дозаказ идёт пачками по пятьдесят, потому что длину адресной строки
+   * SoundCloud ограничивает, и сотня ключей в запрос уже не влезает.
+   */
+  public async getPlaylistTracks(url: string, limit: number = 500): Promise<UnifiedTrack[]> {
+    const trimmed = (url || '').trim();
+    if (!trimmed) return [];
+
+    const playlist = await this.apiGet('/resolve', { url: trimmed });
+    const items: any[] = Array.isArray(playlist?.tracks) ? playlist.tracks : [];
+    if (items.length === 0) return [];
+
+    const hydrated = items.filter((item) => item?.title);
+    const missing = items.filter((item) => item?.id && !item.title).map((item) => String(item.id));
+
+    const fetched: any[] = [];
+    for (let i = 0; i < missing.length && hydrated.length + fetched.length < limit; i += 50) {
+      const batch = missing.slice(i, i + 50);
+      const data = await this.apiGet('/tracks', { ids: batch.join(',') });
+      if (Array.isArray(data)) fetched.push(...data);
+    }
+
+    // Порядок плейлиста важен: дозаказанное возвращается своим порядком, а не
+    // тем, в каком лежало.
+    const byId = new Map<string, any>();
+    for (const item of [...hydrated, ...fetched]) byId.set(String(item.id), item);
+    const ordered = items.map((item) => byId.get(String(item?.id))).filter(Boolean);
+
+    return this.parseTracksResponse(ordered, limit);
   }
 
   /**

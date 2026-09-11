@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { AlertTriangle, Music2, RotateCcw, Shuffle, Play, X } from 'lucide-react';
-import { AudioSource, UnifiedTrack } from '../../types/music';
+import { AudioSource, SearchCollection, SearchKind, UnifiedTrack } from '../../types/music';
 import { searchAggregator } from '../../services/aggregator';
 import { youtubeService } from '../../services/youtube';
 import * as dbService from '../../services/db';
@@ -9,6 +9,8 @@ import { usePlayerStore } from '../../store/usePlayerStore';
 import { useMediaQuery } from '../../hooks/useMediaQuery';
 import { SearchBar } from './SearchBar';
 import { TrackCard } from './TrackCard';
+import { CollectionCard } from './CollectionCard';
+import { collectionTracks } from '../../services/collections';
 import { Button } from '../common/Button';
 import { EmptyState } from '../common/EmptyState';
 import { Skeleton } from '../common/Skeleton';
@@ -28,6 +30,26 @@ const RESULT_LIMIT = 40;
 const SOURCE_LABELS: Record<string, string> = {
   youtube: 'YouTube',
   soundcloud: 'SoundCloud',
+};
+
+/**
+ * Вкладки выдачи.
+ *
+ * Раньше поиск возвращал плоский список треков и только его: найти альбом,
+ * профиль или чужой плейлист было нельзя вовсе, хотя источники их отдают.
+ */
+const KIND_TABS: { value: SearchKind; label: string }[] = [
+  { value: 'tracks', label: 'Треки' },
+  { value: 'albums', label: 'Альбомы' },
+  { value: 'artists', label: 'Исполнители' },
+  { value: 'playlists', label: 'Плейлисты' }
+];
+
+/** Какой вид подборки показывает вкладка. */
+const TAB_KIND: Record<Exclude<SearchKind, 'tracks'>, SearchCollection['kind']> = {
+  albums: 'album',
+  artists: 'artist',
+  playlists: 'playlist'
 };
 
 const FILTERS: { value: SourceFilter; label: string; testId: string }[] = [
@@ -61,6 +83,7 @@ export const SearchResults: React.FC<SearchResultsProps> = ({ className = '' }) 
   const playTrack = usePlayerStore((s) => s.playTrack);
   const isShuffled = usePlayerStore((s) => s.isShuffled);
   const toggleShuffle = usePlayerStore((s) => s.toggleShuffle);
+  const openArtist = useUIStore((s) => s.openArtist);
 
   const [results, setResults] = useState<UnifiedTrack[]>([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -68,6 +91,9 @@ export const SearchResults: React.FC<SearchResultsProps> = ({ className = '' }) 
   const [sourceErrors, setSourceErrors] = useState<Record<string, string>>({});
   const [searchNonce, setSearchNonce] = useState(0);
   const [recentSearches, setRecentSearches] = useState<string[]>([]);
+  const [kind, setKind] = useState<SearchKind>('tracks');
+  const [collections, setCollections] = useState<SearchCollection[]>([]);
+  const [isLoadingCollections, setIsLoadingCollections] = useState(false);
 
   /** Monotonic request id: only the newest search is allowed to commit state. */
   const requestIdRef = useRef(0);
@@ -142,6 +168,37 @@ export const SearchResults: React.FC<SearchResultsProps> = ({ className = '' }) 
   }, [searchQuery, searchFilter, searchNonce, persistRecent]);
 
   /**
+   * Подборки грузятся только когда их смотрят.
+   *
+   * Отдельным запросом и по требованию: на вкладке «Треки» они не нужны, а
+   * тянуть их на каждую букву означало бы платить за то, чего человек чаще
+   * всего не откроет.
+   */
+  useEffect(() => {
+    const trimmed = searchQuery.trim();
+    if (kind === 'tracks' || !trimmed) return;
+
+    let cancelled = false;
+    setIsLoadingCollections(true);
+
+    void searchAggregator
+      .searchCollections(trimmed, { source: searchFilter, limit: 24 })
+      .then((found) => {
+        if (!cancelled) setCollections(found);
+      })
+      .catch(() => {
+        if (!cancelled) setCollections([]);
+      })
+      .finally(() => {
+        if (!cancelled) setIsLoadingCollections(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [searchQuery, searchFilter, searchNonce, kind]);
+
+  /**
    * A3 blocklists a dead instance for the rest of the session after two
    * consecutive failures, and the aggregator caches the failed result for a
    * minute — both have to be cleared or a retry reproduces the outage.
@@ -199,7 +256,28 @@ export const SearchResults: React.FC<SearchResultsProps> = ({ className = '' }) 
     rows[next].focus();
   };
 
+  /**
+   * Открыть найденную подборку.
+   *
+   * Исполнитель уходит на свой экран, альбом и плейлист раскрываются в треки и
+   * начинают играть. Отдельного экрана альбома пока нет, и включить — честнее,
+   * чем открыть пустоту.
+   */
+  const handleOpenCollection = useCallback(
+    async (collection: SearchCollection) => {
+      if (collection.kind === 'artist') {
+        openArtist(collection.title);
+        return;
+      }
+      const tracks = await collectionTracks(collection);
+      if (tracks.length > 0) await playTrack(tracks[0], tracks, 0);
+    },
+    [openArtist, playTrack]
+  );
+
   const hasQuery = searchQuery.trim() !== '';
+  const shownCollections =
+    kind === 'tracks' ? [] : collections.filter((item) => item.kind === TAB_KIND[kind]);
   const failedSources = Object.keys(sourceErrors);
   const topMatch = results.length > 0 ? results[0] : null;
   const restResults = results.slice(1);
@@ -221,6 +299,27 @@ export const SearchResults: React.FC<SearchResultsProps> = ({ className = '' }) 
         onClear={handleClear}
       />
 
+      {/* Вкладки выдачи: треки и три вида подборок. */}
+      <div
+        style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)', flexWrap: 'wrap' }}
+        role="tablist"
+        aria-label="Что искать"
+      >
+        {KIND_TABS.map((tab) => (
+          <button
+            key={tab.value}
+            type="button"
+            role="tab"
+            className="chip"
+            aria-selected={kind === tab.value}
+            onClick={() => setKind(tab.value)}
+            data-testid={`search-tab-${tab.value}`}
+          >
+            {tab.label}
+          </button>
+        ))}
+      </div>
+
       {/* Source filter — re-queries through the same single search path. */}
       <div
         style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)', flexWrap: 'wrap' }}
@@ -237,7 +336,7 @@ export const SearchResults: React.FC<SearchResultsProps> = ({ className = '' }) 
             data-testid={f.testId}
           >
             {f.label}
-            {hasQuery && !isLoading && results.length > 0 && (
+            {kind === 'tracks' && hasQuery && !isLoading && results.length > 0 && (
               <span data-numeric style={{ color: 'var(--text-muted)' }}>
                 {f.value === 'all'
                   ? results.length
@@ -332,7 +431,7 @@ export const SearchResults: React.FC<SearchResultsProps> = ({ className = '' }) 
       )}
 
       {/* Loading skeletons */}
-      {isLoading && (
+      {((kind === 'tracks' && isLoading) || (kind !== 'tracks' && isLoadingCollections)) && (
         <div
           style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}
           aria-busy="true"
@@ -344,8 +443,37 @@ export const SearchResults: React.FC<SearchResultsProps> = ({ className = '' }) 
         </div>
       )}
 
+      {/* Подборки: альбомы, исполнители, плейлисты. */}
+      {kind !== 'tracks' && !isLoadingCollections && hasQuery && shownCollections.length > 0 && (
+        <div
+          style={{
+            display: 'grid',
+            gridTemplateColumns: 'repeat(auto-fill, minmax(150px, 1fr))',
+            gap: 'var(--space-3)'
+          }}
+          data-testid="search-collection-grid"
+        >
+          {shownCollections.map((item) => (
+            <CollectionCard
+              key={item.id}
+              collection={item}
+              onOpen={(collection) => void handleOpenCollection(collection)}
+            />
+          ))}
+        </div>
+      )}
+
+      {kind !== 'tracks' && !isLoadingCollections && hasQuery && shownCollections.length === 0 && (
+        <EmptyState
+          data-testid="search-no-collections"
+          icon={<Music2 size={ICON.display} />}
+          title={`Ничего не нашлось по запросу «${searchQuery.trim()}»`}
+          description="Источники ответили, но подборок такого вида у них нет. Попробуйте вкладку «Треки» или другое написание."
+        />
+      )}
+
       {/* Results */}
-      {!isLoading && !error && hasQuery && results.length > 0 && (
+      {kind === 'tracks' && !isLoading && !error && hasQuery && results.length > 0 && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-5)' }}>
           <div
             style={{
@@ -434,7 +562,12 @@ export const SearchResults: React.FC<SearchResultsProps> = ({ className = '' }) 
       )}
 
       {/* Genuinely no matches — deliberately different from an outage notice. */}
-      {!isLoading && !error && hasQuery && results.length === 0 && failedSources.length === 0 && (
+      {kind === 'tracks' &&
+        !isLoading &&
+        !error &&
+        hasQuery &&
+        results.length === 0 &&
+        failedSources.length === 0 && (
         <EmptyState
           data-testid="search-no-results"
           icon={<Music2 size={ICON.display} />}

@@ -23,6 +23,32 @@ export interface UnifiedTrack {
   addedAt?: number; // epoch timestamp in ms
 }
 
+/** Что ищем: не только треки. */
+export type SearchKind = 'tracks' | 'albums' | 'artists' | 'playlists';
+
+/** Вид одной найденной подборки. Единственное число: это про одну карточку. */
+export type CollectionKind = 'album' | 'artist' | 'playlist';
+
+/**
+ * Найденное, что само не играет: альбом, исполнитель, чужой плейлист.
+ *
+ * Одна запись на все три вида нарочно: у них одинаковая карточка и одинаковый
+ * путь — открыть и уже там увидеть треки. Разводить три почти одинаковых типа
+ * значило бы трижды писать одну и ту же сетку.
+ */
+export interface SearchCollection {
+  /** Свой ключ с приставкой источника: `ytc_…`, `scu_…`. */
+  id: string;
+  kind: CollectionKind;
+  source: AudioSource;
+  /** Чем это открывать у источника: browseId у YouTube, ссылка у SoundCloud. */
+  ref: string;
+  title: string;
+  /** Исполнитель, год, число треков — что источник счёл важным. */
+  subtitle?: string;
+  artworkUrl: string;
+}
+
 export type PlaybackState = 'idle' | 'loading' | 'buffering' | 'playing' | 'paused' | 'error';
 
 export type RepeatMode = 'off' | 'all' | 'one';
