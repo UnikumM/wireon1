@@ -12,7 +12,7 @@ import { Toast } from '../../src/components/common/Toast';
 
 // Layout Components
 import { AppShell } from '../../src/components/layout/AppShell';
-import { Sidebar } from '../../src/components/layout/Sidebar';
+import { TopNav } from '../../src/components/layout/TopNav';
 import { Header } from '../../src/components/layout/Header';
 import { MobileNav } from '../../src/components/layout/MobileNav';
 
@@ -294,73 +294,54 @@ describe('Milestone 3 UI & Player Components Test Suite', () => {
   // 2. Layout Components
   // ==========================================
   describe('Layout Components', () => {
-    it('Sidebar renders navigation links, playlist items, and switches views', () => {
-      useLibraryStore.setState({
-        playlists: [
-          {
-            id: 'pl_1',
-            title: 'Chill Wave',
-            tracks: [sampleTrackYT],
-            createdAt: Date.now(),
-            updatedAt: Date.now(),
-            isSynced: true,
-          },
-        ],
-      });
+    it('верхняя навигация переключает разделы', () => {
+      render(<TopNav />);
 
-      const handleCreatePl = vi.fn();
-      render(<Sidebar onCreatePlaylistClick={handleCreatePl} />);
+      expect(screen.getByTestId('app-topnav')).toBeInTheDocument();
+      expect(screen.getByLabelText('Wireon Sounds — на главную')).toBeInTheDocument();
 
-      expect(screen.getByTestId('app-sidebar')).toBeInTheDocument();
-
-      /*
-       * Снизу боковая панель обязана оставить место полосе плеера.
-       *
-       * Полоса лежит `position: fixed` во всю ширину окна — то есть поверх
-       * панели тоже. У `<main>` место под неё зарезервировано с самого начала, у
-       * панели не было, и её нижний ряд, пилюля аккаунта, оказывался целиком под
-       * полосой: замерено 821–876 px при полосе от 804 px в окне 1600×900.
-       * Кнопка была на месте и отвечала на клавиатуру, но мышь до неё не
-       * доставала вовсе. Владелец обвёл это место на снимке.
-       *
-       * Проверяется именно `--player-bar-space`, а не число: `--player-bar-height`
-       * пресет пишет инлайном в `:root`, и на узком экране её не переопределить
-       * (см. `theme.css`), поэтому под отступы существует отдельная переменная.
-       */
-      const sidebarPadding = screen.getByTestId('app-sidebar').style.padding;
-      expect(sidebarPadding).toContain('var(--player-bar-space)');
-      // The wordmark is one colour now ("Wireon" + a lighter-weight "Sounds"),
-      // so match the element that owns both spans rather than a single text node.
-      expect(screen.getByLabelText('Wireon Sounds — на главную')).toHaveTextContent('Wireon Sounds');
-
-      // Navigation switching
-      fireEvent.click(screen.getByTestId('sidebar-nav-favorites'));
+      fireEvent.click(screen.getByTestId('nav-favorites'));
       expect(useUIStore.getState().activeView).toBe('favorites');
 
-      fireEvent.click(screen.getByTestId('sidebar-nav-wave'));
+      fireEvent.click(screen.getByTestId('nav-wave'));
       expect(useUIStore.getState().activeView).toBe('wave');
 
-      fireEvent.click(screen.getByTestId('sidebar-nav-library'));
+      fireEvent.click(screen.getByTestId('nav-library'));
       expect(useUIStore.getState().activeView).toBe('library');
+    });
 
-      // Click playlist item
-      fireEvent.click(screen.getByTestId('sidebar-playlist-pl_1'));
-      expect(useUIStore.getState().activeView).toBe('playlist');
-      expect(useUIStore.getState().activePlaylistId).toBe('pl_1');
+    it('выбранный раздел отмечен не только цветом', () => {
+      useUIStore.setState({ activeView: 'wave' });
+      render(<TopNav />);
 
-      // Click create playlist shortcut
-      fireEvent.click(screen.getByTestId('sidebar-create-playlist-btn'));
-      expect(handleCreatePl).toHaveBeenCalled();
+      // `aria-current` — то, по чему состояние читает и экранный диктор, и
+      // правило подчёркивания в таблице стилей. Цвет один состояние не несёт.
+      expect(screen.getByTestId('nav-wave').getAttribute('aria-current')).toBe('page');
+      expect(screen.getByTestId('nav-search').getAttribute('aria-current')).toBeNull();
+    });
+
+    it('переход в раздел сбрасывает открытый плейлист', () => {
+      // Иначе «Медиатека» открывалась бы с подсвеченным плейлистом, который
+      // человек закрыл два экрана назад.
+      useUIStore.setState({ activePlaylistId: 'pl_1', activeView: 'playlist' });
+      render(<TopNav />);
+
+      fireEvent.click(screen.getByTestId('nav-library'));
+      expect(useUIStore.getState().activePlaylistId).toBeNull();
     });
 
     // Очередь из шапки убрана: та же панель открывалась кнопкой в полосе плеера.
     // Счётчик и открытие проверяет playerLayout.test.tsx на оставшейся кнопке.
-    it('Header displays active view title and toggles the visualizer', () => {
+    it('Header carries the section nav and toggles the visualizer', () => {
       useUIStore.setState({ activeView: 'search' });
 
       render(<Header />);
 
-      expect(screen.getByText('Поиск')).toBeInTheDocument();
+      // Разделы теперь в шапке; название раздела осталось только для телефона,
+      // где полосы разделов нет, — поэтому «Поиск» на экране дважды, и искать
+      // надо по роли, а не по тексту.
+      expect(screen.getByTestId('app-topnav')).toBeInTheDocument();
+      expect(screen.getByTestId('nav-search').getAttribute('aria-current')).toBe('page');
       expect(screen.queryByTestId('header-queue-toggle')).not.toBeInTheDocument();
 
       fireEvent.click(screen.getByTestId('header-visualizer-toggle'));

@@ -1,5 +1,4 @@
 import React from 'react';
-import { Sidebar } from './Sidebar';
 import { Header } from './Header';
 import { MobileNav } from './MobileNav';
 import { Toast } from '../common/Toast';
@@ -15,21 +14,23 @@ export interface AppShellProps {
   queueDrawerSlot?: React.ReactNode;
   fullscreenPlayerSlot?: React.ReactNode;
   modalSlot?: React.ReactNode;
-  onCreatePlaylistClick?: () => void;
 }
 
 /**
- * Frame around every view: sidebar, header, scrolling main region and the
- * global overlay mounts. The grain layer and the toast region live here so they
- * exist exactly once, whatever the active view is.
+ * Frame around every view: header with the section nav, scrolling main region
+ * and the global overlay mounts. The grain layer and the toast region live here
+ * so they exist exactly once, whatever the active view is.
+ *
+ * Боковой панели здесь больше нет: разделы переехали в шапку. Ширина, которую
+ * панель держала под собой, ушла содержимому — в витринном направлении самое
+ * крупное на экране должно быть самой музыкой, а не навигацией.
  */
 export const AppShell: React.FC<AppShellProps> = ({
   children,
   playerBarSlot,
   queueDrawerSlot,
   fullscreenPlayerSlot,
-  modalSlot,
-  onCreatePlaylistClick
+  modalSlot
 }) => {
   /*
    * Профиль частиц выбирается пресетом, а ручка настроек его перебивает —
@@ -72,8 +73,6 @@ export const AppShell: React.FC<AppShellProps> = ({
         }}
         data-testid="app-shell"
       >
-        <Sidebar onCreatePlaylistClick={onCreatePlaylistClick} />
-
         <div
           style={{
             flex: 1,

@@ -220,7 +220,6 @@ export const App: React.FC = () => {
             <KaraokeView />
           </>
         }
-        onCreatePlaylistClick={() => setIsCreatePlaylistOpen(true)}
       >
         <ErrorBoundary key={activeView}>{renderActiveView()}</ErrorBoundary>
       </AppShell>

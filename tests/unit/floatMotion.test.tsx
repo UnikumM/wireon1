@@ -92,8 +92,8 @@ describe('Парение иконки', () => {
     expect(wrapper?.getAttribute('aria-hidden')).toBe('true');
   });
 
-  it('иконка приложения в боковой панели парит тоже', () => {
-    const sidebar = readFileSync(path.join(SRC, 'components/layout/Sidebar.tsx'), 'utf8');
-    expect(sidebar).toContain('animate-float');
+  it('иконка приложения в полосе разделов парит тоже', () => {
+    const topnav = readFileSync(path.join(SRC, 'components/layout/TopNav.tsx'), 'utf8');
+    expect(topnav).toContain('animate-float');
   });
 });

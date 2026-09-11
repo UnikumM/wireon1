@@ -81,8 +81,13 @@ export interface DesignPreset {
   ease: EaseMode;
   particles: ParticleProfileId;
 
-  /** Каркас: ширина боковой панели, высота шапки и полосы плеера. */
-  frame: { sidebar: number; header: number; player: number };
+  /**
+   * Каркас: высота шапки и полосы плеера.
+   *
+   * Ширины боковой панели здесь больше нет — панель убрана, разделы стоят в
+   * шапке. Шапка поэтому ощутимо выше прежней: в ней теперь живёт навигация.
+   */
+  frame: { header: number; player: number };
 
   /**
    * Облик полосы плеера, с которым пресет задуман. `null` — любой подойдёт.
@@ -147,7 +152,7 @@ export const DESIGN_PRESETS: readonly DesignPreset[] = [
      * как панель, а не как подпись под окном. 88 оставляет по 11 — воздух ещё
      * есть, а лишней высоты уже нет.
      */
-    frame: { sidebar: 264, header: 60, player: 88 },
+    frame: { header: 72, player: 88 },
     playerSkinId: null
   },
   {
@@ -169,7 +174,7 @@ export const DESIGN_PRESETS: readonly DesignPreset[] = [
     motion: 0.7,
     ease: 'snap',
     particles: 'off',
-    frame: { sidebar: 244, header: 50, player: 78 },
+    frame: { header: 62, player: 78 },
     playerSkinId: null
   },
   {
@@ -191,7 +196,7 @@ export const DESIGN_PRESETS: readonly DesignPreset[] = [
     motion: 1.3,
     ease: 'smooth',
     particles: 'mist',
-    frame: { sidebar: 280, header: 66, player: 104 },
+    frame: { header: 80, player: 104 },
     playerSkinId: null
   },
   {
@@ -213,7 +218,7 @@ export const DESIGN_PRESETS: readonly DesignPreset[] = [
     motion: 0.8,
     ease: 'snap',
     particles: 'rain',
-    frame: { sidebar: 252, header: 54, player: 86 },
+    frame: { header: 66, player: 86 },
     playerSkinId: null
   },
   {
@@ -235,7 +240,7 @@ export const DESIGN_PRESETS: readonly DesignPreset[] = [
     motion: 1,
     ease: 'smooth',
     particles: 'off',
-    frame: { sidebar: 258, header: 58, player: 90 },
+    frame: { header: 70, player: 90 },
     playerSkinId: null
   },
   {
@@ -278,7 +283,7 @@ export const DESIGN_PRESETS: readonly DesignPreset[] = [
      * самое под ним, и вместе они читаются как глубина, а не как плёнка.
      */
     particles: 'mist',
-    frame: { sidebar: 268, header: 62, player: 92 },
+    frame: { header: 74, player: 92 },
     playerSkinId: 'glass'
   }
 ] as const;
@@ -651,8 +656,9 @@ export function designVars(selection: DesignSelection): Record<string, string> {
 
     '--grain-opacity': grainOn ? preset.grain.toFixed(3) : '0',
 
-    '--sidebar-width-expanded': `${Math.round(preset.frame.sidebar * (0.94 + density * 0.06))}px`,
-    '--header-height': `${Math.round(preset.frame.header)}px`,
+    // Шапка растёт вместе с плотностью: в ней стоит навигация, и на
+    // «просторно» пунктам нужен тот же воздух, что и остальному.
+    '--header-height': `${Math.round(preset.frame.header * (0.96 + density * 0.04))}px`,
     '--player-bar-height': `${Math.round(preset.frame.player)}px`
   };
 

@@ -349,10 +349,18 @@ const Shelf: React.FC<ShelfProps> = ({ title, note, testId, children }) => (
       {note && <span style={{ fontSize: 'var(--text-sm)', color: 'var(--text-faint)' }}>{note}</span>}
     </div>
 
+    {/*
+      * Число колонок задаёт ширина, а не константа.
+      *
+      * Было ровно четыре — и пока слева стояла панель, это давало карточку
+      * примерно в 240 px. Без панели те же четыре колонки растянулись на всю
+      * ширину окна, и обложка микса дня выходила с ладонь. Витрина — это
+      * крупно, но не «одна карточка на четверть экрана».
+      */}
     <div
       style={{
         display: 'grid',
-        gridTemplateColumns: 'repeat(4, minmax(0, 1fr))',
+        gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))',
         gap: 'var(--space-5)'
       }}
     >

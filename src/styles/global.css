@@ -1812,65 +1812,104 @@ svg.lucide[width='48'] {
 }
 
 /**
- * Строки боковой панели: разделы и плейлисты.
+ * Верхняя навигация — витринное направление.
  *
- * Состояние читается из `aria-current='page'` — из того же атрибута, по
- * которому текущий раздел объявляет программа чтения с экрана. Рельс рисует
- * псевдоэлемент, а не отдельный узел разметки: узел появлялся бы и исчезал
- * одним кадром, а псевдоэлемент растёт пружиной, и переход между разделами
- * читается как движение, а не как перескок.
+ * Отметка выбранного — не цвет, а подчёркивание, растущее пружиной из центра:
+ * цветом одним состояние показывать нельзя, а в горизонтальном ряду рельс
+ * слева читался бы как разделитель между пунктами, а не как отметка.
  */
-.sidebar-nav-item,
-.sidebar-playlist-item {
+.wireon-topnav {
+  display: flex;
+  align-items: center;
+  gap: var(--space-5);
+  flex-shrink: 0;
+  min-width: 0;
+}
+
+.topnav-brand {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-1) var(--space-2);
+  border-radius: var(--radius-sm);
+  color: var(--text-primary);
+  font-family: var(--font-display);
+  font-size: var(--text-lg);
+  font-weight: var(--weight-semibold);
+  letter-spacing: var(--tracking-lg);
+  cursor: pointer;
+  background: transparent;
+  white-space: nowrap;
+}
+
+.topnav-items {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  min-width: 0;
+  /* Пунктов восемь, и на узком-но-не-мобильном окне последние два не влезают.
+   * Прокрутка вместо переноса: полоса навигации обязана остаться одной строкой,
+   * иначе высота шапки прыгает при смене раздела. */
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.topnav-items::-webkit-scrollbar {
+  display: none;
+}
+
+.topnav-item {
   position: relative;
   display: flex;
   align-items: center;
-  width: 100%;
+  gap: var(--space-2);
+  /* Иначе flex сжимает пункты по ширине и подпись обрезается на полуслове:
+   * «Настройки» превращались в «Нас». `nowrap` этого не ловит — он запрещает
+   * перенос, а не сжатие. */
+  flex-shrink: 0;
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-sm);
   color: var(--text-secondary);
-  text-align: left;
+  font-size: var(--text-sm);
+  font-weight: var(--weight-medium);
+  white-space: nowrap;
   cursor: pointer;
   background: transparent;
-  border-radius: var(--radius-sm);
   transition: color var(--dur-fast) var(--ease-out),
     background-color var(--dur-fast) var(--ease-out), transform var(--dur-fast) var(--ease-spring);
 }
 
-.sidebar-nav-item::before,
-.sidebar-playlist-item::before {
+.topnav-item::after {
   content: '';
   position: absolute;
-  top: 22%;
-  bottom: 22%;
-  left: 0;
-  width: var(--rail-width);
+  left: var(--space-3);
+  right: var(--space-3);
+  bottom: 2px;
+  height: var(--rail-width);
   background: var(--accent);
   border-radius: var(--radius-full);
-  transform: scaleY(0);
+  transform: scaleX(0);
   transition: transform var(--dur-normal) var(--ease-spring);
 }
 
-.sidebar-nav-item:hover,
-.sidebar-playlist-item:hover {
+.topnav-item:hover {
   color: var(--text-primary);
   background: var(--surface-hover);
 }
 
-.sidebar-nav-item:active,
-.sidebar-playlist-item:active {
+.topnav-item:active {
   transform: scale(var(--press-scale));
 }
 
 /* После `:hover` нарочно: наведение на текущий раздел не должно смывать
  * акцент — иначе выбранное под курсором выглядит невыбранным. */
-.sidebar-nav-item[aria-current='page'],
-.sidebar-playlist-item[aria-current='page'] {
+.topnav-item[aria-current='page'] {
   color: var(--text-primary);
-  background: var(--accent-soft);
+  font-weight: var(--weight-semibold);
 }
 
-.sidebar-nav-item[aria-current='page']::before,
-.sidebar-playlist-item[aria-current='page']::before {
-  transform: scaleY(1);
+.topnav-item[aria-current='page']::after {
+  transform: scaleX(1);
 }
 
 /* ==========================================================================
@@ -2567,9 +2606,8 @@ svg.lucide[width='48'] {
   background-image: linear-gradient(148deg, var(--accent-soft), transparent 42%);
 }
 
-/* Рельс с ореолом: в цветном пресете он должен читаться и на налёте. */
-[data-preset='aurora'] .sidebar-nav-item[aria-current='page']::before,
-[data-preset='aurora'] .sidebar-playlist-item[aria-current='page']::before {
+/* Подчёркивание с ореолом: в цветном пресете оно должно читаться и на налёте. */
+[data-preset='aurora'] .topnav-item[aria-current='page']::after {
   box-shadow: 0 0 10px var(--accent);
 }
 
@@ -2643,8 +2681,7 @@ svg.lucide[width='48'] {
   animation: ringPulse var(--dur-morph) var(--ease-out);
 }
 
-[data-preset='neon'] .sidebar-nav-item[aria-current='page']::before,
-[data-preset='neon'] .sidebar-playlist-item[aria-current='page']::before,
+[data-preset='neon'] .topnav-item[aria-current='page']::after,
 [data-preset='neon'] .karaoke-line[data-active='true']::before {
   box-shadow: 0 0 12px var(--accent), 0 0 24px var(--accent-soft);
 }
@@ -2818,20 +2855,6 @@ svg.lucide[width='48'] {
    ========================================================================== */
 
 /**
- * Боковая панель. Ширина и `display` — здесь, а не в инлайновом стиле, и это
- * единственная причина, по которой правило вообще существует: на узком окне
- * панель должна исчезнуть, а инлайновое `display: flex` брейкпоинт перебить не
- * может. Всё остальное — отступы, фон, граница — задаёт компонент.
- */
-.wireon-sidebar {
-  display: flex;
-  flex-direction: column;
-  flex-shrink: 0;
-  width: var(--sidebar-width-expanded);
-  height: 100%;
-}
-
-/**
  * Нижняя навигация. По той же причине: и «панели нет», и «панель есть» живут
  * только тут. Геометрию и фон компонент задаёт сам, включая отступ под
  * системную безопасную зону.
@@ -2943,10 +2966,6 @@ svg.lucide[width='48'] {
     --control-md: 42px;
     --control-lg: 46px;
     --control-xl: 52px;
-  }
-
-  .wireon-sidebar {
-    display: none;
   }
 
   .wireon-mobile-nav {

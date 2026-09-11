@@ -1,10 +1,11 @@
 import React, { useEffect, useState } from 'react';
-import { Activity, Command, Minus, Radio, Square, X } from 'lucide-react';
+import { Activity, Command, Minus, Radio, Settings, Square, X } from 'lucide-react';
 import { useUIStore } from '../../store/useUIStore';
 import { usePlayerStore } from '../../store/usePlayerStore';
 import { useGroupListenStore } from '../../store/useGroupListenStore';
 import { Button } from '../common/Button';
 import { UserProfile } from '../auth/UserProfile';
+import { TopNav } from './TopNav';
 import { GroupListenModal } from '../modals/GroupListenModal';
 import { ICON } from '../../styles/icons';
 
@@ -70,6 +71,7 @@ export interface HeaderProps {
 
 export const Header: React.FC<HeaderProps> = ({ className = '' }) => {
   const activeView = useUIStore((s) => s.activeView);
+  const setActiveView = useUIStore((s) => s.setActiveView);
   const toggleCommandPalette = useUIStore((s) => s.toggleCommandPalette);
   const visualizerEnabled = usePlayerStore((s) => s.visualizerEnabled);
   const toggleVisualizer = usePlayerStore((s) => s.toggleVisualizer);
@@ -152,9 +154,19 @@ export const Header: React.FC<HeaderProps> = ({ className = '' }) => {
       }
       data-testid="app-header"
     >
-      <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-3)', minWidth: 0, ...noDragRegion }}>
+      {/*
+        * Разделы стоят в шапке, а не сбоку: боковая панель забирала четверть
+        * ширины навсегда ради восьми строк, которые нажимают раз в сеанс.
+        * Заголовок раздела при этом ушёл вовсе — он повторял подсвеченный
+        * пункт навигации слово в слово, а на узком окне дублировал нижнюю
+        * панель. Название остаётся только у телефона, где полосы разделов нет.
+        */}
+      <div style={{ display: 'flex', alignItems: 'center', minWidth: 0, flex: 1, ...noDragRegion }}>
+        <div className="hide-on-mobile" style={{ minWidth: 0, width: '100%' }}>
+          <TopNav />
+        </div>
         <h2
-          className="text-truncate"
+          className="text-truncate show-on-mobile"
           style={{
             margin: 0,
             fontSize: 'var(--text-lg)',
@@ -254,25 +266,33 @@ export const Header: React.FC<HeaderProps> = ({ className = '' }) => {
         </Button>
 
         {/*
-          * Вход в аккаунт здесь — только на узком окне.
+          * Настройки стоят здесь, а не среди разделов.
           *
-          * Пока боковая панель на месте, пилюля профиля стоит у неё в подвале, и
-          * такая же пилюля в шапке была ровно тем же элементом второй раз на том же
-          * экране: тот же аватар, то же имя, то же меню. Мало того, у обеих копий
-          * совпадали `data-testid`, то есть в документе жили два элемента с одним
-          * именем. Хуже места для неё тоже не придумать: справа от неё системные
-          * кнопки окна, и промах по «закрыть» стоит дороже, чем лишний ход мышью.
-          *
-          * На узком окне панель уезжает вместе со своим подвалом (global.css §20),
-          * поэтому вход обязан остаться здесь — им и распоряжается `.show-on-mobile`.
-          * `display` подставляется переменной: у обёртки он `flex`, иначе пилюля
-          * потеряет выравнивание по центру строки.
+          * Это утилита, а не место с музыкой: в ряду «Главная — Поиск — Поток»
+          * она была девятым пунктом, из-за которого ряд переставал влезать в
+          * окно 1440 px и подпись обрезалась на «Нас». У аккаунта ей и место.
           */}
-        <div
-          className="show-on-mobile"
-          style={{ '--show-on-mobile-display': 'flex', alignItems: 'center' } as React.CSSProperties}
-          data-testid="header-user-profile"
-        >
+        <Button
+          variant={activeView === 'settings' ? 'secondary' : 'ghost'}
+          size="sm"
+          isActive={activeView === 'settings'}
+          icon={<Settings size={ICON.sm} />}
+          onClick={() => setActiveView('settings')}
+          aria-label="Настройки"
+          aria-pressed={activeView === 'settings'}
+          title="Настройки"
+          data-testid="header-settings"
+        />
+
+        {/*
+          * Вход в аккаунт.
+          *
+          * Раньше пилюля профиля стояла в подвале боковой панели, а здесь — её
+          * копия для узкого окна: тот же аватар, то же имя, то же меню и, что
+          * хуже, тот же `data-testid` на двух элементах сразу. Панели больше
+          * нет, копия осталась одна, и `.show-on-mobile` ей не нужен.
+          */}
+        <div style={{ display: 'flex', alignItems: 'center' }} data-testid="header-user-profile">
           <UserProfile />
         </div>
 
