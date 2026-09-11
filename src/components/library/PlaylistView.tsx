@@ -1,5 +1,5 @@
 import React, { useCallback, useMemo, useRef, useState } from 'react';
-import { ListMusic, Play, Shuffle, Trash2, Edit2, Check, X, Music2, Plus, ArrowUp, ArrowDown } from 'lucide-react';
+import { ListMusic, Play, Shuffle, Trash2, Edit2, Check, X, Music2, Plus, ArrowUp, ArrowDown, Sparkles } from 'lucide-react';
 import { useLibraryStore } from '../../store/useLibraryStore';
 import { usePlayerStore } from '../../store/usePlayerStore';
 import { useUIStore } from '../../store/useUIStore';
@@ -47,6 +47,7 @@ export const PlaylistView: React.FC<PlaylistViewProps> = ({ playlistId: propPlay
 
   const playTrack = usePlayerStore((s) => s.playTrack);
   const toggleShuffle = usePlayerStore((s) => s.toggleShuffle);
+  const smartShuffle = usePlayerStore((s) => s.smartShuffle);
   const syncSourceQueue = usePlayerStore((s) => s.syncSourceQueue);
 
   const targetId = propPlaylistId || activePlaylistId;
@@ -103,6 +104,19 @@ export const PlaylistView: React.FC<PlaylistViewProps> = ({ playlistId: propPlay
     },
     [afterMutation, playlist, reorderPlaylistTracks, showToast]
   );
+
+  const [isMixing, setIsMixing] = useState(false);
+
+  const handleSmartShuffle = useCallback(async () => {
+    if (tracks.length === 0 || isMixing) return;
+    setIsMixing(true);
+    try {
+      await smartShuffle(tracks);
+      showToast('Перемешано и дополнено похожим', 'success');
+    } finally {
+      setIsMixing(false);
+    }
+  }, [isMixing, showToast, smartShuffle, tracks]);
 
   const coverInputRef = useRef<HTMLInputElement>(null);
 
@@ -386,6 +400,22 @@ export const PlaylistView: React.FC<PlaylistViewProps> = ({ playlistId: propPlay
                   data-testid="playlist-shuffle-btn"
                 >
                   Вперемешку
+                </Button>
+                {/*
+                  * Перемешка с добавками. Отдельной кнопкой, а не заменой
+                  * обычной: обычная — это «тот же список в другом порядке», и
+                  * человек имеет право получить именно её, без чужой музыки.
+                  */}
+                <Button
+                  variant="secondary"
+                  size="md"
+                  icon={<Sparkles size={ICON.md} />}
+                  onClick={() => void handleSmartShuffle()}
+                  disabled={isMixing}
+                  title="Перемешать и подмешать похожее, чего в плейлисте нет"
+                  data-testid="playlist-smart-shuffle-btn"
+                >
+                  {isMixing ? 'Подбираем…' : 'Перемешать и дополнить'}
                 </Button>
                 <SaveOfflineButton
                   tracks={tracks}

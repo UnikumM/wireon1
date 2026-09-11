@@ -1,5 +1,5 @@
 import React, { useMemo, useRef, useState } from 'react';
-import { GripVertical, ListMusic, Music2, Play, Shuffle, Trash2, X } from 'lucide-react';
+import { GripVertical, ListMusic, Music2, Play, Shuffle, Sparkles, Trash2, X } from 'lucide-react';
 import { useUIStore } from '../../store/useUIStore';
 import { usePlayerStore } from '../../store/usePlayerStore';
 import { useDismissable } from '../../hooks';
@@ -104,6 +104,9 @@ export const QueueDrawer: React.FC<QueueDrawerProps> = ({ className = '' }) => {
   const isPlaying = usePlayerStore((s) => s.isPlaying);
   const userQueue = usePlayerStore((s) => s.userQueue);
   const sourceQueue = usePlayerStore((s) => s.sourceQueue);
+  const suggestedTrackIds = usePlayerStore((s) => s.suggestedTrackIds);
+  /** Множество, а не массив: проверка идёт на каждую строку очереди. */
+  const suggested = useMemo(() => new Set(suggestedTrackIds), [suggestedTrackIds]);
   const currentIndex = usePlayerStore((s) => s.currentIndex);
   const isShuffled = usePlayerStore((s) => s.isShuffled);
   const shuffleOrder = usePlayerStore((s) => s.shuffleOrder);
@@ -460,6 +463,26 @@ export const QueueDrawer: React.FC<QueueDrawerProps> = ({ className = '' }) => {
                           className="text-truncate"
                           style={{ display: 'block', fontSize: 'var(--text-sm)', color: 'var(--text-primary)' }}
                         >
+                          {/*
+                            * Значок у подобранного трека.
+                            *
+                            * Без него подмешанная песня в своём же плейлисте
+                            * читается как «откуда это здесь взялось». Значок
+                            * идёт перед названием, а не после: решение «моё или
+                            * подобранное» человек принимает до того, как
+                            * дочитает строку.
+                            */}
+                          {suggested.has(track.id) && (
+                            <Sparkles
+                              size={ICON.xs}
+                              aria-hidden="true"
+                              style={{
+                                color: 'var(--accent)',
+                                marginRight: 'var(--space-1)',
+                                verticalAlign: '-1px'
+                              }}
+                            />
+                          )}
                           {track.title}
                         </span>
                         <span
@@ -555,7 +578,14 @@ export const QueueDrawer: React.FC<QueueDrawerProps> = ({ className = '' }) => {
                     <button
                       onClick={() => playTrack(track, sourceQueue, index)}
                       title={`Включить «${track.title}»`}
-                      aria-label={`Включить «${track.title}»`}
+                      aria-label={
+                        // Пометка «подобрано» уходит в имя кнопки, а не отдельной
+                        // скрытой строкой: у диктора должно быть одно имя на
+                        // элемент, и значок сам по себе ничего не говорит.
+                        suggested.has(track.id)
+                          ? `Включить «${track.title}» — подобрано для вас`
+                          : `Включить «${track.title}»`
+                      }
                       className="menu-item-hover"
                       style={{ gap: 'var(--space-2)', padding: 'var(--space-1) var(--space-2)' }}
                     >

@@ -10,6 +10,7 @@ import { searchAggregator } from '../services/aggregator';
 import { recommendationEngine, deriveWaveMood, clampAxis } from '../services/recommendationEngine';
 import { offlineMode } from '../services/offlineMode';
 import * as playbackTracker from '../services/playbackTracker';
+import { mixSuggestions, pickSeeds } from '../services/smartShuffle';
 import * as dbService from '../services/db';
 import { useLibraryStore } from './useLibraryStore';
 import { useUIStore } from './useUIStore';
@@ -594,6 +595,7 @@ export const usePlayerStore = create<PlayerStore>((set, get) => {
     previousVolume: 0.8,
     repeatMode: 'off',
     isShuffled: false,
+    suggestedTrackIds: [],
     error: null,
     errorDetail: null,
     errorCanRetry: true,
@@ -1087,6 +1089,51 @@ export const usePlayerStore = create<PlayerStore>((set, get) => {
         index: 0,
         userQueue: []
       });
+    },
+
+    /**
+     * Перемешать плейлист и подмешать в него новое.
+     *
+     * Подбор идёт по нескольким случайным трекам самого плейлиста, а не по
+     * первому: иначе вторая перемешка того же списка дала бы те же добавки.
+     * Отказ подбора не отменяет перемешку — останется обычная, и это лучше,
+     * чем ничего не произошло.
+     */
+    smartShuffle: async (tracks: UnifiedTrack[]) => {
+      const own = (tracks || []).filter((track) => track?.id);
+      if (own.length === 0) return;
+
+      const seeds = pickSeeds(own);
+      const exclude = new Set(own.map((track) => track.id));
+
+      const found = await Promise.all(
+        seeds.map((seed) =>
+          recommendationEngine.getTrackRadio(seed, 8, exclude).catch(() => [] as UnifiedTrack[])
+        )
+      );
+
+      // Сведение по идентификатору: радио по двум трекам одного артиста
+      // законно приносит одно и то же.
+      const byId = new Map<string, UnifiedTrack>();
+      for (const track of found.flat()) {
+        if (track?.id && !exclude.has(track.id)) byId.set(track.id, track);
+      }
+
+      const { tracks: mixed, suggestedIds } = mixSuggestions(own, Array.from(byId.values()));
+
+      set({
+        queueMode: 'sequential',
+        userQueue: [],
+        sourceQueue: mixed,
+        currentIndex: 0,
+        // Порядок уже перемешан здесь; вторая перестановка поверх него сломала
+        // бы расстановку добавок «одна на четыре».
+        isShuffled: false,
+        shuffleOrder: [],
+        suggestedTrackIds: Array.from(suggestedIds)
+      });
+
+      await commitTrack(mixed[0], { queue: mixed, index: 0, userQueue: [] });
     },
 
     startMyWave: async (mood?: WaveMood, genre?: string | null) => {

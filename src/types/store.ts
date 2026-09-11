@@ -45,6 +45,13 @@ export interface PlayerStoreState {
   previousVolume: number; // last non-zero volume, restored on unmute
   repeatMode: RepeatMode;
   isShuffled: boolean;
+  /**
+   * Что в очереди подобрано нами, а не выбрано человеком.
+   *
+   * Нужно, чтобы предложения было видно: подмешанный трек в чужом плейлисте
+   * без пометки выглядит как «откуда это здесь взялось».
+   */
+  suggestedTrackIds: string[];
   error: string | null; // human-readable last playback error
   errorDetail: string | null; // the raw message behind `error`, for tooltips and bug reports
   errorCanRetry: boolean; // false when pressing play again cannot help
@@ -137,6 +144,11 @@ export interface PlayerStoreActions {
   // Wave & Radio actions
   setQueueMode: (mode: QueueMode) => void;
   startTrackRadio: (seedTrack: UnifiedTrack) => Promise<void>;
+  /**
+   * Перемешать и дополнить: тот же плейлист вперемешку, а между своими треками
+   * подобранные по его составу. Пустой список тихо ничего не делает.
+   */
+  smartShuffle: (tracks: UnifiedTrack[]) => Promise<void>;
   startMyWave: (mood?: WaveMood, genre?: string | null) => Promise<void>;
   startWave: (configOrMood?: WaveConfig | WaveMood) => Promise<void>;
   dislikeAndSkipCurrentTrack: () => Promise<void>;
