@@ -9,7 +9,8 @@ import { usePlayerStore } from '../../store/usePlayerStore';
 import { useMediaQuery } from '../../hooks/useMediaQuery';
 import { SearchBar } from './SearchBar';
 import { TrackCard } from './TrackCard';
-import { CollectionCard } from './CollectionCard';
+import { CoverCard } from '../common/CoverCard';
+import { Disc3, ListMusic, User } from 'lucide-react';
 import { Button } from '../common/Button';
 import { EmptyState } from '../common/EmptyState';
 import { Skeleton } from '../common/Skeleton';
@@ -43,6 +44,13 @@ const KIND_TABS: { value: SearchKind; label: string }[] = [
   { value: 'artists', label: 'Исполнители' },
   { value: 'playlists', label: 'Плейлисты' }
 ];
+
+/** Значок на месте обложки, когда источник её не дал. */
+const COLLECTION_ICON: Record<SearchCollection['kind'], React.ReactNode> = {
+  album: <Disc3 size={ICON.display} />,
+  artist: <User size={ICON.display} />,
+  playlist: <ListMusic size={ICON.display} />
+};
 
 /** Какой вид подборки показывает вкладка. */
 const TAB_KIND: Record<Exclude<SearchKind, 'tracks'>, SearchCollection['kind']> = {
@@ -453,10 +461,16 @@ export const SearchResults: React.FC<SearchResultsProps> = ({ className = '' }) 
           data-testid="search-collection-grid"
         >
           {shownCollections.map((item) => (
-            <CollectionCard
+            <CoverCard
               key={item.id}
-              collection={item}
-              onOpen={handleOpenCollection}
+              title={item.title}
+              subtitle={item.subtitle}
+              artworkUrl={item.artworkUrl}
+              // У исполнителя обложка круглая: это человек, а не диск.
+              round={item.kind === 'artist'}
+              fallbackIcon={COLLECTION_ICON[item.kind]}
+              testId={`collection-${item.id}`}
+              onClick={() => handleOpenCollection(item)}
             />
           ))}
         </div>

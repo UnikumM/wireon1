@@ -166,6 +166,8 @@ export interface ElectronAPI {
   setYouTubeCookiesBrowser?: (browser: string | null) => Promise<string | null>;
   clearStreamCache: () => Promise<boolean>;
   searchYouTube: (query: string) => Promise<any>;
+  /** Любой запрос к InnerTube: прямой из окна отбивает предзапрос CORS. */
+  innertube: (endpoint: 'search' | 'browse', body: unknown) => Promise<any>;
   /**
    * Радио YouTube Music от одной песни — сырой ответ InnerTube `next`.
    * Необязательный: в сборке без обновлённого preload его просто нет.

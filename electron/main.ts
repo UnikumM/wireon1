@@ -1243,6 +1243,40 @@ export function setupIpcHandlers(
   });
 
   // Search YouTube InnerTube via Main Process (Bypasses all CORS)
+  /**
+   * Любой запрос к InnerTube из окна.
+   *
+   * Поиск треков уже ходил сюда своим обработчиком, и когда понадобились
+   * альбомы, чарты и новинки, выяснилось, почему: прямой `fetch` из окна к
+   * `music.youtube.com` отбивает предзапрос CORS — заголовок
+   * `X-YouTube-Client-Name` делает запрос непростым, и `OPTIONS` возвращает
+   * 403. Заводить по обработчику на каждую страницу значило бы переписывать
+   * одно и то же четвёртый раз, поэтому конец пути и тело приходят от окна.
+   *
+   * Принимаются только два конца — `search` и `browse`: окно не должно уметь
+   * послать от нашего имени что угодно куда угодно.
+   */
+  ipc.handle('innertube', async (_, endpoint: string, body: unknown) => {
+    if (endpoint !== 'search' && endpoint !== 'browse') {
+      throw new Error(`Unsupported InnerTube endpoint: ${endpoint}`);
+    }
+
+    const response = await fetch(`https://music.youtube.com/youtubei/v1/${endpoint}`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'User-Agent': DESKTOP_USER_AGENT,
+        'X-YouTube-Client-Name': '67',
+        Origin: 'https://music.youtube.com',
+        Referer: 'https://music.youtube.com/'
+      },
+      body: JSON.stringify(body)
+    });
+
+    if (!response.ok) throw new Error(`InnerTube HTTP error: ${response.status}`);
+    return await response.json();
+  });
+
   ipc.handle('search-youtube', async (_, query: string) => {
     try {
       const payload = {

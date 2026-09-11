@@ -71,6 +71,11 @@ export type PlatformKind = 'electron' | 'mobile' | 'browser';
 /** Ровно те вызовы, которые обязаны работать вне десктопа. */
 export interface StreamBridge {
   searchYouTube?: (query: string) => Promise<unknown>;
+  /**
+   * Любой запрос к InnerTube. Есть только у десктопа: на сервере своего конца
+   * под это нет, а прямой запрос из окна отбивает предзапрос CORS.
+   */
+  innertube?: (endpoint: 'search' | 'browse', body: unknown) => Promise<unknown>;
   youtubeRadio?: (videoId: string) => Promise<unknown>;
   /**
    * @param rejectUrl ссылка, которую плеер уже получил и играть не смог. На

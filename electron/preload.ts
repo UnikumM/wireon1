@@ -145,6 +145,8 @@ export interface ElectronAPI {
   setYouTubeCookiesBrowser: (browser: string | null) => Promise<string | null>;
   clearStreamCache: () => Promise<boolean>;
   searchYouTube: (query: string) => Promise<any>;
+  /** Любой запрос к InnerTube: прямой из окна отбивает предзапрос CORS. */
+  innertube: (endpoint: 'search' | 'browse', body: unknown) => Promise<any>;
   /** Радио YouTube Music от одной песни: сырой ответ InnerTube `next`. */
   youtubeRadio: (videoId: string) => Promise<any>;
   searchSoundCloud: (query: string, clientId: string, limit?: number) => Promise<any>;
@@ -316,6 +318,9 @@ export const electronAPI: ElectronAPI = {
   },
   searchYouTube: (query: string): Promise<any> => {
     return ipcRenderer.invoke('search-youtube', query);
+  },
+  innertube: (endpoint: 'search' | 'browse', body: unknown): Promise<any> => {
+    return ipcRenderer.invoke('innertube', endpoint, body);
   },
   youtubeRadio: (videoId: string): Promise<any> => {
     return ipcRenderer.invoke('youtube-radio', videoId);

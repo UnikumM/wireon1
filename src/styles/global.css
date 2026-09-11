@@ -1812,6 +1812,72 @@ svg.lucide[width='48'] {
 }
 
 /**
+ * Карточка с обложкой — главный объект витрины.
+ *
+ * Панели вокруг обложки нет нарочно: в витринном направлении отделяет объекты
+ * пустое место, а не рамка. Отклик на наведение поэтому даёт сама картинка —
+ * поднимается и получает тень, — а не подсветка фона, которого нет.
+ */
+.cover-card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  padding: 0;
+  min-width: 0;
+  border: none;
+  background: transparent;
+  text-align: left;
+  cursor: pointer;
+}
+
+.cover-card-art {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 1;
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  background: var(--surface-2);
+  box-shadow: var(--shadow-md);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-faint);
+  transition: transform var(--dur-normal) var(--ease-spring),
+    box-shadow var(--dur-normal) var(--ease-out);
+}
+
+.cover-card-art img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.cover-card:hover .cover-card-art {
+  transform: translateY(-3px);
+  box-shadow: var(--shadow-lg);
+}
+
+.cover-card:active .cover-card-art {
+  transform: scale(var(--press-scale));
+}
+
+.cover-card-text {
+  min-width: 0;
+}
+
+.cover-card-title {
+  font-size: var(--text-lg);
+  font-weight: var(--weight-semibold);
+  color: var(--text-primary);
+}
+
+.cover-card-subtitle {
+  margin-top: var(--space-1);
+  font-size: var(--text-sm);
+  color: var(--text-muted);
+}
+
+/**
  * Верхняя навигация — витринное направление.
  *
  * Отметка выбранного — не цвет, а подчёркивание, растущее пружиной из центра:

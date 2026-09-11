@@ -9,6 +9,7 @@ import { SearchCollection, UnifiedTrack } from '../../types/music';
 import { checkNewReleases, NewRelease } from '../../services/subscriptions';
 import { DiscoverShelf, getCharts, getNewReleases } from '../../services/discover';
 import { ICON } from '../../styles/icons';
+import { CoverCard } from '../common/CoverCard';
 import { formatDuration } from '../../utils/time';
 
 /**
@@ -246,7 +247,7 @@ export const HomeView: React.FC = () => {
 
       {/* --- Собрано для тебя --------------------------------------------- */}
       <Shelf title="Собрано для тебя" note="обновляется каждый день" testId="home-daily">
-          <ShowcaseCard
+          <CoverCard
             title="Моя волна"
             subtitle="бесконечный подбор"
             testId="home-card-wave"
@@ -257,7 +258,7 @@ export const HomeView: React.FC = () => {
           />
 
           {mixes.map((mix) => (
-            <ShowcaseCard
+            <CoverCard
               key={mix.id}
               title={mix.title}
               subtitle={mix.subtitle}
@@ -274,7 +275,7 @@ export const HomeView: React.FC = () => {
       {releases.length > 0 && (
         <Shelf title="Новое у исполнителей" note="у тех, на кого вы подписаны" testId="home-releases">
           {releases.slice(0, 8).map(({ artist, album }) => (
-            <ShowcaseCard
+            <CoverCard
               key={`${artist}_${album.browseId || album.id}`}
               title={album.title}
               subtitle={artist}
@@ -300,7 +301,7 @@ export const HomeView: React.FC = () => {
       {shelves.map((shelf) => (
         <Shelf key={shelf.title} title={shelf.title} testId={`home-shelf-${shelf.title}`}>
           {shelf.items.slice(0, 8).map((item: SearchCollection) => (
-            <ShowcaseCard
+            <CoverCard
               key={item.id}
               title={item.title}
               subtitle={item.subtitle || ''}
@@ -367,75 +368,6 @@ const Shelf: React.FC<ShelfProps> = ({ title, note, testId, children }) => (
       {children}
     </div>
   </section>
-);
-
-interface ShowcaseCardProps {
-  title: string;
-  subtitle: string;
-  artworkUrl?: string;
-  testId: string;
-  onClick: () => void;
-}
-
-/** Крупная карточка витрины: обложка, под ней две строки. */
-const ShowcaseCard: React.FC<ShowcaseCardProps> = ({ title, subtitle, artworkUrl, testId, onClick }) => (
-  <button
-    type="button"
-    className="focus-ring"
-    onClick={onClick}
-    data-testid={testId}
-    style={{
-      display: 'flex',
-      flexDirection: 'column',
-      gap: 'var(--space-3)',
-      padding: 0,
-      border: 'none',
-      background: 'transparent',
-      textAlign: 'left',
-      cursor: 'pointer'
-    }}
-  >
-    <div
-      style={{
-        aspectRatio: '1',
-        width: '100%',
-        borderRadius: 'var(--radius-lg)',
-        overflow: 'hidden',
-        background: 'var(--surface-2)',
-        boxShadow: 'var(--shadow-md)'
-      }}
-    >
-      {artworkUrl && (
-        <img src={artworkUrl} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-      )}
-    </div>
-    <div>
-      <div
-        style={{
-          fontSize: 'var(--text-lg)',
-          fontWeight: 'var(--weight-semibold)',
-          color: 'var(--text-primary)',
-          whiteSpace: 'nowrap',
-          overflow: 'hidden',
-          textOverflow: 'ellipsis'
-        }}
-      >
-        {title}
-      </div>
-      <div
-        style={{
-          fontSize: 'var(--text-sm)',
-          color: 'var(--text-muted)',
-          marginTop: 'var(--space-1)',
-          whiteSpace: 'nowrap',
-          overflow: 'hidden',
-          textOverflow: 'ellipsis'
-        }}
-      >
-        {subtitle}
-      </div>
-    </div>
-  </button>
 );
 
 export default HomeView;

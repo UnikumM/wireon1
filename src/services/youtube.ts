@@ -26,6 +26,8 @@ export interface YouTubeServiceConfig {
 
 interface ElectronBridge {
   searchYouTube?: (query: string) => Promise<unknown>;
+  /** Любой запрос к InnerTube; идёт через главный процесс из-за CORS. */
+  innertube?: (endpoint: 'search' | 'browse', body: unknown) => Promise<unknown>;
   /** Радио YouTube Music от песни; идёт через главный процесс из-за CORS. */
   youtubeRadio?: (videoId: string) => Promise<unknown>;
   resolveYouTubeStream?: (
@@ -472,6 +474,36 @@ export class YouTubeService {
   }
 
   /**
+   * Один запрос к InnerTube — через главный процесс, если он есть.
+   *
+   * Прямой `fetch` из окна к `music.youtube.com` отбивает предзапрос CORS:
+   * заголовок `X-YouTube-Client-Name` делает запрос непростым, и на `OPTIONS`
+   * приходит 403. Поэтому сначала мост, и только потом прямая попытка — она
+   * работает там, где окна нет вовсе (тесты, главный процесс).
+   */
+  private async innertube(endpoint: 'search' | 'browse', payload: unknown): Promise<any> {
+    const bridge = getElectronBridge();
+    if (bridge && typeof bridge.innertube === 'function') {
+      return await bridge.innertube(endpoint, payload);
+    }
+
+    const response = await this.fetchWithTimeout(`https://music.youtube.com/youtubei/v1/${endpoint}`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'User-Agent':
+          'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
+        'X-YouTube-Client-Name': '67',
+        Origin: 'https://music.youtube.com',
+        Referer: 'https://music.youtube.com/'
+      },
+      body: JSON.stringify(payload)
+    });
+    if (!response.ok) throw new Error(`InnerTube HTTP error: ${response.status}`);
+    return await response.json();
+  }
+
+  /**
    * Альбомы, исполнители и плейлисты по тому же запросу.
    *
    * Один запрос на все три вкладки, а не три с разными фильтрами: в поиск
@@ -497,20 +529,7 @@ export class YouTubeService {
     };
 
     try {
-      const response = await this.fetchWithTimeout('https://music.youtube.com/youtubei/v1/search', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'User-Agent':
-            'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
-          'X-YouTube-Client-Name': '67',
-          Origin: 'https://music.youtube.com',
-          Referer: 'https://music.youtube.com/'
-        },
-        body: JSON.stringify(payload)
-      });
-      if (!response.ok) throw new Error(`InnerTube HTTP error: ${response.status}`);
-      return this.parseCollectionsResponse(await response.json(), limit);
+      return this.parseCollectionsResponse(await this.innertube('search', payload), limit);
     } catch (err) {
       console.warn('[YouTubeService] Collections search failed:', err);
       return [];
@@ -577,20 +596,7 @@ export class YouTubeService {
     };
 
     try {
-      const response = await this.fetchWithTimeout('https://music.youtube.com/youtubei/v1/browse', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'User-Agent':
-            'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
-          'X-YouTube-Client-Name': '67',
-          Origin: 'https://music.youtube.com',
-          Referer: 'https://music.youtube.com/'
-        },
-        body: JSON.stringify(payload)
-      });
-      if (!response.ok) throw new Error(`InnerTube HTTP error: ${response.status}`);
-      return this.parseShelvesResponse(await response.json(), limitPerShelf);
+      return this.parseShelvesResponse(await this.innertube('browse', payload), limitPerShelf);
     } catch (err) {
       console.warn(`[YouTubeService] Browse ${id} failed:`, err);
       return [];
