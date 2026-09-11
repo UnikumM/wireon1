@@ -187,7 +187,7 @@ export const Header: React.FC<HeaderProps> = ({ className = '' }) => {
           * показывает список сочетаний клавиш, а клавиатуры на телефоне нет.
           * Подпись «Ctrl K» рядом с ней там читалась прямой неправдой.
           */}
-        <div className="hide-on-mobile">
+        <div className="hide-on-mobile hide-on-medium">
           <Button
             variant="subtle"
             size="sm"

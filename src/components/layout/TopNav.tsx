@@ -101,6 +101,10 @@ export const TopNav: React.FC<TopNavProps> = ({ className = '' }) => {
             type="button"
             className="topnav-item focus-ring"
             aria-current={activeView === item.id ? 'page' : undefined}
+            // Имя на кнопке, а не только в подписи: на среднем окне подписи
+            // скрываются, и без этого у пунктов не осталось бы имени вовсе.
+            aria-label={item.label}
+            title={item.label}
             onClick={() => handleNavClick(item.id)}
             data-testid={`nav-${item.id}`}
           >
