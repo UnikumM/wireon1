@@ -10,7 +10,6 @@ import { useMediaQuery } from '../../hooks/useMediaQuery';
 import { SearchBar } from './SearchBar';
 import { TrackCard } from './TrackCard';
 import { CollectionCard } from './CollectionCard';
-import { collectionTracks } from '../../services/collections';
 import { Button } from '../common/Button';
 import { EmptyState } from '../common/EmptyState';
 import { Skeleton } from '../common/Skeleton';
@@ -84,6 +83,7 @@ export const SearchResults: React.FC<SearchResultsProps> = ({ className = '' }) 
   const isShuffled = usePlayerStore((s) => s.isShuffled);
   const toggleShuffle = usePlayerStore((s) => s.toggleShuffle);
   const openArtist = useUIStore((s) => s.openArtist);
+  const openCollection = useUIStore((s) => s.openCollection);
 
   const [results, setResults] = useState<UnifiedTrack[]>([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -259,20 +259,19 @@ export const SearchResults: React.FC<SearchResultsProps> = ({ className = '' }) 
   /**
    * Открыть найденную подборку.
    *
-   * Исполнитель уходит на свой экран, альбом и плейлист раскрываются в треки и
-   * начинают играть. Отдельного экрана альбома пока нет, и включить — честнее,
-   * чем открыть пустоту.
+   * Исполнитель уходит на свой экран, альбом и плейлист — на экран подборки.
+   * Раньше карточка сразу включала первый трек: человек видел состав только
+   * очередью, уже начав слушать не то, что хотел.
    */
   const handleOpenCollection = useCallback(
-    async (collection: SearchCollection) => {
+    (collection: SearchCollection) => {
       if (collection.kind === 'artist') {
         openArtist(collection.title);
         return;
       }
-      const tracks = await collectionTracks(collection);
-      if (tracks.length > 0) await playTrack(tracks[0], tracks, 0);
+      openCollection(collection);
     },
-    [openArtist, playTrack]
+    [openArtist, openCollection]
   );
 
   const hasQuery = searchQuery.trim() !== '';
@@ -457,7 +456,7 @@ export const SearchResults: React.FC<SearchResultsProps> = ({ className = '' }) 
             <CollectionCard
               key={item.id}
               collection={item}
-              onOpen={(collection) => void handleOpenCollection(collection)}
+              onOpen={handleOpenCollection}
             />
           ))}
         </div>

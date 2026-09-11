@@ -19,6 +19,7 @@ export const useUIStore = create<UIStore>((set, get) => ({
   activeWaveGenre: null,
   activePlaylistId: null,
   selectedArtistName: null,
+  activeCollection: null,
   isQueueOpen: false,
   isLyricsOpen: false,
   isFullscreenPlayerOpen: false,
@@ -55,6 +56,11 @@ export const useUIStore = create<UIStore>((set, get) => ({
 
   setSelectedArtistName: (name: string | null) => {
     set({ selectedArtistName: name });
+  },
+
+  openCollection: (collection) => {
+    if (!collection) return;
+    set({ activeView: 'collection', activeCollection: collection, isFullscreenPlayerOpen: false });
   },
 
   openArtist: (artistName: string) => {

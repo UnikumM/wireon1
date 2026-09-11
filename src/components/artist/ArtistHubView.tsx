@@ -79,6 +79,7 @@ export const ArtistHubView: React.FC<ArtistHubViewProps> = ({
   const setActiveView = useUIStore((s) => s.setActiveView);
   const openArtist = useUIStore((s) => s.openArtist);
   const showToast = useUIStore((s) => s.showToast);
+  const openCollection = useUIStore((s) => s.openCollection);
 
   const currentTrack = usePlayerStore((s) => s.currentTrack);
   const isPlaying = usePlayerStore((s) => s.isPlaying);
@@ -95,8 +96,6 @@ export const ArtistHubView: React.FC<ArtistHubViewProps> = ({
   const [bannerFailed, setBannerFailed] = useState<boolean>(false);
   const [similar, setSimilar] = useState<SimilarArtistsResult | null>(null);
   const [similarAttempt, setSimilarAttempt] = useState<number>(0);
-  /** `browseId` альбома, чей состав сейчас запрашивается. */
-  const [openingAlbumId, setOpeningAlbumId] = useState<string | null>(null);
   const [subscribed, setSubscribed] = useState<boolean>(false);
 
   const loadProfile = useCallback(async (name: string, force = false) => {
@@ -201,33 +200,26 @@ export const ArtistHubView: React.FC<ArtistHubViewProps> = ({
   };
 
   /**
-   * Включает альбом целиком.
+   * Открывает альбом на его экране.
    *
-   * До этого карточка альбома была картинкой и только: ни нажатия, ни кнопки,
-   * ни клавиатурного пути — в самом стиле стояло `cursor: default`. Состав
-   * альбома YouTube отдаёт отдельным запросом по его `browseId`, поэтому здесь
-   * есть ожидание и есть ответ на пустоту: молча ничего не делать — то же, что
-   * было.
+   * Раньше карточка сразу включала альбом: состав человек узнавал уже очередью,
+   * начав слушать. Ожидание, полоса занятости и сообщение о пустом ответе жили
+   * здесь же — теперь всё это забота экрана подборки, одна на все источники.
    */
-  const handlePlayAlbum = useCallback(
-    async (albumId: string, albumTitle: string) => {
-      if (openingAlbumId) return;
-      setOpeningAlbumId(albumId);
-      try {
-        const tracks = await artistService.getAlbumTracks(albumId, profile?.name || artistName || '');
-        if (!tracks.length) {
-          showToast(`YouTube не отдал состав «${albumTitle}». Попробуйте открыть его позже.`, 'error');
-          return;
-        }
-        await playTrack(tracks[0], tracks, 0);
-      } catch (err) {
-        console.warn('[ArtistHubView] Не удалось открыть альбом:', err);
-        showToast(`Не удалось открыть «${albumTitle}».`, 'error');
-      } finally {
-        setOpeningAlbumId(null);
-      }
+  const handleOpenAlbum = useCallback(
+    (album: { id: string; title: string; browseId?: string; coverUrl?: string; year?: string }) => {
+      const ref = album.browseId || album.id;
+      openCollection({
+        id: `ytc_${ref}`,
+        kind: 'album',
+        source: 'youtube',
+        ref,
+        title: album.title,
+        subtitle: [profile?.name || artistName, album.year].filter(Boolean).join(' • '),
+        artworkUrl: album.coverUrl || ''
+      });
     },
-    [artistName, openingAlbumId, playTrack, profile?.name, showToast]
+    [artistName, openCollection, profile?.name]
   );
 
   const handleStartArtistRadio = () => {
@@ -687,10 +679,8 @@ export const ArtistHubView: React.FC<ArtistHubViewProps> = ({
                 <button
                   key={album.id}
                   type="button"
-                  onClick={() => void handlePlayAlbum(album.browseId || album.id, album.title)}
-                  disabled={openingAlbumId !== null}
-                  aria-busy={openingAlbumId === (album.browseId || album.id)}
-                  aria-label={`Включить альбом «${album.title}»`}
+                  onClick={() => handleOpenAlbum(album)}
+                  aria-label={`Открыть альбом «${album.title}»`}
                   className="card-interactive card-reset press animate-settle hover-sheen"
                   style={
                     {
@@ -702,7 +692,7 @@ export const ArtistHubView: React.FC<ArtistHubViewProps> = ({
                       flexDirection: 'column',
                       gap: 'var(--space-2)',
                       borderRadius: 'var(--radius-md)',
-                      // Кнопка, а не `div`: альбом включается нажатием, и до
+                      // Кнопка, а не `div`: альбом открывается нажатием, и до
                       // клавиатуры он тоже должен доходить. Раньше здесь стоял
                       // `cursor: default` — честный признак того, что карточка
                       // не делала ничего.
@@ -711,7 +701,7 @@ export const ArtistHubView: React.FC<ArtistHubViewProps> = ({
                       // `.card-interactive`, и инлайновое свойство глушило бы
                       // `:hover` (DESIGN_SYSTEM §15). Родной вид кнопки
                       // сбрасывает `.card-reset` в таблице стилей.
-                      cursor: openingAlbumId ? 'progress' : 'pointer'
+                      cursor: 'pointer'
                     } as React.CSSProperties
                   }
                   data-testid={`artist-album-${album.id}`}
@@ -755,20 +745,11 @@ export const ArtistHubView: React.FC<ArtistHubViewProps> = ({
                         justifyContent: 'center',
                         backgroundColor: 'var(--scrim)',
                         color: 'var(--text-on-accent)',
-                        opacity: openingAlbumId === (album.browseId || album.id) ? 1 : undefined,
                         transition: 'opacity var(--dur-fast) var(--ease-out)'
                       }}
-                      className={
-                        openingAlbumId === (album.browseId || album.id)
-                          ? 'album-play-veil is-busy'
-                          : 'album-play-veil'
-                      }
+                      className="album-play-veil"
                     >
-                      {openingAlbumId === (album.browseId || album.id) ? (
-                        <RefreshCw size={ICON.xl} className="animate-spin" />
-                      ) : (
-                        <Play size={ICON.xl} fill="currentColor" />
-                      )}
+                      <Play size={ICON.xl} fill="currentColor" />
                     </span>
                   </div>
 

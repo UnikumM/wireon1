@@ -12,6 +12,7 @@ import { SettingsView } from './components/settings/SettingsView';
 import { WaveView } from './components/wave/WaveView';
 import { HomeView } from './components/home/HomeView';
 import { ForYouView } from './components/foryou/ForYouView';
+import { CollectionView } from './components/collection/CollectionView';
 import { ArtistHubView } from './components/artist/ArtistHubView';
 import { PlayerBar } from './components/player/PlayerBar';
 import { QueueDrawer } from './components/player/QueueDrawer';
@@ -157,6 +158,8 @@ export const App: React.FC = () => {
         return <SettingsView />;
       case 'artist':
         return <ArtistHubView />;
+      case 'collection':
+        return <CollectionView />;
       default:
         return <SearchResults />;
     }

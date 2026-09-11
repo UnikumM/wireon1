@@ -667,24 +667,8 @@ describe('ArtistService & ArtistHubView Component Tests', () => {
       expect(screen.queryByTestId('artist-monthly-listeners')).toBeNull();
     });
 
-    it('карточка альбома — кнопка, и она включает альбом', async () => {
+    it('карточка альбома — кнопка, и она открывает альбом', async () => {
       installFetchMock(pinkFloydRoutes());
-
-      const tracks = [
-        {
-          id: 'yt_aaa11111111',
-          source: 'youtube',
-          originalId: 'aaa11111111',
-          title: 'Speak to Me',
-          artist: 'Pink Floyd',
-          duration: 67
-        }
-      ];
-      const getAlbumTracks = vi.spyOn(artistService, 'getAlbumTracks').mockResolvedValue(tracks as never);
-      // Подмена ставится до отрисовки: экран берёт `playTrack` селектором, и
-      // замена уже после первого прохода до обработчика не доезжает.
-      const playTrack = vi.fn().mockResolvedValue(undefined);
-      usePlayerStore.setState({ playTrack: playTrack as never });
 
       await act(async () => {
         render(React.createElement(ArtistHubView, { artistName: 'Pink Floyd' }));
@@ -698,17 +682,21 @@ describe('ArtistService & ArtistHubView Component Tests', () => {
       // Раньше это был `div` с `cursor: default` — нажать было не на что, и до
       // клавиатуры карточка не доходила вовсе.
       expect(card.tagName).toBe('BUTTON');
-      expect(card.getAttribute('aria-label')).toContain('Включить альбом');
+      expect(card.getAttribute('aria-label')).toContain('Открыть альбом');
 
       await act(async () => {
         fireEvent.click(card);
       });
 
+      // Открывается экран альбома, а не начинает играть первый попавшийся трек:
+      // состав человек видит до того, как что-то зазвучало.
       await waitFor(() => {
-        expect(getAlbumTracks).toHaveBeenCalledWith('MPREb_dsotm', 'Pink Floyd');
+        expect(useUIStore.getState().activeView).toBe('collection');
       });
-      await waitFor(() => {
-        expect(playTrack).toHaveBeenCalledWith(tracks[0], tracks, 0);
+      expect(useUIStore.getState().activeCollection).toMatchObject({
+        kind: 'album',
+        ref: 'MPREb_dsotm',
+        source: 'youtube'
       });
     });
 
