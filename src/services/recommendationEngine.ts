@@ -10,7 +10,7 @@ import {
   updateWaveMemory,
   type WaveFeedbackKind
 } from './waveMemory';
-import { normalizeArtistKey } from './tasteProfile';
+import { extractGenreTokens, normalizeArtistKey } from './tasteProfile';
 import {
   getFavorites,
   getHistory,
@@ -22,6 +22,7 @@ import {
   recordTrackSkip,
   recordTrackCompletion
 } from './db';
+import type { HistoryRecord } from './db';
 import { youtubeService, YouTubeService } from './youtube';
 import { soundCloudService, SoundCloudService } from './soundcloud';
 import { isPlaceholderArtist } from '../utils/placeholders';
@@ -177,6 +178,12 @@ const SKIPPED_TRACK_PENALTY = 0.35;
  * повтор исчез навсегда.
  */
 const SERVED_TRACK_PENALTY = 0.5;
+
+/** Потолок прибавки за любимый жанр. Ниже веса артиста — так и задумано. */
+const GENRE_AFFINITY_BONUS = 0.15;
+
+/** Сколько живёт готовый профиль. */
+const PROFILE_CACHE_MS = 5 * 60 * 1000;
 /** Со скольких пропусков подряд трек считается отвергнутым. */
 export const SKIPS_BEFORE_PENALTY = 2;
 
@@ -513,10 +520,39 @@ export function explainWavePick(
   return { kind: 'fresh', text: 'Новое имя для вас' };
 }
 
+/**
+ * Чего стоит запись истории при подсчёте веса артиста.
+ *
+ * Прежде считались включения: десять раз включил и десять раз выключил на
+ * пятой секунде — вес десять, столько же, сколько у десяти дослушанных треков.
+ * Теперь считается прослушанное: полный трек — единица, половина — половина.
+ * У записей, накопленных до натурального подсчёта, секунд нет — для них
+ * остаётся старый счёт, потому что досчитывать их из длительности значило бы
+ * снова врать.
+ */
+function listenWeight(record: HistoryRecord): number {
+  const count = record.playCount || 1;
+  const total = record.totalSeconds;
+  const duration = record.track?.duration;
+  if (typeof total !== 'number' || total <= 0) return count;
+  if (typeof duration !== 'number' || duration <= 0) return count;
+  return total / duration;
+}
+
 export class RecommendationEngineService implements RecommendationEngine {
   private ytService: YouTubeService;
   private scService: SoundCloudService;
   private sessionBoosts: Map<string, number> = new Map();
+  /**
+   * Готовый профиль на пять минут.
+   *
+   * Профиль собирается из четырёх чтений базы, а спрашивают его на каждое
+   * пополнение очереди — то есть каждые десять треков. Пять минут — это
+   * примерно полтора трека: за это время вкус не меняется, а поход в базу
+   * экономится. Любое действие человека сбрасывает кэш немедленно, иначе
+   * получилось бы «жму сердечко, а ему всё равно».
+   */
+  private profileCache: { profile: UserProfile; at: number } | null = null;
 
   constructor(
     ytService: YouTubeService = youtubeService,
@@ -531,6 +567,12 @@ export class RecommendationEngineService implements RecommendationEngine {
    */
   public resetSessionBoosts(): void {
     this.sessionBoosts.clear();
+    this.profileCache = null;
+  }
+
+  /** Забыть готовый профиль: человек что-то сделал, и прошлый ответ устарел. */
+  public invalidateProfile(): void {
+    this.profileCache = null;
   }
 
   /**
@@ -539,6 +581,8 @@ export class RecommendationEngineService implements RecommendationEngine {
    */
   public async buildUserProfile(): Promise<UserProfile> {
     const now = Date.now();
+    const cached = this.profileCache;
+    if (cached && now - cached.at < PROFILE_CACHE_MS) return cached.profile;
     const [history, favorites, playlists, dislikes, memory] = await Promise.all([
       getHistory(200).catch(() => []),
       getFavorites().catch(() => []),
@@ -579,6 +623,7 @@ export class RecommendationEngineService implements RecommendationEngine {
         if (!lastPlayedAt.has(record.id)) lastPlayedAt.set(record.id, record.playedAt);
       }
       const count = record.playCount || 1;
+      const weight = listenWeight(record);
       totalPlays += count;
 
       // Пропуски пишутся в историю с первого дня, но до сих пор их никто не
@@ -590,12 +635,19 @@ export class RecommendationEngineService implements RecommendationEngine {
         skippedTrackIds.add(record.id);
       }
 
+      // Жанр набирает вес тем же прослушанным временем, что и артист. Раньше
+      // карта `genreAffinities` объявлялась и не заполнялась ни разу, а жанр
+      // определялся подстрокой в названии — то есть на паре процентов треков.
+      for (const token of extractGenreTokens(record.track || {})) {
+        genreAffinities.set(token, (genreAffinities.get(token) || 0) + weight);
+      }
+
       const artist = record.track?.artist;
       if (artist) {
         const norm = normalizeArtist(artist);
         if (norm) {
           rawToNormArtist.set(artist, norm);
-          artistPlayCounts.set(norm, (artistPlayCounts.get(norm) || 0) + count);
+          artistPlayCounts.set(norm, (artistPlayCounts.get(norm) || 0) + weight);
           const early = record.earlySkipCount || 0;
           // Ранние пропуски считаются отдельно и строже: выключить на первых
           // секундах — это не «не угадал момент», а «убери это».
@@ -616,6 +668,10 @@ export class RecommendationEngineService implements RecommendationEngine {
     for (const fav of favorites) {
       if (!fav || !fav.id) continue;
       favoriteTrackIds.add(fav.id);
+      // Избранное весит столько же, сколько три прослушивания, — как и у артистов.
+      for (const token of extractGenreTokens(fav)) {
+        genreAffinities.set(token, (genreAffinities.get(token) || 0) + 3);
+      }
       const artist = fav.artist;
       if (artist) {
         const norm = normalizeArtist(artist);
@@ -683,6 +739,14 @@ export class RecommendationEngineService implements RecommendationEngine {
       artistAffinities.set(normArtist, score);
     }
 
+    // Веса жанров приводятся к доле от самого слушаемого: скоринг ждёт число в
+    // [0, 1], а не «сорок семь прослушиваний фонка».
+    let maxGenre = 0;
+    for (const value of genreAffinities.values()) if (value > maxGenre) maxGenre = value;
+    if (maxGenre > 0) {
+      for (const [token, value] of genreAffinities) genreAffinities.set(token, value / maxGenre);
+    }
+
     // Mirror affinities to original casing keys for convenience
     for (const [rawArtist, norm] of rawToNormArtist.entries()) {
       if (artistAffinities.has(norm) && !artistAffinities.has(rawArtist)) {
@@ -699,7 +763,7 @@ export class RecommendationEngineService implements RecommendationEngine {
       .sort((a, b) => b[1] - a[1])
       .map(([art]) => art);
 
-    return {
+    const profile: UserProfile = {
       artistAffinities,
       genreAffinities,
       topArtists,
@@ -714,6 +778,8 @@ export class RecommendationEngineService implements RecommendationEngine {
       lastPlayedAt,
       servedTrackIds: servedIdSet(memory)
     };
+    this.profileCache = { profile, at: now };
+    return profile;
   }
 
   /**
@@ -1161,6 +1227,9 @@ export class RecommendationEngineService implements RecommendationEngine {
     // Поправка в память волны — раньше всего остального: она единственная
     // действует сразу, до того как трек доиграет и попадёт в историю. Именно
     // её отсутствие давало «жму сердечко, а ему всё равно».
+    // Любое действие человека делает прошлый профиль неправдой.
+    this.profileCache = null;
+
     const memoryKind = MEMORY_FEEDBACK[action];
     if (memoryKind) {
       await updateWaveMemory((state) => applyArtistFeedback(state, track.artist, memoryKind)).catch(
@@ -1474,6 +1543,19 @@ export class RecommendationEngineService implements RecommendationEngine {
       if (titleLower.includes(gLower) || artistLower.includes(gLower)) {
         genreBonus = 0.25;
       }
+    }
+
+    // Плюс склонность к жанру, набранная прослушиванием. Потолок низкий
+    // намеренно: жанр — это про «похоже», а близость к исполнителю — про
+    // «то самое», и перебивать её жанр не должен.
+    const genreAffinities = profile.genreAffinities;
+    if (genreAffinities && genreAffinities.size > 0) {
+      let best = 0;
+      for (const token of extractGenreTokens(track)) {
+        const value = genreAffinities.get(token) || 0;
+        if (value > best) best = value;
+      }
+      genreBonus += best * GENRE_AFFINITY_BONUS;
     }
 
     // 5. Calculate Weighted Base Score

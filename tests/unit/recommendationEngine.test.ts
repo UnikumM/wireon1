@@ -15,6 +15,7 @@ import {
   clearAllData,
   addFavorite,
   addToHistory,
+  commitPlay,
   createPlaylist,
   addTrackToPlaylist,
   addDislike,
@@ -378,6 +379,45 @@ describe('RecommendationEngineService', () => {
       const scored = engine.scoreCandidate(mockYtTrack1, configWithGenre, profile);
 
       expect(scored.genreBonus).toBe(0.25);
+    });
+
+    it('жанры набирают вес прослушиванием, а не подстрокой в названии', async () => {
+      // `genreAffinities` объявлялась и не заполнялась ни разу, а жанр искался
+      // подстрокой в названии — то есть работал на паре процентов треков.
+      const phonk: UnifiedTrack = {
+        id: 'yt_phonk',
+        source: 'youtube',
+        originalId: 'phonk1',
+        title: 'Midnight Drive (Phonk)',
+        artist: 'Night Rider',
+        duration: 180,
+        artworkUrl: ''
+      };
+      await addToHistory(phonk);
+
+      const profile = await engine.buildUserProfile();
+      expect(profile.genreAffinities?.get('phonk')).toBeGreaterThan(0);
+    });
+
+    it('вес артиста считается прослушанным временем, а не числом включений', async () => {
+      // Десять включений по пять секунд весили столько же, сколько десять
+      // дослушанных треков.
+      const listened: UnifiedTrack = { ...mockYtTrack1, id: 'yt_listened' };
+      const abandoned: UnifiedTrack = {
+        ...mockYtTrack1,
+        id: 'yt_abandoned',
+        artist: 'Quitter Band'
+      };
+      await commitPlay(listened, { seconds: listened.duration, completed: true });
+      await commitPlay(abandoned, { seconds: 5 });
+      await commitPlay(abandoned, { seconds: 5 });
+      await commitPlay(abandoned, { seconds: 5 });
+
+      const profile = await engine.buildUserProfile();
+      const full = profile.artistPlayCounts.get(normalizeArtist(listened.artist)) || 0;
+      const quit = profile.artistPlayCounts.get(normalizeArtist(abandoned.artist)) || 0;
+
+      expect(full).toBeGreaterThan(quit);
     });
 
     it('лайк поднимает артиста сразу, не дожидаясь конца трека', async () => {
