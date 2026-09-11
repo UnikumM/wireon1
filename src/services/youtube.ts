@@ -234,6 +234,66 @@ export function splitMetadataRuns(runs: string[]): { meta: string[]; duration: s
  * держатся у YouTube годами, но `pageType` всё же честнее: он про смысл, а не
  * про то, как выглядит строка.
  */
+/**
+ * Одна найденная подборка из записи выдачи — какой бы формы та ни была.
+ *
+ * Форм две, и обе встречаются на одной странице: поиск и «топ исполнителей»
+ * отдают строку (`musicResponsiveListItemRenderer`), а карусели чартов и
+ * новинок — плитку (`musicTwoRowItemRenderer`). Отличаются они тем, где лежат
+ * название, обложка и ссылка, — и ничем больше, поэтому разбор здесь один.
+ *
+ * `null` — «это не подборка»: так отсеиваются треки и клипы, у которых вместо
+ * `browseEndpoint` стоит `watchEndpoint`.
+ */
+function collectionFromItem(item: any): SearchCollection | null {
+  const row = item?.musicResponsiveListItemRenderer;
+  const tile = item?.musicTwoRowItemRenderer;
+  const renderer = row || tile;
+  if (!renderer) return null;
+
+  const titleRun = tile?.title?.runs?.[0];
+  const browse =
+    renderer.navigationEndpoint?.browseEndpoint ||
+    titleRun?.navigationEndpoint?.browseEndpoint ||
+    renderer.overlay?.musicItemThumbnailOverlayRenderer?.content?.musicPlayButtonRenderer
+      ?.playNavigationEndpoint?.browseEndpoint;
+  const browseId: string = browse?.browseId || '';
+  if (!browseId) return null;
+
+  const kind = collectionKindOf(
+    browse?.browseEndpointContextSupportedConfigs?.browseEndpointContextMusicConfig?.pageType,
+    browseId
+  );
+  if (!kind) return null;
+
+  const flexColumns = renderer.flexColumns || [];
+  const title =
+    titleRun?.text ||
+    flexColumns[0]?.musicResponsiveListItemFlexColumnRenderer?.text?.runs?.[0]?.text ||
+    '';
+  if (!title) return null;
+
+  // Разделители « • » приходят отдельными кусками — склеиваем как есть.
+  const subtitleRuns: any[] =
+    tile?.subtitle?.runs || flexColumns[1]?.musicResponsiveListItemFlexColumnRenderer?.text?.runs || [];
+  const subtitle = subtitleRuns.map((run: any) => run?.text || '').join('').trim() || undefined;
+
+  const thumbnails =
+    renderer.thumbnail?.musicThumbnailRenderer?.thumbnail?.thumbnails ||
+    renderer.thumbnailRenderer?.musicThumbnailRenderer?.thumbnail?.thumbnails ||
+    [];
+
+  return {
+    id: `ytc_${browseId}`,
+    kind,
+    source: 'youtube',
+    ref: browseId,
+    title,
+    subtitle,
+    artworkUrl: thumbnails.length > 0 ? thumbnails[thumbnails.length - 1].url || '' : ''
+  };
+}
+
 function collectionKindOf(pageType: unknown, browseId: string): 'album' | 'artist' | 'playlist' | null {
   const type = String(pageType || '');
   if (type.includes('ARTIST')) return 'artist';
@@ -479,51 +539,95 @@ export class YouTubeService {
       const items = section?.musicShelfRenderer?.contents || [];
       for (const item of items) {
         if (results.length >= limit) break;
-        const renderer = item?.musicResponsiveListItemRenderer;
-        if (!renderer) continue;
-
-        const browse =
-          renderer.navigationEndpoint?.browseEndpoint ||
-          renderer.overlay?.musicItemThumbnailOverlayRenderer?.content?.musicPlayButtonRenderer
-            ?.playNavigationEndpoint?.browseEndpoint;
-        const browseId: string = browse?.browseId || '';
-        if (!browseId) continue;
-
-        const kind = collectionKindOf(
-          browse?.browseEndpointContextSupportedConfigs?.browseEndpointContextMusicConfig?.pageType,
-          browseId
-        );
-        if (!kind) continue;
-        if (seen.has(browseId)) continue;
-        seen.add(browseId);
-
-        const flexColumns = renderer.flexColumns || [];
-        const title =
-          flexColumns[0]?.musicResponsiveListItemFlexColumnRenderer?.text?.runs?.[0]?.text || '';
-        if (!title) continue;
-
-        const subtitleRuns: string[] = (
-          flexColumns[1]?.musicResponsiveListItemFlexColumnRenderer?.text?.runs || []
-        ).map((run: any) => run?.text || '');
-        // Разделители « • » приходят отдельными кусками — склеиваем как есть.
-        const subtitle = subtitleRuns.join('').trim() || undefined;
-
-        const thumbnails = renderer.thumbnail?.musicThumbnailRenderer?.thumbnail?.thumbnails || [];
-        const artworkUrl = thumbnails.length > 0 ? thumbnails[thumbnails.length - 1].url || '' : '';
-
-        results.push({
-          id: `ytc_${browseId}`,
-          kind,
-          source: 'youtube',
-          ref: browseId,
-          title,
-          subtitle,
-          artworkUrl
-        });
+        const found = collectionFromItem(item);
+        if (!found || seen.has(found.ref)) continue;
+        seen.add(found.ref);
+        results.push(found);
       }
     }
 
     return results;
+  }
+
+  /**
+   * Полки со страницы YouTube Music: чарты, новинки, главная.
+   *
+   * Все три страницы устроены одинаково — карусели `musicTwoRowItemRenderer`
+   * с альбомами, плейлистами и исполнителями, — поэтому запрос и разбор общие,
+   * а различает их только `browseId`. Отдаём тем же типом, что и поиск:
+   * карточка, сетка и способ открыть у них совпадают до мелочи.
+   */
+  public async browseShelves(
+    browseId: string,
+    limitPerShelf: number = 24
+  ): Promise<{ title: string; items: SearchCollection[] }[]> {
+    const id = (browseId || '').trim();
+    if (!id) return [];
+
+    const payload = {
+      context: {
+        client: {
+          clientName: 'WEB_REMIX',
+          clientVersion: '1.20240101.01.00',
+          hl: 'ru',
+          gl: 'RU'
+        }
+      },
+      browseId: id
+    };
+
+    try {
+      const response = await this.fetchWithTimeout('https://music.youtube.com/youtubei/v1/browse', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'User-Agent':
+            'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
+          'X-YouTube-Client-Name': '67',
+          Origin: 'https://music.youtube.com',
+          Referer: 'https://music.youtube.com/'
+        },
+        body: JSON.stringify(payload)
+      });
+      if (!response.ok) throw new Error(`InnerTube HTTP error: ${response.status}`);
+      return this.parseShelvesResponse(await response.json(), limitPerShelf);
+    } catch (err) {
+      console.warn(`[YouTubeService] Browse ${id} failed:`, err);
+      return [];
+    }
+  }
+
+  /** Разбирает карусели страницы в именованные полки. Пустые полки отбрасываются. */
+  public parseShelvesResponse(
+    data: any,
+    limitPerShelf: number = 24
+  ): { title: string; items: SearchCollection[] }[] {
+    const sections =
+      data?.contents?.singleColumnBrowseResultsRenderer?.tabs?.[0]?.tabRenderer?.content
+        ?.sectionListRenderer?.contents ||
+      data?.contents?.sectionListRenderer?.contents ||
+      [];
+
+    const shelves: { title: string; items: SearchCollection[] }[] = [];
+
+    for (const section of sections) {
+      const carousel = section?.musicCarouselShelfRenderer;
+      if (!carousel) continue;
+
+      const title =
+        carousel.header?.musicCarouselShelfBasicHeaderRenderer?.title?.runs?.[0]?.text || '';
+      const items: SearchCollection[] = [];
+
+      for (const entry of carousel.contents || []) {
+        if (items.length >= limitPerShelf) break;
+        const found = collectionFromItem(entry);
+        if (found) items.push(found);
+      }
+
+      if (items.length > 0) shelves.push({ title, items });
+    }
+
+    return shelves;
   }
 
   /**
