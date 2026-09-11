@@ -28,6 +28,8 @@ export interface LibraryStoreActions {
   createPlaylist: (title: string, description?: string) => Promise<Playlist | null>;
   deletePlaylist: (playlistId: string) => Promise<boolean>;
   renamePlaylist: (playlistId: string, newTitle: string) => Promise<boolean>;
+  /** `null` возвращает мозаику из обложек треков. */
+  setPlaylistCover: (playlistId: string, coverUrl: string | null) => Promise<boolean>;
   addTrackToPlaylist: (playlistId: string, track: UnifiedTrack) => Promise<boolean>;
   removeTrackFromPlaylist: (playlistId: string, trackIndex: number) => Promise<boolean>;
   reorderPlaylistTracks: (playlistId: string, fromIndex: number, toIndex: number) => Promise<boolean>;
@@ -189,6 +191,15 @@ export const useLibraryStore = create<LibraryStore>((set, get) => {
         return true;
       } catch (err) {
         return fail('Не удалось переименовать плейлист', err);
+      }
+    },
+
+    setPlaylistCover: async (playlistId: string, coverUrl: string | null) => {
+      try {
+        commitPlaylist(await dbService.setPlaylistCover(playlistId, coverUrl));
+        return true;
+      } catch (err) {
+        return fail('Не удалось сменить обложку', err);
       }
     },
 

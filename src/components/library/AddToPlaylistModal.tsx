@@ -191,7 +191,7 @@ export const AddToPlaylistModal: React.FC<AddToPlaylistModalProps> = ({
                     onClick={() => void fileInto(playlist.id, playlist.title)}
                     data-testid={`add-to-playlist-${playlist.id}`}
                   >
-                    <PlaylistCover tracks={playlist.tracks} size={36} radius="var(--radius-xs)" />
+                    <PlaylistCover tracks={playlist.tracks} coverUrl={playlist.coverUrl} size={36} radius="var(--radius-xs)" />
                     <span style={{ flex: 1, minWidth: 0 }}>
                       <span
                         className="text-truncate"

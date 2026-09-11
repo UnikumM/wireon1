@@ -6,6 +6,8 @@ import { ICON } from '../../styles/icons';
 
 export interface PlaylistCoverProps {
   tracks: UnifiedTrack[];
+  /** Своя обложка. Есть — показывается она, нет — мозаика из состава. */
+  coverUrl?: string;
   /** Any CSS length; the cover is always square. */
   size?: number | string;
   radius?: string;
@@ -13,12 +15,13 @@ export interface PlaylistCoverProps {
 }
 
 /**
- * A 2×2 mosaic of the first four distinct artworks in the playlist. Tiles that are
- * missing — or whose image 404s — fall back to a matte placeholder individually,
- * so one dead thumbnail cannot blank the whole cover.
+ * Своя обложка, если её поставили; иначе мозаика 2×2 из первых четырёх разных
+ * обложек состава. Плитка, картинка которой не загрузилась, гаснет по
+ * отдельности — одна мёртвая ссылка не должна обнулять всю обложку.
  */
 export const PlaylistCover: React.FC<PlaylistCoverProps> = ({
   tracks,
+  coverUrl,
   size = 160,
   radius = 'var(--radius-md)',
   className = ''
@@ -42,6 +45,19 @@ export const PlaylistCover: React.FC<PlaylistCoverProps> = ({
     border: '1px solid var(--border-subtle)',
     flexShrink: 0
   };
+
+  if (coverUrl) {
+    return (
+      <img
+        className={className}
+        src={coverUrl}
+        alt=""
+        style={{ ...frame, objectFit: 'cover', display: 'block' }}
+        data-testid="playlist-cover"
+        data-tiles="custom"
+      />
+    );
+  }
 
   if (usable.length === 0) {
     return (

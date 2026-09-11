@@ -784,7 +784,7 @@ export const LibraryView: React.FC<LibraryViewProps> = ({
                     data-testid={`playlist-card-${playlist.id}`}
                   >
                     <div style={{ position: 'relative' }}>
-                      <PlaylistCover tracks={playlist.tracks} size="100%" />
+                      <PlaylistCover tracks={playlist.tracks} coverUrl={playlist.coverUrl} size="100%" />
                       {playlist.tracks.length > 0 && (
                         <Button
                           variant="primary"

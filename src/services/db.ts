@@ -443,6 +443,31 @@ export async function renamePlaylist(id: string, newTitle: string): Promise<Play
   }
 }
 
+/**
+ * Ставит или снимает свою обложку плейлиста.
+ *
+ * `null` возвращает мозаику из обложек треков: это не «нет картинки», а
+ * «картинка считается из состава».
+ */
+export async function setPlaylistCover(id: string, coverUrl: string | null): Promise<Playlist> {
+  try {
+    return await db.transaction('rw', db.playlists, async () => {
+      const playlist = await db.playlists.get(id);
+      if (!playlist) throw new Error(`Плейлист не найден: ${id}`);
+
+      const updated: Playlist = { ...playlist, updatedAt: Date.now() };
+      if (coverUrl) updated.coverUrl = coverUrl;
+      else delete updated.coverUrl;
+
+      await db.playlists.put(updated);
+      return updated;
+    });
+  } catch (err) {
+    console.error('[DB] setPlaylistCover error:', err);
+    throw err;
+  }
+}
+
 export async function deletePlaylist(id: string): Promise<void> {
   try {
     await db.playlists.delete(id);

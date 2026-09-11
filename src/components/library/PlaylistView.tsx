@@ -11,6 +11,7 @@ import { PlaylistCover } from './PlaylistCover';
 import { PlaylistExportMenu } from './PlaylistExportMenu';
 import { SaveOfflineButton } from './SaveOfflineButton';
 import { describeTrackTotals } from './trackSummary';
+import { prepareCoverImage } from '../../services/playlistCover';
 import { useVirtualRows, TRACK_ROW_PITCH } from '../../hooks/useVirtualRows';
 import { ICON } from '../../styles/icons';
 
@@ -40,6 +41,7 @@ export const PlaylistView: React.FC<PlaylistViewProps> = ({ playlistId: propPlay
   const playlists = useLibraryStore((s) => s.playlists);
   const deletePlaylist = useLibraryStore((s) => s.deletePlaylist);
   const renamePlaylist = useLibraryStore((s) => s.renamePlaylist);
+  const setPlaylistCover = useLibraryStore((s) => s.setPlaylistCover);
   const removeTrackFromPlaylist = useLibraryStore((s) => s.removeTrackFromPlaylist);
   const reorderPlaylistTracks = useLibraryStore((s) => s.reorderPlaylistTracks);
 
@@ -101,6 +103,33 @@ export const PlaylistView: React.FC<PlaylistViewProps> = ({ playlistId: propPlay
     },
     [afterMutation, playlist, reorderPlaylistTracks, showToast]
   );
+
+  const coverInputRef = useRef<HTMLInputElement>(null);
+
+  const handleCoverPicked = useCallback(
+    async (event: React.ChangeEvent<HTMLInputElement>) => {
+      const file = event.target.files?.[0];
+      // Ввод сбрасывается сразу: иначе повторный выбор того же файла не
+      // поднимет событие вовсе, и человек решит, что кнопка сломалась.
+      event.target.value = '';
+      if (!file || !playlist) return;
+
+      try {
+        const dataUrl = await prepareCoverImage(file);
+        const ok = await setPlaylistCover(playlist.id, dataUrl);
+        showToast(ok ? 'Обложка обновлена' : 'Не удалось сменить обложку', ok ? 'success' : 'error');
+      } catch (err) {
+        showToast(err instanceof Error ? err.message : 'Не удалось прочитать картинку', 'error');
+      }
+    },
+    [playlist, setPlaylistCover, showToast]
+  );
+
+  const handleClearCover = useCallback(async () => {
+    if (!playlist) return;
+    const ok = await setPlaylistCover(playlist.id, null);
+    if (ok) showToast('Вернулась мозаика из обложек треков', 'info');
+  }, [playlist, setPlaylistCover, showToast]);
 
   const handleSaveRename = useCallback(async () => {
     if (!playlist) return;
@@ -211,7 +240,52 @@ export const PlaylistView: React.FC<PlaylistViewProps> = ({ playlistId: propPlay
             borderRadius: 'var(--radius-lg)'
           }}
         >
-          <PlaylistCover tracks={tracks} size={112} radius="var(--radius-md)" />
+          {/*
+            * Обложка — она же кнопка выбора картинки.
+            *
+            * Отдельной кнопки рядом нет нарочно: нажимают на то, что меняют.
+            * Ввод файла спрятан, но остаётся в разметке — только так системное
+            * окно выбора открывается по нашему нажатию, а не по своему.
+            */}
+          <div style={{ position: 'relative', flexShrink: 0 }}>
+            <button
+              type="button"
+              className="cover-button focus-ring"
+              onClick={() => coverInputRef.current?.click()}
+              aria-label={playlist.coverUrl ? 'Сменить обложку плейлиста' : 'Поставить обложку плейлиста'}
+              title={playlist.coverUrl ? 'Сменить обложку' : 'Поставить обложку'}
+              data-testid="playlist-cover-btn"
+            >
+              <PlaylistCover
+                tracks={tracks}
+                coverUrl={playlist.coverUrl}
+                size={112}
+                radius="var(--radius-md)"
+              />
+            </button>
+
+            <input
+              ref={coverInputRef}
+              type="file"
+              accept="image/*"
+              hidden
+              onChange={(event) => void handleCoverPicked(event)}
+              data-testid="playlist-cover-input"
+            />
+
+            {playlist.coverUrl && (
+              <Button
+                variant="ghost"
+                size="icon"
+                icon={<X size={ICON.sm} />}
+                onClick={() => void handleClearCover()}
+                aria-label="Убрать свою обложку"
+                title="Вернуть мозаику из обложек треков"
+                style={{ position: 'absolute', top: '-6px', right: '-6px' }}
+                data-testid="playlist-cover-clear"
+              />
+            )}
+          </div>
 
           <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 'var(--space-1)' }}>
             <span className="section-label">Плейлист</span>
