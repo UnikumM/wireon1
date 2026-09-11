@@ -116,6 +116,34 @@ export interface LyricsRecord {
   offsetSeconds?: number;
 }
 
+/**
+ * Подписка на исполнителя.
+ *
+ * Хранится по нормализованному имени: тому же ключу, по которому считается
+ * вкус и память «Потока». Канал YouTube кладётся рядом, когда он известен, —
+ * с ним обход новинок обходится одним запросом вместо поиска по имени.
+ */
+export interface SubscriptionRecord {
+  /** Нормализованное имя — `normalizeArtistKey`. */
+  key: string;
+  /** Как имя пишет источник: годится для подписи и для запроса. */
+  name: string;
+  avatarUrl?: string;
+  channelId?: string;
+  subscribedAt: number;
+  /** Когда последний раз ходили за новинками. */
+  checkedAt?: number;
+  /**
+   * Идентификаторы релизов, которые уже видели.
+   *
+   * Нужны затем, чтобы «новое у исполнителей» не показывало один и тот же
+   * альбом каждый запуск. Пополняется при первой же проверке — и первая
+   * проверка нарочно ничего не считает новым: иначе в день подписки человек
+   * получил бы всю дискографию как «новинки».
+   */
+  seenReleaseIds?: string[];
+}
+
 export class WireonDB extends Dexie {
   tracks!: Table<UnifiedTrack, string>;
   playlists!: Table<Playlist, string>;
@@ -126,6 +154,7 @@ export class WireonDB extends Dexie {
   offlineTracks!: Table<OfflineTrackRecord, string>;
   lyrics!: Table<LyricsRecord, string>;
   plays!: Table<PlayEventRecord, number>;
+  subscriptions!: Table<SubscriptionRecord, string>;
 
   constructor(dbName = 'WireonDB') {
     super(dbName);
@@ -158,6 +187,17 @@ export class WireonDB extends Dexie {
      */
     this.version(5).stores({
       plays: '++id, playedAt'
+    });
+    /*
+     * Подписки на исполнителей.
+     *
+     * Ключ — нормализованное имя, а не идентификатор канала: у SoundCloud
+     * каналов нет вовсе, а одного и того же человека источники называют
+     * по-разному. Индекс по `checkedAt` нужен обходу новинок: он берёт тех,
+     * кого дольше всех не проверяли, а не всех подряд.
+     */
+    this.version(6).stores({
+      subscriptions: 'key, subscribedAt, checkedAt'
     });
   }
 }
@@ -1041,6 +1081,7 @@ export async function clearAllData(): Promise<void> {
       db.dislikes.clear(),
       db.offlineTracks.clear(),
       db.lyrics.clear(),
+      db.subscriptions.clear(),
       // Сохранённые треки лежат файлами рядом с базой: очистив только таблицу,
       // мы оставили бы гигабайты, о которых приложение больше не знает.
       //

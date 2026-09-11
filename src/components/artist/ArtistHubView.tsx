@@ -12,7 +12,9 @@ import {
   TrendingUp,
   Info,
   RefreshCw,
-  User
+  User,
+  Bell,
+  BellOff
 } from 'lucide-react';
 import { useUIStore } from '../../store/useUIStore';
 import { usePlayerStore } from '../../store/usePlayerStore';
@@ -29,6 +31,7 @@ import { EmptyState } from '../common/EmptyState';
 import { pluralize } from '../../utils/plural';
 import { useMediaQuery } from '../../hooks/useMediaQuery';
 import { ICON } from '../../styles/icons';
+import { isSubscribed, toggleSubscription } from '../../services/subscriptions';
 
 export interface ArtistHubViewProps {
   artistName?: string;
@@ -94,6 +97,7 @@ export const ArtistHubView: React.FC<ArtistHubViewProps> = ({
   const [similarAttempt, setSimilarAttempt] = useState<number>(0);
   /** `browseId` альбома, чей состав сейчас запрашивается. */
   const [openingAlbumId, setOpeningAlbumId] = useState<string | null>(null);
+  const [subscribed, setSubscribed] = useState<boolean>(false);
 
   const loadProfile = useCallback(async (name: string, force = false) => {
     if (!name || !name.trim()) return;
@@ -149,6 +153,28 @@ export const ArtistHubView: React.FC<ArtistHubViewProps> = ({
       cancelled = true;
     };
   }, [profile, similarAttempt]);
+
+  // Подписка читается по имени, а не по профилю: имя известно сразу, и кнопка
+  // не мигает «не подписан» всё время загрузки страницы.
+  useEffect(() => {
+    let cancelled = false;
+    void isSubscribed(artistName).then((value) => {
+      if (!cancelled) setSubscribed(value);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [artistName]);
+
+  const handleToggleSubscription = useCallback(async () => {
+    const name = profile?.name || artistName;
+    const next = await toggleSubscription(name, {
+      avatarUrl: profile?.avatarUrl,
+      channelId: profile?.channelId
+    });
+    setSubscribed(next);
+    showToast(next ? `Подписка на ${name}` : `Отписались от ${name}`, 'info');
+  }, [artistName, profile, showToast]);
 
   const handleRetrySimilar = useCallback(() => {
     if (!profile) return;
@@ -521,6 +547,17 @@ export const ArtistHubView: React.FC<ArtistHubViewProps> = ({
                 data-testid="artist-radio-btn"
               >
                 Радио
+              </Button>
+
+              <Button
+                variant="secondary"
+                size="md"
+                icon={subscribed ? <BellOff size={ICON.md} /> : <Bell size={ICON.md} />}
+                onClick={() => void handleToggleSubscription()}
+                aria-pressed={subscribed}
+                data-testid="artist-subscribe-btn"
+              >
+                {subscribed ? 'Вы подписаны' : 'Подписаться'}
               </Button>
             </div>
           </div>
