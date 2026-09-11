@@ -408,18 +408,21 @@ export const MobilePlaylistView: React.FC = () => {
               icon={<ListPlus size={ICON.md} aria-hidden="true" />}
               label="В плейлист"
               onClick={() => setMoveOpen(true)}
+              stacked
               testId="mobile-playlist-selection-move"
             />
             <ActionButton
               icon={<Download size={ICON.md} aria-hidden="true" />}
               label="Скачать"
               onClick={() => void handleSaveSelected()}
+              stacked
               testId="mobile-playlist-selection-save"
             />
             <ActionButton
               icon={<Trash2 size={ICON.md} aria-hidden="true" />}
               label="Убрать"
               onClick={() => void handleRemoveSelected()}
+              stacked
               testId="mobile-playlist-selection-remove"
             />
           </div>
@@ -624,24 +627,37 @@ const ActionButton: React.FC<{
   label: string;
   onClick: () => void;
   testId: string;
-}> = ({ icon, label, onClick, testId }) => (
+  /**
+   * Значок над подписью вместо значка слева.
+   *
+   * Нужно там, где кнопок в строке три. Замерено на устройстве 360 px: при
+   * значке слева каждой кнопке достаётся 95 px, из которых подписи остаётся
+   * около сорока, и «В плейлист» (81 px) переносилось на вторую строку — ряд
+   * получался рваным. Столбиком подпись получает всю ширину кнопки.
+   */
+  stacked?: boolean;
+}> = ({ icon, label, onClick, testId, stacked = false }) => (
   <button
     type="button"
     className="press"
     onClick={onClick}
     style={{
       display: 'flex',
+      flexDirection: stacked ? 'column' : 'row',
       alignItems: 'center',
       justifyContent: 'center',
-      gap: 'var(--space-2)',
+      gap: stacked ? '2px' : 'var(--space-2)',
       flex: 1,
+      minWidth: 0,
       minHeight: '44px',
-      borderRadius: 'var(--radius-pill)',
+      padding: stacked ? 'var(--space-2) var(--space-1)' : undefined,
+      borderRadius: stacked ? 'var(--radius-md)' : 'var(--radius-pill)',
       border: '1px solid var(--border)',
       color: 'var(--text-primary)',
       fontSize: 'var(--text-sm)',
       lineHeight: 'var(--leading-sm)',
       letterSpacing: 'var(--tracking-sm)',
+      whiteSpace: 'nowrap',
       cursor: 'pointer'
     }}
     data-testid={testId}
