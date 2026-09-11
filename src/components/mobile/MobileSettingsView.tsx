@@ -7,6 +7,7 @@ import {
   Keyboard,
   ListMusic,
   Palette,
+  Radio,
   Sliders,
   SlidersHorizontal,
   Stethoscope,
@@ -14,6 +15,7 @@ import {
   Volume2
 } from 'lucide-react';
 import { useUIStore } from '../../store/useUIStore';
+import { useGroupListenStore } from '../../store/useGroupListenStore';
 import { PlaybackSettings } from '../settings/PlaybackSettings';
 import { PlayerLayoutSettings } from '../settings/PlayerLayoutSettings';
 import { AppearanceSettings } from '../settings/AppearanceSettings';
@@ -62,11 +64,20 @@ interface SectionEntry {
   hint: string;
   icon: React.ReactNode;
   render: () => React.ReactNode;
+  /**
+   * Раздел, который не разворачивается, а открывает своё окно.
+   *
+   * Комната совместного прослушивания — не набор переключателей, а отдельный
+   * разговор: код, участники, приглашение. Вкладывать её в список настроек
+   * значило бы отдать ей пол-экрана под чужой рамкой.
+   */
+  onOpen?: () => void;
 }
 
 export const MobileSettingsView: React.FC = () => {
   const setActiveView = useUIStore((s) => s.setActiveView);
   const [openId, setOpenId] = useState<string | null>(null);
+  const setGroupModalOpen = useGroupListenStore((s) => s.setModalOpen);
 
   const sections = useMemo<SectionEntry[]>(() => {
     const entries: SectionEntry[] = [
@@ -111,6 +122,14 @@ export const MobileSettingsView: React.FC = () => {
         hint: 'Что хранится на устройстве',
         icon: <Download size={ICON.lg} />,
         render: () => <OfflineSettings />
+      },
+      {
+        id: 'together',
+        label: 'Слушать вместе',
+        hint: 'Комната, где играет одно и то же',
+        icon: <Radio size={ICON.lg} />,
+        render: () => null,
+        onOpen: () => setGroupModalOpen(true)
       },
       {
         id: 'account',
@@ -214,7 +233,7 @@ export const MobileSettingsView: React.FC = () => {
             key={section.id}
             type="button"
             className="menu-item-hover press"
-            onClick={() => setOpenId(section.id)}
+            onClick={() => (section.onOpen ? section.onOpen() : setOpenId(section.id))}
             style={{
               display: 'flex',
               alignItems: 'center',

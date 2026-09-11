@@ -5,6 +5,8 @@ import { Toast } from '../common/Toast';
 import { WelcomeGate } from '../auth/WelcomeGate';
 import { AccountPrompt } from '../auth/AccountPrompt';
 import { WhatsNewGate } from '../common/WhatsNewGate';
+import { GroupListenModal } from '../modals/GroupListenModal';
+import { useGroupListenStore } from '../../store/useGroupListenStore';
 import { CreatePlaylistModal } from '../library/CreatePlaylistModal';
 import { QueueDrawer } from '../player/QueueDrawer';
 import { ArtistHubView } from '../artist/ArtistHubView';
@@ -71,6 +73,8 @@ export const MobileApp: React.FC = () => {
   const activeView = useUIStore((s) => s.activeView);
   const actionsTrack = useUIStore((s) => s.actionsTrack);
   const closeTrackActions = useUIStore((s) => s.closeTrackActions);
+  const isGroupModalOpen = useGroupListenStore((s) => s.isModalOpen);
+  const setGroupModalOpen = useGroupListenStore((s) => s.setModalOpen);
   const [isCreatePlaylistOpen, setIsCreatePlaylistOpen] = React.useState(false);
 
   const renderActiveView = () => {
@@ -140,6 +144,13 @@ export const MobileApp: React.FC = () => {
       <MobileFullscreenPlayer />
       <QueueDrawer />
       <CreatePlaylistModal isOpen={isCreatePlaylistOpen} onClose={() => setIsCreatePlaylistOpen(false)} />
+      {/*
+        * Совместное прослушивание. На телефоне его не было вовсе: окно
+        * монтировала шапка, а своей шапки у телефона нет, и комната оставалась
+        * доступной только с компьютера — при том что зовут в неё как раз с
+        * телефона. Вход — в настройках, рядом с аккаунтом.
+        */}
+      <GroupListenModal isOpen={isGroupModalOpen} onClose={() => setGroupModalOpen(false)} />
       <WelcomeGate />
       <AccountPrompt />
       <WhatsNewGate />
