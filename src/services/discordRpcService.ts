@@ -27,6 +27,8 @@ export interface DiscordActivityPayload {
   startTimestamp?: number;
   endTimestamp?: number;
   instance?: boolean;
+  /** Кнопки под активностью. Их видят друзья, а не сам владелец статуса. */
+  buttons?: { label: string; url: string }[];
   timestamps?: {
     start?: number;
     end?: number;
@@ -154,9 +156,20 @@ export class DiscordRpcService {
     const currentSec = Math.max(0, Math.floor(currentTime));
     const durationSec = Math.max(0, Math.floor(durationOverride ?? track.duration ?? 0));
 
+    /*
+     * Кнопка со ссылкой на трек — то, чем статус Spotify отличается от простой
+     * подписи: с неё можно послушать то же самое. Ссылка берётся у источника и
+     * ведёт на YouTube или SoundCloud; если её нет, кнопки просто не будет.
+     */
+    const sourceUrl = (track.sourceUrl || '').trim();
+    const sourceLabel = track.source === 'soundcloud' ? 'Открыть в SoundCloud' : 'Открыть на YouTube';
+
     const payload: DiscordActivityPayload = {
       details: title,
       state,
+      ...(/^https?:\/\//i.test(sourceUrl)
+        ? { buttons: [{ label: sourceLabel, url: sourceUrl }] }
+        : {}),
       largeImageKey: track.artworkUrl || 'wireon_logo',
       largeImageText: (track.album || 'Wireon').slice(0, 128),
       // Значка «играет/пауза» здесь нет намеренно. В маленький слот идёт не

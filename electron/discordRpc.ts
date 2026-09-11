@@ -87,6 +87,14 @@ export interface DiscordActivityPayload {
   startTimestamp?: number;
   endTimestamp?: number;
   instance?: boolean;
+  /**
+   * Кнопки под активностью — до двух, как разрешает Discord.
+   *
+   * Их видят друзья, а не сам владелец статуса: в своей карточке Discord
+   * кнопки не рисует. Это не наша особенность и не повод их убирать — именно
+   * так «Слушать в Spotify» и выглядит со стороны.
+   */
+  buttons?: { label: string; url: string }[];
   timestamps?: {
     start?: number;
     end?: number;
@@ -229,6 +237,27 @@ export function formatActivityForDiscord(payload: DiscordActivityPayload | null)
     assets,
     instance: false
   };
+
+  /*
+   * Кнопки проходят проверку здесь, а не у отправителя.
+   *
+   * Discord отказывает во **всей** активности, если хоть одна кнопка кривая:
+   * пустая подпись, ссылка не на http(s) или больше двух кнопок. Отказ при
+   * этом выглядит как «трек не показался», а не как «кнопка не показалась», —
+   * ровно тот способ потерять статус, на котором здесь уже обожглись с
+   * названием из одного знака. Поэтому негодные кнопки отбрасываются молча, а
+   * активность уходит.
+   */
+  const buttons = (payload.buttons ?? [])
+    .filter((button) => {
+      const label = (button?.label ?? '').trim();
+      const url = (button?.url ?? '').trim();
+      return label.length > 0 && label.length <= 32 && /^https?:\/\//i.test(url);
+    })
+    .slice(0, 2)
+    .map((button) => ({ label: button.label.trim(), url: button.url.trim() }));
+
+  if (buttons.length > 0) result.buttons = buttons;
 
   if (payload.startTimestamp) {
     result.timestamps = {

@@ -757,5 +757,45 @@ describe('Milestone 4: Discord Rich Presence (RPC) Unit Tests', () => {
       const formatted = formatActivityForDiscord({ details: 'Ы'.repeat(200), state: 'Artist' });
       expect(String(formatted?.details).length).toBe(128);
     });
+
+    it('кнопка со ссылкой на трек уходит в активность', () => {
+      const formatted = formatActivityForDiscord({
+        details: 'One More Time',
+        state: 'Daft Punk',
+        buttons: [{ label: 'Открыть на YouTube', url: 'https://www.youtube.com/watch?v=abc' }]
+      });
+
+      expect(formatted?.buttons).toEqual([
+        { label: 'Открыть на YouTube', url: 'https://www.youtube.com/watch?v=abc' }
+      ]);
+    });
+
+    it('негодная кнопка выбрасывается, а активность уходит', () => {
+      // Discord отказывает во ВСЕЙ активности из-за одной кривой кнопки, и
+      // снаружи это выглядит как «трек не показался». Лучше статус без кнопки.
+      const formatted = formatActivityForDiscord({
+        details: 'One More Time',
+        state: 'Daft Punk',
+        buttons: [
+          { label: '', url: 'https://ok.test' },
+          { label: 'Не ссылка', url: 'javascript:alert(1)' },
+          { label: 'Третья лишняя', url: 'https://ok.test/3' },
+          { label: 'Годная', url: 'https://ok.test/4' }
+        ]
+      });
+
+      expect(formatted?.details).toBe('One More Time');
+      // Из четырёх годны две, и обе умещаются в разрешённые Discord две.
+      expect(formatted?.buttons).toEqual([
+        { label: 'Третья лишняя', url: 'https://ok.test/3' },
+        { label: 'Годная', url: 'https://ok.test/4' }
+      ]);
+    });
+
+    it('без кнопок поля buttons в активности нет вовсе', () => {
+      // Пустой массив Discord считает ошибкой формата, а не «кнопок нет».
+      const formatted = formatActivityForDiscord({ details: 'Track', state: 'Artist', buttons: [] });
+      expect('buttons' in (formatted ?? {})).toBe(false);
+    });
   });
 });
