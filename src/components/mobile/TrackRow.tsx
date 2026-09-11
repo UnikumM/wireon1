@@ -1,5 +1,5 @@
 import React, { useCallback, useState } from 'react';
-import { MoreVertical, Music2 } from 'lucide-react';
+import { Check, MoreVertical, Music2 } from 'lucide-react';
 import type { UnifiedTrack } from '../../types/music';
 import { ICON } from '../../styles/icons';
 import { useLongPress } from '../../hooks/useLongPress';
@@ -32,6 +32,15 @@ export interface TrackRowProps {
   onOpenActions: () => void;
   /** Номер в списке вместо обложки — для очереди и плейлистов. */
   index?: number;
+  /**
+   * Список в режиме выбора: строка не играет, а отмечается.
+   *
+   * Отдельным признаком, а не «есть обработчик выбора»: в режиме выбора
+   * меняется смысл нажатия на всю строку, и это должно быть видно из вызова.
+   */
+  isSelectable?: boolean;
+  isSelected?: boolean;
+  onToggleSelect?: () => void;
   'data-testid'?: string;
 }
 
@@ -40,12 +49,22 @@ export const TrackRow: React.FC<TrackRowProps> = ({
   isCurrent = false,
   onPlay,
   onOpenActions,
+  isSelectable = false,
+  isSelected = false,
+  onToggleSelect,
   'data-testid': testId
 }) => {
   const [artworkFailed, setArtworkFailed] = useState(false);
-  const { handlers, consumedRef } = useLongPress({ onLongPress: onOpenActions });
+  // В режиме выбора долгое нажатие не открывает лист: там у нажатия один смысл.
+  const { handlers, consumedRef } = useLongPress({
+    onLongPress: isSelectable ? () => undefined : onOpenActions
+  });
 
   const handleClick = useCallback(() => {
+    if (isSelectable) {
+      onToggleSelect?.();
+      return;
+    }
     // Долгое нажатие уже открыло лист. Отпускание пальца не должно вдобавок
     // запустить трек — человек просил действия, а не музыку.
     if (consumedRef.current) {
@@ -53,7 +72,7 @@ export const TrackRow: React.FC<TrackRowProps> = ({
       return;
     }
     onPlay();
-  }, [consumedRef, onPlay]);
+  }, [consumedRef, isSelectable, onPlay, onToggleSelect]);
 
   return (
     <div
@@ -73,6 +92,7 @@ export const TrackRow: React.FC<TrackRowProps> = ({
         type="button"
         className="press"
         onClick={handleClick}
+        aria-pressed={isSelectable ? isSelected : undefined}
         {...handlers}
         style={{
           display: 'flex',
@@ -141,6 +161,42 @@ export const TrackRow: React.FC<TrackRowProps> = ({
         </span>
       </button>
 
+      {isSelectable ? (
+        /*
+          * Отметка справа, на месте кнопки действий.
+          *
+          * Не отдельный `<input type="checkbox">`: вся строка уже кнопка и уже
+          * несёт `aria-pressed`, а второй нажимаемый элемент с тем же смыслом
+          * рядом — это два попадания пальцем вместо одного.
+          */
+        <span
+          aria-hidden="true"
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            width: '48px',
+            height: '48px',
+            flexShrink: 0,
+            color: isSelected ? 'var(--text-on-accent)' : 'var(--text-muted)'
+          }}
+        >
+          <span
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              width: '24px',
+              height: '24px',
+              borderRadius: 'var(--radius-full)',
+              border: `2px solid ${isSelected ? 'var(--accent)' : 'var(--border-strong)'}`,
+              background: isSelected ? 'var(--accent)' : 'transparent'
+            }}
+          >
+            {isSelected && <Check size={ICON.sm} aria-hidden="true" />}
+          </span>
+        </span>
+      ) : (
       <button
         type="button"
         className="press focus-ring"
@@ -162,6 +218,7 @@ export const TrackRow: React.FC<TrackRowProps> = ({
       >
         <MoreVertical size={ICON.lg} aria-hidden="true" />
       </button>
+      )}
     </div>
   );
 };

@@ -1,14 +1,28 @@
 import React, { useCallback, useMemo, useState } from 'react';
-import { ChevronLeft, MoreVertical, Music2, Pencil, Play, Share2, Shuffle, Trash2 } from 'lucide-react';
+import {
+  ChevronLeft,
+  CheckSquare,
+  Download,
+  ListPlus,
+  MoreVertical,
+  Music2,
+  Pencil,
+  Play,
+  Share2,
+  Shuffle,
+  Trash2,
+  X
+} from 'lucide-react';
 import { useLibraryStore } from '../../store/useLibraryStore';
 import { usePlayerStore } from '../../store/usePlayerStore';
-import { useUIStore } from '../../store/useUIStore';
+import { refusedForAccount, useUIStore } from '../../store/useUIStore';
 import { ICON } from '../../styles/icons';
 import { pluralize } from '../../utils/plural';
 import { exportPlaylist, EXPORT_FORMAT_LABELS, type ExportFormat } from '../../services/playlistTransfer';
 import { saveTextFile } from '../../utils/download';
 import { Sheet, SheetRow } from './Sheet';
 import { TrackRow } from './TrackRow';
+import { offlineMode } from '../../services/offlineMode';
 
 /**
  * Плейлист на телефоне.
@@ -31,6 +45,8 @@ export const MobilePlaylistView: React.FC = () => {
   const playlists = useLibraryStore((s) => s.playlists);
   const deletePlaylist = useLibraryStore((s) => s.deletePlaylist);
   const renamePlaylist = useLibraryStore((s) => s.renamePlaylist);
+  const addTrackToPlaylist = useLibraryStore((s) => s.addTrackToPlaylist);
+  const removeTrackFromPlaylist = useLibraryStore((s) => s.removeTrackFromPlaylist);
 
   const playTrack = usePlayerStore((s) => s.playTrack);
   const currentTrack = usePlayerStore((s) => s.currentTrack);
@@ -40,6 +56,15 @@ export const MobilePlaylistView: React.FC = () => {
   const [isRenaming, setRenaming] = useState(false);
   const [isExportOpen, setExportOpen] = useState(false);
   const [draftTitle, setDraftTitle] = useState('');
+  /**
+   * Выбранные треки. `null` — обычный список: нажатие играет.
+   *
+   * Отдельное состояние, а не «пустое множество значит не выбираем»: пустой
+   * выбор — законное состояние внутри режима, и путать его с выходом из
+   * режима значит выкидывать человека из него на снятии последней отметки.
+   */
+  const [selected, setSelected] = useState<Set<string> | null>(null);
+  const [isMoveOpen, setMoveOpen] = useState(false);
 
   const playlist = useMemo(
     () => playlists.find((item) => item.id === activePlaylistId) ?? null,
@@ -98,6 +123,110 @@ export const MobilePlaylistView: React.FC = () => {
     },
     [playlist, showToast]
   );
+
+  const selectedTracks = useMemo(
+    () => (selected ? tracks.filter((track) => selected.has(track.id)) : []),
+    [selected, tracks]
+  );
+
+  const toggleSelected = useCallback((trackId: string) => {
+    setSelected((current) => {
+      const next = new Set(current ?? []);
+      if (next.has(trackId)) next.delete(trackId);
+      else next.add(trackId);
+      return next;
+    });
+  }, []);
+
+  const handleSaveSelected = useCallback(async () => {
+    const list = selectedTracks;
+    if (list.length === 0) return;
+    const added = await offlineMode.queueTracks(list).catch(() => 0);
+    showToast(
+      added > 0
+        ? `${pluralize(added, 'трек', 'трека', 'треков')} в очереди на сохранение`
+        : 'Всё выбранное уже сохранено',
+      added > 0 ? 'success' : 'info'
+    );
+    setSelected(null);
+  }, [selectedTracks, showToast]);
+
+  /**
+   * Убирает выбранное из плейлиста.
+   *
+   * Идём с конца: удаление сдвигает всё, что после него, и при проходе сверху
+   * вниз второй же номер указывал бы уже не на тот трек.
+   */
+  const handleRemoveSelected = useCallback(async () => {
+    if (!playlist || !selected || selected.size === 0) return;
+    const doomed = tracks
+      .map((track, index) => ({ track, index }))
+      .filter(({ track }) => selected.has(track.id))
+      .map(({ index }) => index)
+      .reverse();
+
+    let removed = 0;
+    for (const index of doomed) {
+      if (await removeTrackFromPlaylist(playlist.id, index)) removed += 1;
+    }
+
+    if (removed === 0) {
+      if (!refusedForAccount()) showToast('Не удалось убрать треки', 'error');
+      return;
+    }
+
+    showToast(`Убрано ${pluralize(removed, 'трек', 'трека', 'треков')}`, 'success');
+    setSelected(null);
+  }, [playlist, removeTrackFromPlaylist, selected, showToast, tracks]);
+
+  const handleMoveSelected = useCallback(
+    async (targetId: string) => {
+      const list = selectedTracks;
+      if (list.length === 0) return;
+
+      /*
+       * Считаем удачи, а не длину списка.
+       *
+       * `addTrackToPlaylist` возвращает `false`, когда пополнять плейлисты
+       * нельзя — например, человек слушает без аккаунта. Отчёт по длине списка
+       * означал бы «перенесено пять треков» ровно там, где не перенёсся ни
+       * один, и искать их человек пошёл бы в другой плейлист.
+       */
+      let moved = 0;
+      for (const track of list) {
+        if (await addTrackToPlaylist(targetId, track)) moved += 1;
+      }
+
+      setMoveOpen(false);
+      if (moved === 0) {
+        // Причину уже назвал стор: без аккаунта на экране стоит приглашение
+        // войти, и вторая красная надпись теми же секундами — это два разных
+        // ответа на одно нажатие.
+        if (!refusedForAccount()) showToast('Не удалось перенести треки', 'error');
+        return;
+      }
+
+      const target = playlists.find((item) => item.id === targetId);
+      showToast(
+        `${pluralize(moved, 'трек', 'трека', 'треков')} в «${target?.title ?? 'плейлист'}»`,
+        'success'
+      );
+      setSelected(null);
+    },
+    [addTrackToPlaylist, playlists, selectedTracks, showToast]
+  );
+
+  const handleSavePlaylist = useCallback(async () => {
+    if (tracks.length === 0) return;
+    setMenuOpen(false);
+    const added = await offlineMode.queueTracks(tracks).catch(() => 0);
+    showToast(
+      added > 0
+        ? `${pluralize(added, 'трек', 'трека', 'треков')} в очереди на сохранение`
+        : 'Плейлист уже сохранён целиком',
+      added > 0 ? 'success' : 'info'
+    );
+  }, [showToast, tracks]);
 
   const handleDelete = useCallback(async () => {
     if (!playlist) return;
@@ -193,7 +322,7 @@ export const MobilePlaylistView: React.FC = () => {
         </div>
       </div>
 
-      {tracks.length > 0 && (
+      {tracks.length > 0 && selected === null && (
         <div style={{ display: 'flex', gap: 'var(--space-2)' }}>
           <ActionButton
             icon={<Play size={ICON.md} fill="currentColor" aria-hidden="true" />}
@@ -210,6 +339,90 @@ export const MobilePlaylistView: React.FC = () => {
             }}
             testId="mobile-playlist-shuffle"
           />
+        </div>
+      )}
+
+      {/*
+        * Панель выбора. Стоит над списком, а не под ним: на телефоне список
+        * длинный, и панель, уехавшая за экран вместе с прокруткой, не панель.
+        */}
+      {selected !== null && (
+        <div
+          style={{
+            position: 'sticky',
+            top: 0,
+            zIndex: 'var(--z-sticky)',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: 'var(--space-2)',
+            padding: 'var(--space-3)',
+            borderRadius: 'var(--radius-md)',
+            background: 'var(--surface-2)',
+            border: '1px solid var(--border-subtle)'
+          }}
+          data-testid="mobile-playlist-selection-bar"
+        >
+          <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>
+            <span
+              style={{ flex: 1, fontSize: 'var(--text-sm)', color: 'var(--text-primary)' }}
+              data-testid="mobile-playlist-selection-count"
+            >
+              {selected.size === 0
+                ? 'Выберите треки'
+                : `Выбрано ${selected.size} из ${tracks.length}`}
+            </span>
+            <button
+              type="button"
+              className="press focus-ring"
+              onClick={() =>
+                setSelected(
+                  selected.size === tracks.length
+                    ? new Set()
+                    : new Set(tracks.map((track) => track.id))
+                )
+              }
+              style={{
+                padding: 'var(--space-2)',
+                fontSize: 'var(--text-sm)',
+                color: 'var(--accent)',
+                cursor: 'pointer'
+              }}
+              data-testid="mobile-playlist-select-all"
+            >
+              {selected.size === tracks.length ? 'Снять все' : 'Выбрать все'}
+            </button>
+            <button
+              type="button"
+              className="press focus-ring tap-target"
+              onClick={() => setSelected(null)}
+              aria-label="Выйти из режима выбора"
+              style={{ color: 'var(--text-secondary)', cursor: 'pointer' }}
+              data-testid="mobile-playlist-selection-close"
+            >
+              <X size={ICON.lg} aria-hidden="true" />
+            </button>
+          </div>
+
+          <div style={{ display: 'flex', gap: 'var(--space-2)' }}>
+            <ActionButton
+              icon={<ListPlus size={ICON.md} aria-hidden="true" />}
+              label="В плейлист"
+              onClick={() => setMoveOpen(true)}
+              testId="mobile-playlist-selection-move"
+            />
+            <ActionButton
+              icon={<Download size={ICON.md} aria-hidden="true" />}
+              label="Скачать"
+              onClick={() => void handleSaveSelected()}
+              testId="mobile-playlist-selection-save"
+            />
+            <ActionButton
+              icon={<Trash2 size={ICON.md} aria-hidden="true" />}
+              label="Убрать"
+              onClick={() => void handleRemoveSelected()}
+              testId="mobile-playlist-selection-remove"
+            />
+          </div>
         </div>
       )}
 
@@ -235,6 +448,9 @@ export const MobilePlaylistView: React.FC = () => {
               isCurrent={currentTrack?.id === track.id}
               onPlay={() => void playTrack(track, tracks, index)}
               onOpenActions={() => openTrackActions(track)}
+              isSelectable={selected !== null}
+              isSelected={selected?.has(track.id) ?? false}
+              onToggleSelect={() => toggleSelected(track.id)}
               data-testid={`mobile-playlist-track-${track.id}`}
             />
           ))}
@@ -257,6 +473,23 @@ export const MobilePlaylistView: React.FC = () => {
           data-testid="mobile-playlist-rename"
         />
         <SheetRow
+          icon={<CheckSquare size={ICON.lg} aria-hidden="true" />}
+          label="Выбрать треки"
+          hint="Чтобы перенести, скачать или убрать сразу несколько"
+          onClick={() => {
+            setSelected(new Set());
+            setMenuOpen(false);
+          }}
+          data-testid="mobile-playlist-select-mode"
+        />
+        <SheetRow
+          icon={<Download size={ICON.lg} aria-hidden="true" />}
+          label="Скачать плейлист"
+          hint="Слушать без сети"
+          onClick={() => void handleSavePlaylist()}
+          data-testid="mobile-playlist-save-offline"
+        />
+        <SheetRow
           icon={<Share2 size={ICON.lg} aria-hidden="true" />}
           label="Выгрузить файлом"
           hint="Чтобы открыть на другом устройстве"
@@ -271,6 +504,40 @@ export const MobilePlaylistView: React.FC = () => {
           onClick={() => void handleDelete()}
           data-testid="mobile-playlist-delete"
         />
+      </Sheet>
+
+      <Sheet
+        isOpen={isMoveOpen}
+        onClose={() => setMoveOpen(false)}
+        title={`В какой плейлист — ${selectedTracks.length}`}
+        data-testid="mobile-playlist-move-sheet"
+      >
+        {playlists.filter((item) => item.id !== playlist.id).length === 0 ? (
+          <p
+            style={{
+              margin: 0,
+              padding: 'var(--space-4)',
+              fontSize: 'var(--text-sm)',
+              color: 'var(--text-muted)'
+            }}
+            data-testid="mobile-playlist-move-empty"
+          >
+            Других плейлистов пока нет. Создайте его в медиатеке.
+          </p>
+        ) : (
+          playlists
+            .filter((item) => item.id !== playlist.id)
+            .map((item) => (
+              <SheetRow
+                key={item.id}
+                icon={<ListPlus size={ICON.lg} aria-hidden="true" />}
+                label={item.title}
+                hint={pluralize(item.tracks.length, 'трек', 'трека', 'треков')}
+                onClick={() => void handleMoveSelected(item.id)}
+                data-testid={`mobile-playlist-move-${item.id}`}
+              />
+            ))
+        )}
       </Sheet>
 
       <Sheet
