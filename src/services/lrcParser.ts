@@ -31,6 +31,50 @@ export interface ParsedLRC {
 }
 
 /**
+ * Строки, которые пришли вместе с текстом, но текстом не являются.
+ *
+ * LRCLIB собирает тексты из открытых источников, и в них приезжает всё, что
+ * было на странице: пометки частей («[Припев]», «[Verse 2]»), шапка сборщика
+ * («15 ContributorsGet Lucky Lyrics»), рекламная врезка Genius («You might also
+ * like») и хвост «Embed» с числом просмотров. В караоке это выглядит как
+ * мусор между строчками — человек так и сказал: «бывает мусор вместо текста
+ * лишний».
+ *
+ * Список нарочно короткий и буквальный. Вычищать «всё подозрительное» здесь
+ * нельзя: в настоящих текстах встречаются и скобки, и английские слова, и
+ * строка из одного слова, — а потерянная строчка песни хуже лишней.
+ */
+/**
+ * Слова, которыми подписывают части песни. Нужны затем, чтобы отличить пометку
+ * «(Chorus)» от подпевки «(Ooh, ooh, ooh)»: и то и другое — строка в скобках.
+ */
+const SECTION_WORDS =
+  'verse|chorus|bridge|intro|outro|hook|refrain|pre-?chorus|post-?chorus|interlude|instrumental|solo|breakdown|drop|couplet|' +
+  'припев|куплет|бридж|интро|аутро|вступление|проигрыш|переход|бит';
+
+const JUNK_LINE_PATTERNS: readonly RegExp[] = [
+  // Пометка части в квадратных скобках целиком: «[Chorus]», «[Припев: Баста]».
+  /^\[[^\]]{0,60}\]$/,
+  // В круглых — только если внутри стоит слово-пометка: в скобках поют тоже.
+  new RegExp('^\\((?:' + SECTION_WORDS + ')[^)]{0,40}\\)$', 'i'),
+  /^\d+\s*contributors?/i,
+  /^you might also like$/i,
+  /^see .+ live$/i,
+  /^get tickets as low as \$\d+/i,
+  // Хвост страницы Genius: «1.2KEmbed», «Embed».
+  /^[\d.,km]*embed$/i,
+  /^(?:written|produced|composed|lyrics|music|mixed|mastered|arranged)\s+by\s*:/i,
+  /^translations?$/i
+];
+
+/** Является ли строка служебной пометкой, а не текстом песни. */
+export function isJunkLyricLine(text: string): boolean {
+  const trimmed = (text || '').trim();
+  if (!trimmed) return true;
+  return JUNK_LINE_PATTERNS.some((pattern) => pattern.test(trimmed));
+}
+
+/**
  * Regex to match metadata tags: [tag:value]
  * Matches tags like [ti:Title], [ar:Artist], [al:Album], [by:Author], [offset:+500], etc.
  */
@@ -135,6 +179,12 @@ export function parseLRCWithMetadata(lrcText: string): ParsedLRC {
     if (timestamps.length > 0) {
       // The lyrics text is everything after all leading timestamp tags
       const text = trimmed.replace(TIMESTAMP_TAG_REGEX, '').trim();
+      // Пометка части приезжает и с меткой времени: «[00:12.00][Припев]».
+      //
+      // Пустой текст при этом сохраняется: в синхронном тексте это проигрыш, и
+      // без него караоке держало бы предыдущую строчку всю инструментальную
+      // часть, как будто её всё ещё поют.
+      if (text && isJunkLyricLine(text)) continue;
       for (const time of timestamps) {
         lines.push({
           time,
@@ -183,7 +233,7 @@ export function parsePlainLyrics(plainText: string): LyricsLine[] {
   return plainText
     .split(/\r?\n/)
     .map((line) => line.trim())
-    .filter((line) => line.length > 0)
+    .filter((line) => !isJunkLyricLine(line))
     .map((text, index) => ({
       time: index === 0 ? 0 : index, // sequential index fallback
       text

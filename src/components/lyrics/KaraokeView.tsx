@@ -44,6 +44,14 @@ export interface KaraokeViewProps {
 const OFFSET_STEP_S = 0.5;
 
 /**
+ * Ниже этой прозрачности строка перестаёт быть текстом.
+ *
+ * Экспортируется ради `karaokeContrast.test.ts`: тест считает по ней настоящий
+ * контраст на всех пресетах, а не сверяет число с числом.
+ */
+export const KARAOKE_MIN_OPACITY = 0.65;
+
+/**
  * Текст песни с подсветкой строки по времени.
  *
  * Кроме собственно показа текста здесь решаются две вещи, из-за которых тексты
@@ -853,21 +861,25 @@ export const KaraokeView: React.FC<KaraokeViewProps> = ({ className = '', onClos
               const isPast = lyrics.synced && activeLineIndex >= 0 && index < activeLineIndex;
               const distance = lyrics.synced && activeLineIndex >= 0 ? Math.abs(index - activeLineIndex) : 0;
 
-              // Пол прозрачности — 0.45, а не 0.28.
+              // Пол прозрачности — 0.65.
               //
-              // Строки красятся в `--text-muted`, и на светлых темах при 0.28
-              // контраст падал примерно до 1.2:1 — соседние строки читались как
-              // пустое место, а не как приглушённый текст. Активная строка
-              // выделяется цветом и весом, так что ей затемнение соседей уже не
-              // нужно настолько сильное.
-              let opacity = 0.85;
+              // Строки красятся в `--text-secondary` (global.css §13), и
+              // произведение цвета на прозрачность — это и есть то, что человек
+              // видит. Замерено по всем шести пресетам и обеим глубинам: при
+              // 0.65 худший контраст 3.14:1, при 0.45 он падал до 1.81:1, а в
+              // прежней паре `--text-faint` × 0.28 — до 1.34:1, то есть до
+              // «текста не видно». Число охраняет karaokeContrast.test.ts.
+              //
+              // Активной строке это не мешает: у неё цвет, вес и акцентная
+              // подложка, а не одна лишь непрозрачность.
+              let opacity = 0.9;
               if (lyrics.synced) {
                 if (isActive) {
                   opacity = 1;
                 } else if (isPast) {
-                  opacity = Math.max(0.45, 0.65 - distance * 0.06);
+                  opacity = Math.max(KARAOKE_MIN_OPACITY, 0.8 - distance * 0.05);
                 } else {
-                  opacity = Math.max(0.45, 0.72 - distance * 0.06);
+                  opacity = Math.max(KARAOKE_MIN_OPACITY, 0.85 - distance * 0.05);
                 }
               }
 
