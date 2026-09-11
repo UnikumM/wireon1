@@ -4,6 +4,7 @@ import { soundCloudService, SoundCloudService } from './soundcloud';
 import { detectVariants, normalizeForMatch, pickBestMatch } from './trackMatching';
 import { db, getSetting, setSetting } from './db';
 import { detectPlatform } from './nativeBridge';
+import { objectUrlFor, trackFileUrl } from './offlineFiles';
 
 export interface ResolvedStreamInfo {
   streamUrl: string;
@@ -267,11 +268,15 @@ export class StreamResolver {
     try {
       if (db && db.offlineTracks) {
         const offlineRecord = await db.offlineTracks.get(track.id);
-        if (offlineRecord && offlineRecord.blob) {
-          const streamUrl =
-            typeof URL !== 'undefined' && typeof URL.createObjectURL === 'function'
-              ? URL.createObjectURL(offlineRecord.blob)
-              : `blob:offline-${track.id}`;
+        // Две формы хранения: файл на телефоне и `Blob` в базе на десктопе (а
+        // на телефоне — у записей, скачанных до перехода на файлы).
+        const fileUrl = offlineRecord?.filePath
+          ? await trackFileUrl(offlineRecord.filePath)
+          : null;
+        const streamUrl =
+          fileUrl ||
+          (offlineRecord?.blob ? objectUrlFor(track.id, offlineRecord.blob) : null);
+        if (streamUrl) {
           return {
             streamUrl,
             format: track.format || 'mp3',

@@ -1,6 +1,16 @@
 import { db, OfflineTrackRecord } from './db';
 import { UnifiedTrack } from '../types/music';
 import { streamResolver } from './streamResolver';
+import {
+  clearTrackFiles,
+  deleteTrackFile,
+  objectUrlFor,
+  requestPersistentStorage,
+  revokeAllObjectUrls,
+  revokeObjectUrl,
+  trackFileUrl,
+  writeTrackFile
+} from './offlineFiles';
 
 export type { OfflineTrackRecord };
 
@@ -38,7 +48,6 @@ type OfflineChangeListener = () => void;
 
 class OfflineStorageService {
   private activeDownloads: Map<string, { controller: AbortController; progress: number }> = new Map();
-  private objectUrlCache: Map<string, string> = new Map();
   private listeners: Set<OfflineChangeListener> = new Set();
   /** Ответ на «есть ли ffmpeg»: не меняется за время работы, спрашиваем раз. */
   private compressionAvailable: boolean | null = null;
@@ -248,7 +257,14 @@ class OfflineStorageService {
 
       const sizeBytes = blob.size || totalBytes || 0;
 
-      // 4. Save record to Dexie IndexedDB
+      // 4. Кладём звук: на телефоне — файлом, в остальных местах — в базу.
+      //
+      // Файл спасает сразу от двух бед: он не упирается в квоту WebView и его
+      // не вычистит система при нехватке места. Просьба о постоянном хранении
+      // — вторая половина той же защиты, и она нужна и базе, и файлам.
+      await requestPersistentStorage();
+      const filePath = await writeTrackFile(track.id, blob, format);
+
       const record: OfflineTrackRecord = {
         id: track.id,
         track: {
@@ -256,7 +272,8 @@ class OfflineStorageService {
           format,
           bitrate
         },
-        blob,
+        // Файл записан — хранить те же байты ещё и в базе незачем.
+        ...(filePath ? { filePath } : { blob }),
         sizeBytes,
         downloadedAt: Date.now()
       };
@@ -339,18 +356,11 @@ class OfflineStorageService {
     if (!trackId) return null;
     try {
       const record = await db.offlineTracks.get(trackId);
-      if (!record || !record.blob) return null;
+      if (!record) return null;
+      if (record.filePath) return await trackFileUrl(record.filePath);
+      if (!record.blob) return null;
 
-      let url = this.objectUrlCache.get(trackId);
-      if (!url) {
-        if (typeof URL !== 'undefined' && typeof URL.createObjectURL === 'function') {
-          url = URL.createObjectURL(record.blob);
-        } else {
-          url = `blob:offline-${trackId}`;
-        }
-        this.objectUrlCache.set(trackId, url);
-      }
-      return url;
+      return objectUrlFor(trackId, record.blob);
     } catch (err) {
       console.error('[OfflineStorage] getOfflineAudioUrl error:', err);
       return null;
@@ -388,15 +398,9 @@ class OfflineStorageService {
   public async deleteOfflineTrack(trackId: string): Promise<void> {
     if (!trackId) return;
     try {
-      const cachedUrl = this.objectUrlCache.get(trackId);
-      if (cachedUrl && typeof URL !== 'undefined' && typeof URL.revokeObjectURL === 'function') {
-        try {
-          URL.revokeObjectURL(cachedUrl);
-        } catch {
-          // ignore revocation errors
-        }
-      }
-      this.objectUrlCache.delete(trackId);
+      revokeObjectUrl(trackId);
+      const record = await db.offlineTracks.get(trackId);
+      await deleteTrackFile(record?.filePath);
       await db.offlineTracks.delete(trackId);
       this.notify();
     } catch (err) {
@@ -410,16 +414,8 @@ class OfflineStorageService {
    */
   public async clearAllOffline(): Promise<void> {
     try {
-      if (typeof URL !== 'undefined' && typeof URL.revokeObjectURL === 'function') {
-        for (const url of this.objectUrlCache.values()) {
-          try {
-            URL.revokeObjectURL(url);
-          } catch {
-            // ignore revocation errors
-          }
-        }
-      }
-      this.objectUrlCache.clear();
+      revokeAllObjectUrls();
+      await clearTrackFiles();
       await db.offlineTracks.clear();
       this.notify();
     } catch (err) {

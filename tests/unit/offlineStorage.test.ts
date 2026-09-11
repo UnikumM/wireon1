@@ -515,10 +515,10 @@ describe('Milestone 3 — In-App Desktop Offline Storage & Downloads', () => {
         expect.objectContaining({ bitrateKbps: 96, sourceExt: 'mp3' })
       );
       const saved = written.get();
-      expect(saved?.blob.size).toBe(3);
+      expect(saved?.blob?.size).toBe(3);
       expect(saved?.sizeBytes).toBe(3);
       // Ogg, а не сырой opus — иначе Chromium это не сыграет.
-      expect(saved?.blob.type).toContain('audio/ogg');
+      expect(saved?.blob?.type).toContain('audio/ogg');
 
       const record = await getOfflineTrack(mockTrack1.id);
       expect(record?.sizeBytes).toBe(3);
@@ -589,7 +589,7 @@ describe('Milestone 3 — In-App Desktop Offline Storage & Downloads', () => {
       await downloadTrack(mockTrack1, undefined, { compressBitrateKbps: 96 });
 
       // Ушли скачанные семь байт ID3-заготовки, а не нулевой выхлоп сжатия.
-      expect(written.get()?.blob.size).toBe(7);
+      expect(written.get()?.blob?.size).toBe(7);
       const record = await getOfflineTrack(mockTrack1.id);
       expect(record?.sizeBytes).toBe(7);
       expect(record?.track.format).not.toBe('opus');

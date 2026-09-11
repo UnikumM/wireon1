@@ -81,7 +81,16 @@ export interface PlayEventRecord {
 export interface OfflineTrackRecord {
   id: string; // track.id
   track: UnifiedTrack;
-  blob: Blob;
+  /**
+   * Сам звук — только у записей, сделанных до перехода на файлы, и у десктопа.
+   *
+   * На телефоне целый `Blob` внутри записи упирался в квоту WebView, а систему
+   * не останавливал: Android вправе вычистить базу при нехватке места, и
+   * сохранённое исчезало молча. Там теперь `filePath`.
+   */
+  blob?: Blob;
+  /** Путь к файлу внутри личной папки приложения. См. `offlineFiles.ts`. */
+  filePath?: string;
   sizeBytes: number;
   downloadedAt: number;
   /** Last time this copy was actually played, for least-recently-used eviction. */
@@ -1031,7 +1040,13 @@ export async function clearAllData(): Promise<void> {
       db.settings.clear(),
       db.dislikes.clear(),
       db.offlineTracks.clear(),
-      db.lyrics.clear()
+      db.lyrics.clear(),
+      // Сохранённые треки лежат файлами рядом с базой: очистив только таблицу,
+      // мы оставили бы гигабайты, о которых приложение больше не знает.
+      //
+      // Подключается на месте, а не сверху файла: `offlineFiles` тянет за собой
+      // Capacitor, а базу читают и тесты, и главный процесс, где его нет.
+      import('./offlineFiles').then((files) => files.clearTrackFiles())
     ]);
   } catch (err) {
     console.error('[DB] clearAllData error:', err);
