@@ -4,6 +4,7 @@ import {
   findPreset,
   isDensityOverride,
   isMotionOverride,
+  isContrastOverride,
   isParticleProfileId,
   isPresetId,
   isRadiusOverride,
@@ -124,7 +125,8 @@ export function parseOverrides(raw: unknown): DesignOverrides {
     motion: isMotionOverride(source.motion) ? source.motion : null,
     particles: isParticleProfileId(source.particles) ? source.particles : null,
     glass: typeof source.glass === 'boolean' ? source.glass : null,
-    grain: typeof source.grain === 'boolean' ? source.grain : null
+    grain: typeof source.grain === 'boolean' ? source.grain : null,
+    contrast: isContrastOverride(source.contrast) ? source.contrast : null
   };
 }
 

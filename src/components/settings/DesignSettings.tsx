@@ -8,12 +8,14 @@ import {
   DESIGN_PRESETS,
   DENSITY_OPTIONS,
   MOTION_OPTIONS,
+  CONTRAST_OPTIONS,
   PARTICLE_OPTIONS,
   RADIUS_OPTIONS,
   designVars,
   findPreset,
   DensityOverride,
   MotionOverride,
+  ContrastOverride,
   ParticleProfileId,
   RadiusOverride
 } from '../../styles/presets';
@@ -460,6 +462,29 @@ export const DesignSettings: React.FC = () => {
           <option value={INHERIT}>Как в пресете</option>
           {MOTION_OPTIONS.map((option) => (
             <option key={option.id} value={option.id}>
+              {option.label}
+            </option>
+          ))}
+        </select>
+      </SettingRow>
+
+      <SettingRow
+        label="Контраст текста"
+        controlId="setting-design-contrast"
+        description="Насколько тихими будут подписи и вторые строки. Основной текст не меняется: двигается вся лестница под ним, чтобы иерархия не рассыпалась. Ниже порога читаемости ручка не опускается ни в одном положении."
+      >
+        <select
+          id="setting-design-contrast"
+          value={overrides.contrast ?? INHERIT}
+          aria-describedby="setting-design-contrast-description"
+          onChange={(e) =>
+            setOverride('contrast', e.target.value === INHERIT ? null : (e.target.value as ContrastOverride))
+          }
+          data-testid="settings-design-contrast"
+        >
+          <option value={INHERIT}>Как в пресете</option>
+          {CONTRAST_OPTIONS.map((option) => (
+            <option key={option.id} value={option.id} title={option.description}>
               {option.label}
             </option>
           ))}

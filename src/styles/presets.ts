@@ -318,7 +318,47 @@ export interface DesignOverrides {
   /** Стекло целиком: дорогое размытие можно выключить, не меняя пресет. */
   glass: boolean | null;
   grain: boolean | null;
+  /**
+   * Контраст текста. `null` — как задумано пресетом.
+   *
+   * Ручка про зрение, а не про вкус: приложение слушают и в метро на солнце, и
+   * ночью в тёмной комнате, и «приглушённая вторая строка» в этих двух случаях
+   * значит разное. Двигает всю лестницу разом, чтобы иерархия не рассыпалась.
+   */
+  contrast: ContrastOverride | null;
 }
+
+export type ContrastOverride = 'normal' | 'high' | 'max';
+
+/**
+ * Ручка идёт только вверх, и это не упущение.
+ *
+ * Замерено по шести пресетам и четырём глубинам: при сдвиге вниз на две
+ * единицы яркости самая тихая ступень даёт 2.99:1 — уже ниже порога. То есть
+ * положения «мягче обычного» не существует: умолчание и так стоит почти
+ * вплотную к границе читаемости. Ручка, которой можно сделать себе нечитаемо,
+ * — это не настройка, а ловушка, и жалоба вернулась бы тем же «не видно
+ * текста», только теперь с рукой человека в причине.
+ */
+export const CONTRAST_OPTIONS: readonly { id: ContrastOverride; label: string; description: string }[] = [
+  { id: 'normal', label: 'Обычно', description: 'Как задумано темой' },
+  { id: 'high', label: 'Повышенный', description: 'Подписи ближе к основному тексту' },
+  { id: 'max', label: 'Максимальный', description: 'Самые тихие подписи становятся обычным текстом' }
+];
+
+/**
+ * Насколько сдвигается каждая ступень текста, кроме основной.
+ *
+ * Основную не трогаем: она и так почти белая на тёмном и почти чёрная на
+ * светлом, сдвигать её некуда, а вместе с ней поехала бы вся иерархия.
+ * Числа — в единицах яркости HSL, и пол контраста охраняет
+ * `tests/unit/themeContrast.test.ts` для каждого положения ручки.
+ */
+const CONTRAST_SHIFTS: Readonly<Record<ContrastOverride, number>> = {
+  normal: 0,
+  high: 9,
+  max: 15
+};
 
 export const NO_OVERRIDES: DesignOverrides = {
   radius: null,
@@ -326,7 +366,8 @@ export const NO_OVERRIDES: DesignOverrides = {
   motion: null,
   particles: null,
   glass: null,
-  grain: null
+  grain: null,
+  contrast: null
 };
 
 /** Готовые лестницы скруглений для ручного выбора. */
@@ -393,6 +434,10 @@ export function isDensityOverride(value: unknown): value is DensityOverride {
 
 export function isMotionOverride(value: unknown): value is MotionOverride {
   return typeof value === 'string' && value in MOTION_FACTORS;
+}
+
+export function isContrastOverride(value: unknown): value is ContrastOverride {
+  return typeof value === 'string' && value in CONTRAST_SHIFTS;
 }
 
 /* ==========================================================================
@@ -603,7 +648,17 @@ export function designVars(selection: DesignSelection): Record<string, string> {
     depth.light ? `rgba(11, 15, 22, ${alpha.toFixed(3)})` : `rgba(255, 255, 255, ${alpha.toFixed(3)})`;
 
   const textSat = Math.min(18, preset.sat * 0.5);
-  const text = (lightness: number) => hslToHex({ h: preset.hue, s: textSat, l: lightness });
+  /*
+   * Сдвиг ступеней текста. На тёмном «контрастнее» означает светлее, на
+   * светлом — темнее, поэтому знак зависит от глубины, а не от пресета.
+   */
+  const contrastShift = CONTRAST_SHIFTS[overrides.contrast ?? 'normal'];
+  const text = (lightness: number, shiftable: boolean = true) => {
+    const shifted = shiftable
+      ? lightness + (depth.light ? -contrastShift : contrastShift)
+      : lightness;
+    return hslToHex({ h: preset.hue, s: textSat, l: Math.max(4, Math.min(96, shifted)) });
+  };
 
   const vars: Record<string, string> = {
     ...surfaceRamp(preset, depth),
@@ -617,10 +672,21 @@ export function designVars(selection: DesignSelection): Record<string, string> {
     '--border': veil(preset.borderAlpha),
     '--border-strong': veil(Math.min(0.42, preset.borderAlpha * 1.9)),
 
-    '--text-primary': text(depth.light ? 11 : 94),
+    /*
+     * Лестница текста. Числа не на глаз: каждое замерено по формуле WCAG на
+     * всех шести пресетах и всех четырёх глубинах, и эти же замеры стоят
+     * тестом (`tests/unit/themeContrast.test.ts`).
+     *
+     * Самая нижняя ступень была сломана: на светлых глубинах она давала
+     * 2.77:1 — меньше, чем нужно даже нетексту. Это и есть то, что человек
+     * назвал «ненормальным видом тем»: подписи и значки-заглушки на «Бумаге»
+     * выцветали до фона. Светлая ступень опущена с 57 до 52 (3.25:1), тёмная
+     * поднята с 45 до 47 (3.38:1).
+     */
+    '--text-primary': text(depth.light ? 11 : 94, false),
     '--text-secondary': text(depth.light ? 31 : 73),
-    '--text-muted': text(depth.light ? 43 : 60),
-    '--text-faint': text(depth.light ? 57 : 45),
+    '--text-muted': text(depth.light ? 41 : 60),
+    '--text-faint': text(depth.light ? 52 : 47),
 
     '--radius-xs': `${radius[0]}px`,
     '--radius-sm': `${radius[1]}px`,
