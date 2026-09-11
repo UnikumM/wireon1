@@ -30,6 +30,9 @@ import { isPlaceholderArtist } from '../utils/placeholders';
 export function normalizeArtistKey(artist: string | null | undefined): string {
   return (artist || '')
     .toLowerCase()
+    // Диакритика и «залго» — украшение буквы, а не разделитель: сняв их
+    // пробелом, мы получили бы «h e l l o» вместо «hello».
+    .replace(/\p{M}+/gu, '')
     .replace(/[^\p{L}\p{N}\s]/gu, ' ')
     .replace(/\s+/g, ' ')
     .trim();

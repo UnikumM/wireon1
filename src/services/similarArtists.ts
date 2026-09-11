@@ -29,6 +29,7 @@ import { UnifiedTrack } from '../types/music';
 import { searchAggregator } from './aggregator';
 import { getHistory, getPlaylists } from './db';
 import { youtubeService } from './youtube';
+import { normalizeArtistKey } from './tasteProfile';
 
 /** Откуда взялся кандидат — этим подписана карточка, чтобы не выдумывать связь. */
 export type SimilarArtistOrigin = 'youtube-music' | 'collab' | 'library' | 'related' | 'search';
@@ -159,13 +160,7 @@ export function cleanArtistName(raw: string): string {
 }
 
 /** Ключ сравнения: регистр и пунктуация не должны разводить одного человека на двух. */
-export function normalizeArtistKey(name: string): string {
-  return (name || '')
-    .toLowerCase()
-    .replace(/[^\p{L}\p{N}]+/gu, ' ')
-    .replace(/\s+/g, ' ')
-    .trim();
-}
+export { normalizeArtistKey };
 
 function words(key: string): string[] {
   return key.length === 0 ? [] : key.split(' ');

@@ -17,6 +17,8 @@ import { UnifiedTrack } from '../../src/types/music';
 import { YouTubeService } from '../../src/services/youtube';
 import { SoundCloudService } from '../../src/services/soundcloud';
 import { usePlayerStore } from '../../src/store/usePlayerStore';
+import { normalizeArtistKey } from '../../src/services/tasteProfile';
+import { normalizeArtistKey as normalizeSimilarKey } from '../../src/services/similarArtists';
 
 describe('Adversarial Empirical Stress Testing — Поток & Track Radio', () => {
   let mockYtService: YouTubeService;
@@ -278,6 +280,17 @@ describe('Adversarial Empirical Stress Testing — Поток & Track Radio', ()
       expect(normalizeArtist(null as any)).toBe('');
       expect(normalizeArtist(undefined as any)).toBe('');
       expect(normalizeArtist("Robert'); DROP TABLE tracks; --")).toBe('robert drop table tracks');
+    });
+
+    it('движок, память волны и поиск похожих строят один и тот же ключ артиста', () => {
+      // Мина, на которой поправки человека уходили в никуда: движок выбрасывал
+      // пунктуацию без пробела («hip-hop» → «hiphop»), а память волны и поиск
+      // похожих — через пробел. Ключи не совпадали, и штраф за пропуск
+      // прилетал несуществующему артисту.
+      for (const name of ['Hip-Hop Family', 'AC/DC', 'Tyler, The Creator', 'КИНО / Виктор Цой']) {
+        expect(normalizeArtist(name)).toBe(normalizeArtistKey(name));
+        expect(normalizeArtist(name)).toBe(normalizeSimilarKey(name));
+      }
     });
 
     it('generates consistent dedupeKey for malformed and special-character tracks', () => {

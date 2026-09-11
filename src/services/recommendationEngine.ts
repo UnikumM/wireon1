@@ -1,5 +1,6 @@
 import { UnifiedTrack } from '../types/music';
 import { FEEDBACK_DELTA } from './waveMemory';
+import { normalizeArtistKey } from './tasteProfile';
 import {
   getFavorites,
   getHistory,
@@ -296,13 +297,16 @@ export function energyPhrases(energy: number | undefined): string[] {
   return [];
 }
 
-export function normalizeArtist(artist: string): string {
-  return (artist || '')
-    .toLowerCase()
-    .replace(/[^\p{L}\p{N}\s]/gu, '')
-    .replace(/\s+/g, ' ')
-    .trim();
-}
+/**
+ * Ключ артиста — один на всё приложение.
+ *
+ * Здесь была вторая реализация, отличавшаяся одним символом: пунктуация
+ * выбрасывалась без пробела, и «hip-hop» превращалось в «hiphop», тогда как
+ * память волны и поиск похожих писали «hip hop». Ключи не совпадали, и поправки
+ * от человека молча уходили в никуда. Реализация теперь одна — в `tasteProfile`,
+ * потому что она ниже всех по зависимостям.
+ */
+export const normalizeArtist = normalizeArtistKey;
 
 export function dedupeKey(track: UnifiedTrack): string {
   const normArtist = normalizeArtist(track.artist);
