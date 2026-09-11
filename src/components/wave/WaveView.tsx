@@ -179,7 +179,7 @@ export const WaveView: React.FC<WaveViewProps> = ({ className = '' }) => {
           width: 'min(420px, 92vw)',
           height: 'min(420px, 92vw)',
           borderRadius: 'var(--radius-full)',
-          background: 'radial-gradient(circle, var(--accent-soft) 0%, rgba(0,0,0,0) 70%)',
+          background: 'radial-gradient(circle, var(--accent-soft) 0%, transparent 70%)',
           // `filter: blur(40px)` здесь был лишним: радиальный градиент и так
           // уходит в прозрачность к 70% радиуса — размывать нечего, зато блюр
           // требовал отдельный слой 420×420 с запасом на радиус размытия и

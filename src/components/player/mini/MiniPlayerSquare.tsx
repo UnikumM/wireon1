@@ -100,7 +100,7 @@ export const MiniPlayerSquare: React.FC = () => {
         style={{
           position: 'absolute',
           inset: 0,
-          background: 'linear-gradient(to bottom, rgba(0,0,0,0.7) 0%, rgba(0,0,0,0.1) 40%, rgba(0,0,0,0.85) 100%)',
+          background: 'var(--on-media-vignette)',
           pointerEvents: 'none'
         }}
       />
