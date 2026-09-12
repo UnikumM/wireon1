@@ -305,16 +305,24 @@ export const MobilePlaylistView: React.FC = () => {
         </button>
       </header>
 
-      <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-4)' }}>
+      {/*
+        * Обложка во всю ширину, название под ней — как на главной.
+        *
+        * Было: квадрат 96 px слева и название справа от него, то есть картинка
+        * размером с ноготь на экране шириной в ладонь. В витринном языке самое
+        * крупное на экране — то, что слушают, а не строка с подписью.
+        */}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-4)' }}>
         {/*
           * Обложка — она же кнопка выбора картинки, как на большом экране:
           * нажимают на то, что меняют. Отдельной кнопки рядом нет, на телефоне
           * ей и места бы не нашлось.
           */}
-        <div style={{ position: 'relative', flexShrink: 0 }}>
+        <div style={{ position: 'relative', width: '100%' }}>
           <button
             type="button"
             className="cover-button focus-ring"
+            style={{ width: '100%' }}
             onClick={() => coverInputRef.current?.click()}
             aria-label={playlist.coverUrl ? 'Сменить обложку плейлиста' : 'Поставить обложку плейлиста'}
             data-testid="mobile-playlist-cover-btn"
@@ -322,8 +330,8 @@ export const MobilePlaylistView: React.FC = () => {
             <PlaylistCover
               tracks={tracks}
               coverUrl={playlist.coverUrl}
-              size={96}
-              radius="var(--radius-md)"
+              size="100%"
+              radius="var(--radius-xl)"
             />
           </button>
 
@@ -352,12 +360,13 @@ export const MobilePlaylistView: React.FC = () => {
           <h1
             style={{
               margin: 0,
-              fontSize: 'var(--text-xl)',
-              lineHeight: 'var(--leading-xl)',
-              letterSpacing: 'var(--tracking-xl)',
-              fontWeight: 'var(--weight-bold)',
+              fontFamily: 'var(--font-display)',
+              fontSize: 'var(--text-3xl)',
+              lineHeight: 'var(--leading-3xl)',
+              letterSpacing: 'var(--tracking-3xl)',
+              fontWeight: 'var(--weight-semibold)',
               color: 'var(--text-primary)',
-              overflowWrap: 'break-word'
+              overflowWrap: 'anywhere'
             }}
             data-testid="mobile-playlist-title"
           >

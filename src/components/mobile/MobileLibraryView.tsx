@@ -7,7 +7,6 @@ import {
   Link2,
   ListMusic,
   ListPlus,
-  Music2,
   Plus,
   Search as SearchIcon,
   Trash2,
@@ -25,6 +24,8 @@ import type { UnifiedTrack } from '../../types/music';
 import { ImportPlaylistModal } from '../modals/ImportPlaylistModal';
 import { TrackRow } from './TrackRow';
 import { TrackSelectionBar } from './TrackSelectionBar';
+import { CoverCard } from '../common/CoverCard';
+import { PlaylistCover } from '../library/PlaylistCover';
 import { Sheet, SheetRow } from './Sheet';
 import { offlineMode } from '../../services/offlineMode';
 
@@ -424,64 +425,37 @@ export const MobileLibraryView: React.FC<MobileLibraryViewProps> = ({ onCreatePl
             }
           />
         ) : (
-          <div>
+          /*
+            * Сетка обложек, а не строки со значком-заглушкой.
+            *
+            * Плейлист узнают по картинке: в списке из восьми строк с одним и
+            * тем же серым значком приходится читать каждое название. Обложка
+            * берётся своя, если её поставили, иначе складывается мозаикой из
+            * состава — и то и другое различается с одного взгляда.
+            */
+          <div
+            style={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(2, minmax(0, 1fr))',
+              gap: 'var(--space-4)'
+            }}
+          >
             {visiblePlaylists.map((playlist) => (
-              <button
+              <CoverCard
                 key={playlist.id}
-                type="button"
-                className="press"
+                title={playlist.title}
+                subtitle={pluralize(playlist.tracks.length, 'трек', 'трека', 'треков')}
+                cover={
+                  <PlaylistCover
+                    tracks={playlist.tracks}
+                    coverUrl={playlist.coverUrl}
+                    size="100%"
+                    radius="var(--radius-lg)"
+                  />
+                }
+                testId={`mobile-library-playlist-${playlist.id}`}
                 onClick={() => openPlaylist(playlist.id)}
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: 'var(--space-3)',
-                  width: '100%',
-                  minHeight: '72px',
-                  textAlign: 'left',
-                  cursor: 'pointer'
-                }}
-                data-testid={`mobile-library-playlist-${playlist.id}`}
-              >
-                <span
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    width: '56px',
-                    height: '56px',
-                    flexShrink: 0,
-                    borderRadius: 'var(--radius-sm)',
-                    background: 'var(--surface-sunken)',
-                    border: '1px solid var(--border-subtle)',
-                    color: 'var(--text-faint)'
-                  }}
-                >
-                  <Music2 size={ICON.lg} aria-hidden="true" />
-                </span>
-                <span style={{ display: 'flex', flexDirection: 'column', minWidth: 0, flex: 1, gap: '2px' }}>
-                  <span
-                    className="text-truncate"
-                    style={{
-                      fontSize: 'var(--text-base)',
-                      lineHeight: 'var(--leading-base)',
-                      letterSpacing: 'var(--tracking-base)',
-                      color: 'var(--text-primary)'
-                    }}
-                  >
-                    {playlist.title}
-                  </span>
-                  <span
-                    style={{
-                      fontSize: 'var(--text-sm)',
-                      lineHeight: 'var(--leading-sm)',
-                      letterSpacing: 'var(--tracking-sm)',
-                      color: 'var(--text-muted)'
-                    }}
-                  >
-                    {pluralize(playlist.tracks.length, 'трек', 'трека', 'треков')}
-                  </span>
-                </span>
-              </button>
+              />
             ))}
           </div>
         )

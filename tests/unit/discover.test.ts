@@ -131,6 +131,110 @@ describe('разбор полок', () => {
   });
 });
 
+describe('разбор поиска подборок', () => {
+  /**
+   * Форма снята с живого ответа поиска без фильтра.
+   *
+   * Там нет ни одной `musicShelfRenderer`: выдача приходит десятками
+   * `itemSectionRenderer` по одной записи и одной `musicCardShelfRenderer` с
+   * лучшим совпадением. Разбор искал только первую — и все три вкладки
+   * подборок были пустыми всегда, на обеих платформах.
+   */
+  function searchItem(browseId: string, title: string, pageType: string) {
+    return {
+      musicResponsiveListItemRenderer: {
+        thumbnail: { musicThumbnailRenderer: { thumbnail: { thumbnails: [{ url: 'art.jpg' }] } } },
+        flexColumns: [
+          { musicResponsiveListItemFlexColumnRenderer: { text: { runs: [{ text: title }] } } },
+          { musicResponsiveListItemFlexColumnRenderer: { text: { runs: [{ text: 'Альбом' }] } } }
+        ],
+        navigationEndpoint: {
+          browseEndpoint: {
+            browseId,
+            browseEndpointContextSupportedConfigs: {
+              browseEndpointContextMusicConfig: { pageType }
+            }
+          }
+        }
+      }
+    };
+  }
+
+  /** Трек: у него `watchEndpoint`, подборкой он не является. */
+  const watchItem = {
+    musicResponsiveListItemRenderer: {
+      flexColumns: [
+        { musicResponsiveListItemFlexColumnRenderer: { text: { runs: [{ text: 'Песня' }] } } }
+      ],
+      navigationEndpoint: { watchEndpoint: { videoId: 'abc' } }
+    }
+  };
+
+  it('находит подборки в itemSectionRenderer и musicCardShelfRenderer', () => {
+    const response = {
+      contents: {
+        tabbedSearchResultsRenderer: {
+          tabs: [
+            {
+              tabRenderer: {
+                content: {
+                  sectionListRenderer: {
+                    contents: [
+                      { itemSectionRenderer: { contents: [{ messageRenderer: {} }] } },
+                      {
+                        musicCardShelfRenderer: {
+                          contents: [searchItem('UCdaft', 'Daft Punk', 'MUSIC_PAGE_TYPE_ARTIST')]
+                        }
+                      },
+                      { itemSectionRenderer: { contents: [watchItem] } },
+                      {
+                        itemSectionRenderer: {
+                          contents: [searchItem('MPREb_ram', 'Random Access Memories', 'MUSIC_PAGE_TYPE_ALBUM')]
+                        }
+                      },
+                      {
+                        itemSectionRenderer: {
+                          contents: [searchItem('VLpl1', 'Лучшее', 'MUSIC_PAGE_TYPE_PLAYLIST')]
+                        }
+                      }
+                    ]
+                  }
+                }
+              }
+            }
+          ]
+        }
+      }
+    };
+
+    const found = youtubeService.parseCollectionsResponse(response);
+
+    expect(found.map((item) => `${item.kind}:${item.ref}`)).toEqual([
+      'artist:UCdaft',
+      'album:MPREb_ram',
+      'playlist:VLpl1'
+    ]);
+    // Трек в подборки не попадает: у него нет страницы, которую можно открыть.
+    expect(found.some((item) => item.title === 'Песня')).toBe(false);
+  });
+
+  it('один и тот же альбом не приезжает дважды', () => {
+    // Лучшее совпадение дублируется ниже в общем списке — это норма ответа.
+    const twice = {
+      contents: {
+        sectionListRenderer: {
+          contents: [
+            { musicCardShelfRenderer: { contents: [searchItem('MPREb_x', 'Альбом', 'MUSIC_PAGE_TYPE_ALBUM')] } },
+            { itemSectionRenderer: { contents: [searchItem('MPREb_x', 'Альбом', 'MUSIC_PAGE_TYPE_ALBUM')] } }
+          ]
+        }
+      }
+    };
+
+    expect(youtubeService.parseCollectionsResponse(twice)).toHaveLength(1);
+  });
+});
+
 describe('кэш страниц', () => {
   beforeEach(() => {
     resetDiscoverCache();

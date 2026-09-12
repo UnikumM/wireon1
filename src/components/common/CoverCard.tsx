@@ -21,6 +21,13 @@ export interface CoverCardProps {
   round?: boolean;
   /** Значок на месте обложки, когда её нет. */
   fallbackIcon?: React.ReactNode;
+  /**
+   * Готовая обложка вместо картинки по ссылке.
+   *
+   * Нужна плейлисту: его обложка — либо своя картинка, либо мозаика из четырёх
+   * обложек состава, и складывает её отдельный компонент.
+   */
+  cover?: React.ReactNode;
   testId: string;
   onClick: () => void;
 }
@@ -31,6 +38,7 @@ export const CoverCard: React.FC<CoverCardProps> = ({
   artworkUrl,
   round = false,
   fallbackIcon,
+  cover,
   testId,
   onClick
 }) => (
@@ -46,11 +54,11 @@ export const CoverCard: React.FC<CoverCardProps> = ({
       style={round ? { borderRadius: 'var(--radius-full)' } : undefined}
       aria-hidden="true"
     >
-      {artworkUrl ? (
+      {cover ?? (artworkUrl ? (
         <img src={artworkUrl} alt="" loading="lazy" />
       ) : (
         fallbackIcon ?? <span style={{ fontSize: ICON.display }} />
-      )}
+      ))}
     </div>
 
     <div className="cover-card-text">

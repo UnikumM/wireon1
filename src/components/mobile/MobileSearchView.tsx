@@ -1,12 +1,13 @@
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Clock, Loader2, Search as SearchIcon, X } from 'lucide-react';
 import { useUIStore } from '../../store/useUIStore';
 import { usePlayerStore } from '../../store/usePlayerStore';
 import { searchAggregator } from '../../services/aggregator';
+import { CoverCard } from '../common/CoverCard';
 import { youtubeService } from '../../services/youtube';
 import * as dbService from '../../services/db';
 import { ICON } from '../../styles/icons';
-import type { UnifiedTrack } from '../../types/music';
+import type { CollectionKind, SearchCollection, SearchKind, UnifiedTrack } from '../../types/music';
 import { TrackRow } from './TrackRow';
 
 /**
@@ -52,11 +53,21 @@ export const MobileSearchView: React.FC = () => {
   const searchFilter = useUIStore((s) => s.searchFilter);
   const setSearchQuery = useUIStore((s) => s.setSearchQuery);
   const openTrackActions = useUIStore((s) => s.openTrackActions);
+  const openArtist = useUIStore((s) => s.openArtist);
+  const openCollection = useUIStore((s) => s.openCollection);
   const playTrack = usePlayerStore((s) => s.playTrack);
   const currentTrack = usePlayerStore((s) => s.currentTrack);
 
   const [draft, setDraft] = useState(searchQuery);
   const [results, setResults] = useState<UnifiedTrack[]>([]);
+  /*
+   * Вкладки выдачи. На телефоне их не было вовсе: альбом, исполнителя и чужой
+   * плейлист найти было нельзя, хотя источники их отдают и большой экран их
+   * уже показывает.
+   */
+  const [kind, setKind] = useState<SearchKind>('tracks');
+  const [collections, setCollections] = useState<SearchCollection[]>([]);
+  const [isLoadingCollections, setLoadingCollections] = useState(false);
   const [isLoading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [recent, setRecent] = useState<string[]>([]);
@@ -134,6 +145,48 @@ export const MobileSearchView: React.FC = () => {
     [setSearchQuery]
   );
 
+  /**
+   * Подборки грузятся только когда открывают их вкладку.
+   *
+   * На вкладке «Треки» они не нужны, а ходить за ними на каждую букву значило
+   * бы платить трафиком за то, чего человек чаще всего не откроет.
+   */
+  useEffect(() => {
+    const trimmed = searchQuery.trim();
+    if (kind === 'tracks' || !trimmed) return;
+
+    let cancelled = false;
+    setLoadingCollections(true);
+    void searchAggregator
+      .searchCollections(trimmed, { source: searchFilter, limit: 24 })
+      .then((found) => {
+        if (!cancelled) setCollections(found);
+      })
+      .catch(() => {
+        if (!cancelled) setCollections([]);
+      })
+      .finally(() => {
+        if (!cancelled) setLoadingCollections(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [kind, searchFilter, searchQuery]);
+
+  const handleOpenCollection = useCallback(
+    (collection: SearchCollection) => {
+      if (collection.kind === 'artist') openArtist(collection.title);
+      else openCollection(collection);
+    },
+    [openArtist, openCollection]
+  );
+
+  const shownCollections = useMemo(
+    () => (kind === 'tracks' ? [] : collections.filter((item) => item.kind === TAB_KIND[kind])),
+    [collections, kind]
+  );
+
   const handleRetry = useCallback(() => {
     // Мёртвое зеркало блокируется на сессию, а неудачный ответ кэшируется на
     // минуту — без сброса обоих повтор воспроизвёл бы ту же неудачу.
@@ -205,6 +258,40 @@ export const MobileSearchView: React.FC = () => {
           </button>
         )}
       </div>
+
+      {hasQuery && (
+        <div
+          style={{
+            display: 'flex',
+            gap: 'var(--space-2)',
+            overflowX: 'auto',
+            scrollbarWidth: 'none'
+          }}
+          role="tablist"
+          aria-label="Что искать"
+        >
+          {KIND_TABS.map((item) => (
+            <button
+              key={item.value}
+              type="button"
+              role="tab"
+              className="chip press"
+              aria-selected={kind === item.value}
+              onClick={() => setKind(item.value)}
+              style={{
+                flexShrink: 0,
+                minHeight: '38px',
+                padding: '0 var(--space-4)',
+                borderRadius: 'var(--radius-pill)',
+                cursor: 'pointer'
+              }}
+              data-testid={`mobile-search-tab-${item.value}`}
+            >
+              {item.label}
+            </button>
+          ))}
+        </div>
+      )}
 
       {!hasQuery && (
         <>
@@ -356,7 +443,7 @@ export const MobileSearchView: React.FC = () => {
         </div>
       )}
 
-      {!isLoading && !error && hasQuery && results.length === 0 && (
+      {kind === 'tracks' && !isLoading && !error && hasQuery && results.length === 0 && (
         <p
           style={{
             margin: 0,
@@ -371,7 +458,7 @@ export const MobileSearchView: React.FC = () => {
         </p>
       )}
 
-      {results.length > 0 && (
+      {kind === 'tracks' && results.length > 0 && (
         <div>
           {results.map((track, index) => (
             <TrackRow
@@ -385,8 +472,78 @@ export const MobileSearchView: React.FC = () => {
           ))}
         </div>
       )}
+
+      {kind !== 'tracks' && isLoadingCollections && (
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: 'var(--space-2)',
+            padding: 'var(--space-6) 0',
+            color: 'var(--text-muted)'
+          }}
+          data-testid="mobile-search-collections-loading"
+        >
+          <Loader2 size={ICON.lg} className="animate-spin" aria-hidden="true" />
+          Ищем…
+        </div>
+      )}
+
+      {kind !== 'tracks' && !isLoadingCollections && hasQuery && (
+        shownCollections.length === 0 ? (
+          <p
+            style={{
+              margin: 0,
+              padding: 'var(--space-5) 0',
+              fontSize: 'var(--text-sm)',
+              lineHeight: 'var(--leading-sm)',
+              color: 'var(--text-muted)'
+            }}
+            data-testid="mobile-search-collections-empty"
+          >
+            Подборок такого вида не нашлось. Попробуйте вкладку «Треки».
+          </p>
+        ) : (
+          <div
+            style={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(2, minmax(0, 1fr))',
+              gap: 'var(--space-4)'
+            }}
+            data-testid="mobile-search-collections"
+          >
+            {shownCollections.map((item) => (
+              <CoverCard
+                key={item.id}
+                title={item.title}
+                subtitle={item.subtitle}
+                artworkUrl={item.artworkUrl}
+                // У исполнителя обложка круглая: это человек, а не диск.
+                round={item.kind === 'artist'}
+                testId={`mobile-search-collection-${item.id}`}
+                onClick={() => handleOpenCollection(item)}
+              />
+            ))}
+          </div>
+        )
+      )}
     </div>
   );
+};
+
+/** Вкладки выдачи и вид подборки, который показывает каждая. */
+const KIND_TABS: { value: SearchKind; label: string }[] = [
+  { value: 'tracks', label: 'Треки' },
+  { value: 'albums', label: 'Альбомы' },
+  { value: 'artists', label: 'Исполнители' },
+  { value: 'playlists', label: 'Плейлисты' }
+];
+
+const TAB_KIND: Record<Exclude<SearchKind, 'tracks'>, CollectionKind> = {
+  albums: 'album',
+  artists: 'artist',
+  playlists: 'playlist'
 };
 
 const SectionTitle: React.FC<{ children: React.ReactNode }> = ({ children }) => (

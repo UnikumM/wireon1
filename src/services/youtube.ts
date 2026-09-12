@@ -554,9 +554,24 @@ export class YouTubeService {
       data?.contents?.sectionListRenderer?.contents ||
       [];
 
+    /*
+     * Полки лежат в четырёх разных обёртках, и какая придёт — зависит от
+     * запроса.
+     *
+     * Замерено на живом ответе поиска без фильтра: там нет ни одной
+     * `musicShelfRenderer`, зато есть тридцать `itemSectionRenderer` по одной
+     * записи в каждой и одна `musicCardShelfRenderer` с лучшим совпадением.
+     * Разбор искал только `musicShelfRenderer` — и вкладки «Альбомы»,
+     * «Исполнители», «Плейлисты» были пустыми всегда, на обеих платформах.
+     */
     for (const section of sections) {
-      const items = section?.musicShelfRenderer?.contents || [];
-      for (const item of items) {
+      const shelf =
+        section?.musicShelfRenderer ||
+        section?.itemSectionRenderer ||
+        section?.musicCardShelfRenderer ||
+        section?.gridRenderer;
+
+      for (const item of shelf?.contents || shelf?.items || []) {
         if (results.length >= limit) break;
         const found = collectionFromItem(item);
         if (!found || seen.has(found.ref)) continue;

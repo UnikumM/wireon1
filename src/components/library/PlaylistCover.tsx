@@ -38,7 +38,15 @@ export const PlaylistCover: React.FC<PlaylistCoverProps> = ({
 
   const frame: React.CSSProperties = {
     width: dimension,
-    height: dimension,
+    /*
+     * Высота — от ширины, а не тем же значением.
+     *
+     * С `height: '100%'` обложка схлопывалась в полоску: сто процентов
+     * считаются от родителя, а у него своей высоты нет. Замерено на шапке
+     * плейлиста телефона: ширина 328 px, высота ноль. Обложка квадратная по
+     * определению, поэтому пропорция надёжнее второго размера.
+     */
+    aspectRatio: '1',
     borderRadius: radius,
     overflow: 'hidden',
     backgroundColor: 'var(--surface-3)',
