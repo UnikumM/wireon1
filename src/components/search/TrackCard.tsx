@@ -1,5 +1,17 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { Play, Pause, Heart, Plus, MoreHorizontal, ListPlus, ExternalLink, Music2, Radio, CheckCircle2 } from 'lucide-react';
+import {
+  Play,
+  Pause,
+  Heart,
+  Plus,
+  MoreHorizontal,
+  ListPlus,
+  ExternalLink,
+  Music2,
+  Radio,
+  CheckCircle2,
+  CheckSquare
+} from 'lucide-react';
 import { UnifiedTrack } from '../../types/music';
 import { SourceBadge } from '../common/SourceBadge';
 import { Button } from '../common/Button';
@@ -148,6 +160,10 @@ export const TrackCard: React.FC<TrackCardProps> = ({
   const openTrackActions = useUIStore((s) => s.openTrackActions);
   const showToast = useUIStore((s) => s.showToast);
   const openArtist = useUIStore((s) => s.openArtist);
+  const startSelection = useUIStore((s) => s.startSelection);
+  const selectedTrackIds = useUIStore((s) => s.selectedTrackIds);
+  const toggleSelected = useUIStore((s) => s.toggleSelected);
+  const isSelected = selectedTrackIds?.includes(track.id) ?? false;
 
   const handleArtistClick = (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -236,12 +252,18 @@ export const TrackCard: React.FC<TrackCardProps> = ({
   }, [contextQueue, index, onPlay, playTrack, track]);
 
   const activate = useCallback(() => {
+    // В режиме выбора у нажатия по строке один смысл — отметить. Играть в это
+    // время нельзя: человек собирает пачку, а не слушает.
+    if (selectedTrackIds !== null) {
+      toggleSelected(track.id);
+      return;
+    }
     if (isCurrent) {
       void togglePlayPause();
       return;
     }
     startPlayback();
-  }, [isCurrent, startPlayback, togglePlayPause]);
+  }, [isCurrent, selectedTrackIds, startPlayback, toggleSelected, togglePlayPause, track.id]);
 
   const handleActivateClick = (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -449,6 +471,24 @@ export const TrackCard: React.FC<TrackCardProps> = ({
           >
             <Plus size={ICON.md} aria-hidden="true" />
             <span className="text-truncate">Добавить в плейлист…</span>
+          </button>
+          {/*
+            * Вход в выбор пачкой отсюда же: найдя нужный трек, человек не
+            * должен закрывать его меню и искать этот же трек заново уже в
+            * режиме выбора. Отмечается сразу тот, из которого позвали.
+            */}
+          <button
+            type="button"
+            role="menuitem"
+            className="menu-item-hover"
+            onClick={() => {
+              startSelection(track.id);
+              setIsMenuOpen(false);
+            }}
+            data-testid={`menu-select-${track.id}`}
+          >
+            <CheckSquare size={ICON.md} aria-hidden="true" />
+            <span className="text-truncate">Выбрать несколько</span>
           </button>
         </div>
       )}
@@ -756,8 +796,13 @@ export const TrackCard: React.FC<TrackCardProps> = ({
       className={className}
       role="button"
       tabIndex={0}
-      aria-label={`Слушать «${track.title}» — ${track.artist}`}
+      aria-label={
+        selectedTrackIds !== null
+          ? `Выбрать «${track.title}» — ${track.artist}`
+          : `Слушать «${track.title}» — ${track.artist}`
+      }
       aria-current={isCurrent ? 'true' : undefined}
+      aria-pressed={selectedTrackIds !== null ? isSelected : undefined}
       onClick={activate}
       onKeyDown={handleRowKeyDown}
       onMouseEnter={() => setIsHovered(true)}
@@ -775,7 +820,19 @@ export const TrackCard: React.FC<TrackCardProps> = ({
       }}
       data-testid={`track-row-${track.id}`}
     >
-      {showIndex && (
+      {/* Отметка вместо номера: номер в режиме выбора ничего не решает. */}
+      {selectedTrackIds !== null && (
+        <span
+          aria-hidden="true"
+          className="row-check"
+          data-checked={isSelected}
+          data-testid={`track-check-${track.id}`}
+        >
+          {isSelected && <CheckCircle2 size={ICON.sm} aria-hidden="true" />}
+        </span>
+      )}
+
+      {showIndex && selectedTrackIds === null && (
         <div
           aria-hidden="true"
           className="track-row-index hide-on-mobile"

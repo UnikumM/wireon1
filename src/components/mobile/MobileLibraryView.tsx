@@ -1,8 +1,21 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { Clock, Download, Heart, Link2, ListMusic, Music2, Plus, Search as SearchIcon, X } from 'lucide-react';
+import {
+  Clock,
+  Download,
+  Heart,
+  HeartOff,
+  Link2,
+  ListMusic,
+  ListPlus,
+  Music2,
+  Plus,
+  Search as SearchIcon,
+  Trash2,
+  X
+} from 'lucide-react';
 import { useLibraryStore } from '../../store/useLibraryStore';
 import { usePlayerStore } from '../../store/usePlayerStore';
-import { useUIStore } from '../../store/useUIStore';
+import { refusedForAccount, useUIStore } from '../../store/useUIStore';
 import { offlineStorage } from '../../services/offlineStorage';
 import { dedupeHistory } from '../library/trackSummary';
 import { useVirtualRows, TRACK_ROW_PITCH } from '../../hooks/useVirtualRows';
@@ -11,6 +24,9 @@ import { pluralize } from '../../utils/plural';
 import type { UnifiedTrack } from '../../types/music';
 import { ImportPlaylistModal } from '../modals/ImportPlaylistModal';
 import { TrackRow } from './TrackRow';
+import { TrackSelectionBar } from './TrackSelectionBar';
+import { Sheet, SheetRow } from './Sheet';
+import { offlineMode } from '../../services/offlineMode';
 
 /**
  * Медиатека на телефоне.
@@ -78,6 +94,14 @@ export const MobileLibraryView: React.FC<MobileLibraryViewProps> = ({ onCreatePl
   const setActivePlaylistId = useUIStore((s) => s.setActivePlaylistId);
   const openTrackActions = useUIStore((s) => s.openTrackActions);
 
+  const selectedIds = useUIStore((s) => s.selectedTrackIds);
+  const toggleSelected = useUIStore((s) => s.toggleSelected);
+  const clearSelection = useUIStore((s) => s.clearSelection);
+  const showToast = useUIStore((s) => s.showToast);
+  const addTrackToPlaylist = useLibraryStore((s) => s.addTrackToPlaylist);
+  const toggleFavorite = useLibraryStore((s) => s.toggleFavorite);
+
+  const [isMoveOpen, setMoveOpen] = useState(false);
   const [isSearchOpen, setSearchOpen] = useState(false);
   const [isImportOpen, setImportOpen] = useState(false);
   const [query, setQuery] = useState('');
@@ -129,6 +153,74 @@ export const MobileLibraryView: React.FC<MobileLibraryViewProps> = ({ onCreatePl
 
   // История копится годами: в разметке держим только видимую часть.
   const virtual = useVirtualRows({ itemCount: tracks.length, rowPitch: TRACK_ROW_PITCH });
+
+
+  const selectedTracks = useMemo(
+    () => (selectedIds ? tracks.filter((track) => selectedIds.includes(track.id)) : []),
+    [selectedIds, tracks]
+  );
+
+  const handleSaveSelected = useCallback(async () => {
+    if (selectedTracks.length === 0) return;
+    const added = await offlineMode.queueTracks(selectedTracks).catch(() => 0);
+    showToast(
+      added > 0
+        ? `${pluralize(added, 'трек', 'трека', 'треков')} в очереди на сохранение`
+        : 'Всё выбранное уже сохранено',
+      added > 0 ? 'success' : 'info'
+    );
+    clearSelection();
+  }, [clearSelection, selectedTracks, showToast]);
+
+  const handleMoveSelected = useCallback(
+    async (targetId: string) => {
+      if (selectedTracks.length === 0) return;
+      // Считаем удачи, а не длину списка: пополнение отказывает без аккаунта,
+      // и отчёт по длине отправил бы человека искать треки в чужом плейлисте.
+      let moved = 0;
+      for (const track of selectedTracks) {
+        if (await addTrackToPlaylist(targetId, track)) moved += 1;
+      }
+      setMoveOpen(false);
+      if (moved === 0) {
+        if (!refusedForAccount()) showToast('Не удалось перенести треки', 'error');
+        return;
+      }
+      const target = playlists.find((item) => item.id === targetId);
+      showToast(
+        `${pluralize(moved, 'трек', 'трека', 'треков')} в «${target?.title ?? 'плейлист'}»`,
+        'success'
+      );
+      clearSelection();
+    },
+    [addTrackToPlaylist, clearSelection, playlists, selectedTracks, showToast]
+  );
+
+  const handleUnfavouriteSelected = useCallback(async () => {
+    if (selectedTracks.length === 0) return;
+    let removed = 0;
+    for (const track of selectedTracks) {
+      if (await toggleFavorite(track)) removed += 1;
+    }
+    if (removed === 0) {
+      if (!refusedForAccount()) showToast('Не удалось убрать из избранного', 'error');
+      return;
+    }
+    showToast(`Убрано из избранного: ${pluralize(removed, 'трек', 'трека', 'треков')}`, 'success');
+    clearSelection();
+  }, [clearSelection, selectedTracks, showToast, toggleFavorite]);
+
+  const handleDeleteOfflineSelected = useCallback(async () => {
+    if (selectedTracks.length === 0) return;
+    for (const track of selectedTracks) {
+      await offlineStorage.deleteOfflineTrack(track.id).catch(() => undefined);
+    }
+    showToast(
+      `Удалено с устройства: ${pluralize(selectedTracks.length, 'трек', 'трека', 'треков')}`,
+      'success'
+    );
+    clearSelection();
+  }, [clearSelection, selectedTracks, showToast]);
 
   const openPlaylist = useCallback(
     (id: string) => {
@@ -274,6 +366,54 @@ export const MobileLibraryView: React.FC<MobileLibraryViewProps> = ({ onCreatePl
         })}
       </div>
 
+      {/*
+        * Действия зависят от закладки: из избранного убирают сердечко, из
+        * офлайна — файл с устройства, а из недавнего убирать нечего — история
+        * чистится целиком в настройках.
+        */}
+      <TrackSelectionBar
+        total={tracks.length}
+        allIds={tracks.map((track) => track.id)}
+        testId="mobile-library-selection"
+        actions={[
+          {
+            icon: <ListPlus size={ICON.md} aria-hidden="true" />,
+            label: 'В плейлист',
+            onClick: () => setMoveOpen(true),
+            testId: 'mobile-library-selection-move'
+          },
+          {
+            icon: <Download size={ICON.md} aria-hidden="true" />,
+            label: 'Скачать',
+            onClick: () => void handleSaveSelected(),
+            testId: 'mobile-library-selection-save'
+          },
+          ...(tab === 'favorites'
+            ? [
+                {
+                  icon: <HeartOff size={ICON.md} aria-hidden="true" />,
+                  // «Из избранного» не влезало в 92 px кнопки и обрезалось;
+                  // рядом уже стоит закладка «Избранное», так что откуда
+                  // убирают — видно и без второго упоминания.
+                  label: 'Убрать',
+                  onClick: () => void handleUnfavouriteSelected(),
+                  testId: 'mobile-library-selection-unfavourite'
+                }
+              ]
+            : []),
+          ...(tab === 'offline'
+            ? [
+                {
+                  icon: <Trash2 size={ICON.md} aria-hidden="true" />,
+                  label: 'С устройства',
+                  onClick: () => void handleDeleteOfflineSelected(),
+                  testId: 'mobile-library-selection-delete-offline'
+                }
+              ]
+            : [])
+        ]}
+      />
+
       {tab === 'playlists' ? (
         visiblePlaylists.length === 0 ? (
           <Empty
@@ -368,12 +508,47 @@ export const MobileLibraryView: React.FC<MobileLibraryViewProps> = ({ onCreatePl
                 isCurrent={currentTrack?.id === track.id}
                 onPlay={() => void playTrack(track, tracks, index)}
                 onOpenActions={() => openTrackActions(track)}
+                isSelectable={selectedIds !== null}
+                isSelected={selectedIds?.includes(track.id) ?? false}
+                onToggleSelect={() => toggleSelected(track.id)}
                 data-testid={`mobile-library-track-${track.id}`}
               />
             );
           })}
         </div>
       )}
+
+      <Sheet
+        isOpen={isMoveOpen}
+        onClose={() => setMoveOpen(false)}
+        title={`В какой плейлист — ${selectedTracks.length}`}
+        data-testid="mobile-library-move-sheet"
+      >
+        {playlists.length === 0 ? (
+          <p
+            style={{
+              margin: 0,
+              padding: 'var(--space-4)',
+              fontSize: 'var(--text-sm)',
+              color: 'var(--text-muted)'
+            }}
+            data-testid="mobile-library-move-empty"
+          >
+            Плейлистов пока нет. Создайте его на закладке «Плейлисты».
+          </p>
+        ) : (
+          playlists.map((item) => (
+            <SheetRow
+              key={item.id}
+              icon={<ListPlus size={ICON.lg} aria-hidden="true" />}
+              label={item.title}
+              hint={pluralize(item.tracks.length, 'трек', 'трека', 'треков')}
+              onClick={() => void handleMoveSelected(item.id)}
+              data-testid={`mobile-library-move-${item.id}`}
+            />
+          ))
+        )}
+      </Sheet>
 
       <ImportPlaylistModal isOpen={isImportOpen} onClose={() => setImportOpen(false)} />
     </div>

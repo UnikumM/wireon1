@@ -260,6 +260,27 @@ describe('Auth Store (useAuthStore)', () => {
     expect(fetchMock).toHaveBeenCalledTimes(1);
   });
 
+  it('срок сессии сдвигается вперёд при каждом запуске', async () => {
+    /*
+     * Так выглядела жалоба «кикает из аккаунта Discord»: срок ставился один раз
+     * при входе и был ровно неделей, поэтому человек, открывающий приложение
+     * каждый день, всё равно оказывался выкинут на восьмой — при том что
+     * Discord его токен в этот самый момент принимал.
+     */
+    stubProfileFetch();
+    // Сессия, которой жить остались сутки.
+    saveStoredSession(mockDiscordUser, 'live_token', 24 * 60 * 60);
+    const before = Number(localStorage.getItem(STORAGE_KEY_TOKEN_EXPIRES));
+
+    await useAuthStore.getState().restoreSession();
+
+    const after = Number(localStorage.getItem(STORAGE_KEY_TOKEN_EXPIRES));
+    expect(useAuthStore.getState().isAuthenticated).toBe(true);
+    // Неделя от сегодня, а не остаток от давнего входа.
+    expect(after).toBeGreaterThan(before);
+    expect(after - Date.now()).toBeGreaterThan(6 * 24 * 60 * 60 * 1000);
+  });
+
   it('drops an expired session on restore instead of resurrecting it', async () => {
     const fetchMock = stubProfileFetch();
     // A session whose wireon_auth_token_expires is already in the past.

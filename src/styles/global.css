@@ -1871,6 +1871,106 @@ svg.lucide[width='48'] {
 }
 
 /**
+ * Кружок отметки в строке списка на большом экране.
+ *
+ * Занимает место номера: в режиме выбора порядковый номер ничего не решает, а
+ * два столбца подряд слева разъехались бы по ширине между строками.
+ */
+.row-check {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  flex-shrink: 0;
+  border-radius: var(--radius-full);
+  border: 2px solid var(--border-strong);
+  color: var(--text-on-accent);
+}
+
+.row-check[data-checked='true'] {
+  border-color: var(--accent);
+  background: var(--accent);
+}
+
+/**
+ * Панель выбора треков на телефоне.
+ *
+ * `position: sticky` сверху: списки длинные, и панель, уехавшая за экран
+ * вместе с прокруткой, панелью быть перестаёт.
+ */
+.selection-bar {
+  position: sticky;
+  top: 0;
+  z-index: var(--z-sticky);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-3);
+  border-radius: var(--radius-md);
+  background: var(--surface-2);
+  border: 1px solid var(--border-subtle);
+}
+
+.selection-bar-link {
+  padding: var(--space-2);
+  font-size: var(--text-sm);
+  color: var(--accent);
+  background: transparent;
+  cursor: pointer;
+}
+
+/**
+ * Кнопка действия: значок над подписью.
+ *
+ * Замерено на 360 px: при значке слева каждой из трёх кнопок достаётся 95 px,
+ * из которых подписи остаётся около сорока, и «В плейлист» переносилось на
+ * вторую строку — ряд выходил рваным. Столбиком подпись получает всю ширину.
+ */
+.selection-action {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  flex: 1;
+  min-width: 0;
+  min-height: 44px;
+  padding: var(--space-2) var(--space-1);
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--text-primary);
+  font-size: var(--text-sm);
+  line-height: var(--leading-sm);
+  letter-spacing: var(--tracking-sm);
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+/**
+ * Крестик поверх обложки: снять свою картинку и вернуть мозаику.
+ *
+ * Фон в правиле, а не в атрибуте: инлайновый глушит `:active` вместе с
+ * `.press` — это ловит `tests/unit/hoverStyles.test.ts`.
+ */
+.cover-clear {
+  position: absolute;
+  top: -6px;
+  right: -6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: var(--radius-pill);
+  background: var(--surface-3);
+  border: 1px solid var(--border);
+  color: var(--text-secondary);
+  cursor: pointer;
+}
+
+/**
  * Кнопка под героем на телефоне.
  *
  * Фон живёт здесь, а не в атрибуте: инлайновое объявление старше правила

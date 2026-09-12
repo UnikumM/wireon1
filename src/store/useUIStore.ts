@@ -36,6 +36,7 @@ export const useUIStore = create<UIStore>((set, get) => ({
   searchFilter: 'all',
   toastMessage: null,
   actionsTrack: null,
+  selectedTrackIds: null,
   accountPrompt: null,
 
   setActiveView: (view: UIStoreState['activeView']) => {
@@ -61,6 +62,29 @@ export const useUIStore = create<UIStore>((set, get) => ({
   openCollection: (collection) => {
     if (!collection) return;
     set({ activeView: 'collection', activeCollection: collection, isFullscreenPlayerOpen: false });
+  },
+
+  startSelection: (trackId?: string) => {
+    set({ selectedTrackIds: trackId ? [trackId] : [], actionsTrack: null });
+  },
+
+  toggleSelected: (trackId: string) => {
+    set((s) => {
+      const current = s.selectedTrackIds ?? [];
+      return {
+        selectedTrackIds: current.includes(trackId)
+          ? current.filter((id) => id !== trackId)
+          : [...current, trackId]
+      };
+    });
+  },
+
+  setSelected: (trackIds: string[]) => {
+    set({ selectedTrackIds: trackIds });
+  },
+
+  clearSelection: () => {
+    set({ selectedTrackIds: null });
   },
 
   openArtist: (artistName: string) => {

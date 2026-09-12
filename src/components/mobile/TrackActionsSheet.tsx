@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import {
   Check,
+  CheckSquare,
   ChevronRight,
   Download,
   ExternalLink,
@@ -104,6 +105,7 @@ export const TrackActionsSheet: React.FC<TrackActionsSheetProps> = ({ track, onC
 
   const showToast = useUIStore((s) => s.showToast);
   const openArtist = useUIStore((s) => s.openArtist);
+  const startSelection = useUIStore((s) => s.startSelection);
 
   const close = useCallback(() => {
     setPlaylistPickerOpen(false);
@@ -117,6 +119,11 @@ export const TrackActionsSheet: React.FC<TrackActionsSheetProps> = ({ track, onC
     showToast(`«${track.title}» прозвучит следующим`, 'info');
     close();
   }, [addToQueueNext, close, showToast, track]);
+
+  const handleStartSelection = useCallback(() => {
+    if (!track) return;
+    startSelection(track.id);
+  }, [startSelection, track]);
 
   const handleQueueEnd = useCallback(() => {
     if (!track) return;
@@ -288,6 +295,20 @@ export const TrackActionsSheet: React.FC<TrackActionsSheetProps> = ({ track, onC
           label="В конец очереди"
           onClick={handleQueueEnd}
           data-testid="track-actions-queue-end"
+        />
+        {/*
+          * Вход в выбор пачкой — отсюда же.
+          *
+          * Раньше режим включался только из меню всего списка, то есть найдя
+          * нужный трек, человек должен был закрыть его меню, открыть другое и
+          * найти трек заново. Отмечаем сразу тот, из которого позвали.
+          */}
+        <SheetRow
+          icon={<CheckSquare size={ICON.lg} aria-hidden="true" />}
+          label="Выбрать несколько"
+          hint="Перенести, скачать или убрать сразу пачкой"
+          onClick={handleStartSelection}
+          data-testid="track-actions-select"
         />
         <SheetRow
           icon={

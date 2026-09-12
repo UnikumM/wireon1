@@ -231,6 +231,15 @@ export interface UIStoreState {
   /** Трек, для которого открыт лист действий на телефоне. */
   actionsTrack: UnifiedTrack | null;
   /**
+   * Отмеченные треки, когда список в режиме выбора. `null` — обычный список.
+   *
+   * В сторе, а не в каждом экране: режим включается из меню самого трека, а
+   * меню живёт отдельным слоем и до состояния списка не дотягивается. Плюс
+   * экранов со списками несколько, и три копии одной механики разъехались бы
+   * на первой же правке.
+   */
+  selectedTrackIds: string[] | null;
+  /**
    * Что человек попытался сохранить без аккаунта. `null` — приглашение закрыто.
    *
    * Медиатека привязана к аккаунту Discord: сервер узнаёт по нему, чей это
@@ -280,6 +289,11 @@ export interface UIStoreActions {
   clearToast: () => void;
   openTrackActions: (track: UnifiedTrack) => void;
   closeTrackActions: () => void;
+  /** Включает режим выбора, сразу отмечая трек, из которого его позвали. */
+  startSelection: (trackId?: string) => void;
+  toggleSelected: (trackId: string) => void;
+  setSelected: (trackIds: string[]) => void;
+  clearSelection: () => void;
   /** Просит войти. `reason` — что именно человек хотел сохранить. */
   requireAccount: (reason: string) => void;
   closeAccountPrompt: () => void;

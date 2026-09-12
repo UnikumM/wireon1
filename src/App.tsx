@@ -88,6 +88,19 @@ export const App: React.FC = () => {
      */
     void import('./services/ytDlpOnDevice').then(({ maybeUpdateYtDlp }) => maybeUpdateYtDlp());
 
+    /*
+     * Просим систему не вычищать наше хранилище — на запуске, а не только при
+     * первом сохранении в офлайн.
+     *
+     * Сессия, медиатека и настройки лежат в хранилище страницы, и Android
+     * вправе стереть его при нехватке места у любого приложения, которое об
+     * этом не попросило. Тот, кто ни разу ничего не скачивал, не просил ни
+     * разу — и в один день оказывался и без входа, и без медиатеки.
+     */
+    void import('./services/offlineFiles').then(({ requestPersistentStorage }) =>
+      requestPersistentStorage()
+    );
+
     useAuthStore
       .getState()
       .restoreSession()

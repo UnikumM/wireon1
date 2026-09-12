@@ -1,5 +1,19 @@
 import React, { useCallback, useMemo, useRef, useState } from 'react';
-import { ListMusic, Play, Shuffle, Trash2, Edit2, Check, X, Music2, Plus, ArrowUp, ArrowDown, Sparkles } from 'lucide-react';
+import {
+  ListMusic,
+  Play,
+  Shuffle,
+  Trash2,
+  Edit2,
+  Check,
+  X,
+  Music2,
+  Plus,
+  ArrowUp,
+  ArrowDown,
+  Sparkles,
+  Download
+} from 'lucide-react';
 import { useLibraryStore } from '../../store/useLibraryStore';
 import { usePlayerStore } from '../../store/usePlayerStore';
 import { useUIStore } from '../../store/useUIStore';
@@ -9,6 +23,8 @@ import { EmptyState } from '../common/EmptyState';
 import { TrackCard } from '../search/TrackCard';
 import { PlaylistCover } from './PlaylistCover';
 import { PlaylistExportMenu } from './PlaylistExportMenu';
+import { SelectionBar } from '../common/SelectionBar';
+import { offlineMode } from '../../services/offlineMode';
 import { SaveOfflineButton } from './SaveOfflineButton';
 import { describeTrackTotals } from './trackSummary';
 import { prepareCoverImage } from '../../services/playlistCover';
@@ -42,6 +58,8 @@ export const PlaylistView: React.FC<PlaylistViewProps> = ({ playlistId: propPlay
   const deletePlaylist = useLibraryStore((s) => s.deletePlaylist);
   const renamePlaylist = useLibraryStore((s) => s.renamePlaylist);
   const setPlaylistCover = useLibraryStore((s) => s.setPlaylistCover);
+  const selectedTrackIds = useUIStore((s) => s.selectedTrackIds);
+  const clearSelection = useUIStore((s) => s.clearSelection);
   const removeTrackFromPlaylist = useLibraryStore((s) => s.removeTrackFromPlaylist);
   const reorderPlaylistTracks = useLibraryStore((s) => s.reorderPlaylistTracks);
 
@@ -117,6 +135,45 @@ export const PlaylistView: React.FC<PlaylistViewProps> = ({ playlistId: propPlay
       setIsMixing(false);
     }
   }, [isMixing, showToast, smartShuffle, tracks]);
+
+  const selectedTracks = useMemo(
+    () => (selectedTrackIds ? tracks.filter((t) => selectedTrackIds.includes(t.id)) : []),
+    [selectedTrackIds, tracks]
+  );
+
+  const handleSaveSelected = useCallback(async () => {
+    if (selectedTracks.length === 0) return;
+    const added = await offlineMode.queueTracks(selectedTracks).catch(() => 0);
+    showToast(
+      added > 0 ? `${added} в очереди на сохранение` : 'Всё выбранное уже сохранено',
+      added > 0 ? 'success' : 'info'
+    );
+    clearSelection();
+  }, [clearSelection, selectedTracks, showToast]);
+
+  /**
+   * Убирает отмеченное. С конца: удаление сдвигает всё, что после него, и при
+   * проходе сверху вниз второй же номер указывал бы уже не на тот трек.
+   */
+  const handleRemoveSelected = useCallback(async () => {
+    if (!playlist || selectedTracks.length === 0) return;
+    const doomed = tracks
+      .map((track, i) => ({ track, i }))
+      .filter(({ track }) => selectedTrackIds?.includes(track.id))
+      .map(({ i }) => i)
+      .reverse();
+
+    let removed = 0;
+    for (const i of doomed) {
+      if (await removeTrackFromPlaylist(playlist.id, i)) removed += 1;
+    }
+    if (removed === 0) {
+      showToast('Не удалось убрать треки', 'error');
+      return;
+    }
+    showToast(`Убрано ${removed}`, 'success');
+    clearSelection();
+  }, [clearSelection, playlist, removeTrackFromPlaylist, selectedTrackIds, selectedTracks, showToast, tracks]);
 
   const coverInputRef = useRef<HTMLInputElement>(null);
 
@@ -437,6 +494,27 @@ export const PlaylistView: React.FC<PlaylistViewProps> = ({ playlistId: propPlay
             </Button>
           </div>
         </header>
+
+        <SelectionBar
+          total={tracks.length}
+          allIds={tracks.map((track) => track.id)}
+          testId="playlist-selection"
+          actions={[
+            {
+              icon: <Download size={ICON.sm} />,
+              label: 'Скачать',
+              onClick: () => void handleSaveSelected(),
+              testId: 'playlist-selection-save'
+            },
+            {
+              icon: <Trash2 size={ICON.sm} />,
+              label: 'Убрать',
+              danger: true,
+              onClick: () => void handleRemoveSelected(),
+              testId: 'playlist-selection-remove'
+            }
+          ]}
+        />
 
         {tracks.length === 0 ? (
           <EmptyState

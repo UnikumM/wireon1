@@ -1,11 +1,10 @@
-import React, { useCallback, useMemo, useState } from 'react';
+import React, { useCallback, useMemo, useRef, useState } from 'react';
 import {
   ChevronLeft,
   CheckSquare,
   Download,
   ListPlus,
   MoreVertical,
-  Music2,
   Pencil,
   Play,
   Share2,
@@ -22,7 +21,10 @@ import { exportPlaylist, EXPORT_FORMAT_LABELS, type ExportFormat } from '../../s
 import { saveTextFile } from '../../utils/download';
 import { Sheet, SheetRow } from './Sheet';
 import { TrackRow } from './TrackRow';
+import { TrackSelectionBar } from './TrackSelectionBar';
 import { offlineMode } from '../../services/offlineMode';
+import { prepareCoverImage } from '../../services/playlistCover';
+import { PlaylistCover } from '../library/PlaylistCover';
 
 /**
  * Плейлист на телефоне.
@@ -41,11 +43,20 @@ export const MobilePlaylistView: React.FC = () => {
   const setActivePlaylistId = useUIStore((s) => s.setActivePlaylistId);
   const showToast = useUIStore((s) => s.showToast);
   const openTrackActions = useUIStore((s) => s.openTrackActions);
+  /*
+   * Выбор живёт в сторе, а не здесь: режим включается ещё и из меню самого
+   * трека, а меню лежит отдельным слоем и до состояния экрана не дотягивается.
+   */
+  const selectedIds = useUIStore((s) => s.selectedTrackIds);
+  const startSelection = useUIStore((s) => s.startSelection);
+  const toggleSelected = useUIStore((s) => s.toggleSelected);
+  const clearSelection = useUIStore((s) => s.clearSelection);
 
   const playlists = useLibraryStore((s) => s.playlists);
   const deletePlaylist = useLibraryStore((s) => s.deletePlaylist);
   const renamePlaylist = useLibraryStore((s) => s.renamePlaylist);
   const addTrackToPlaylist = useLibraryStore((s) => s.addTrackToPlaylist);
+  const setPlaylistCover = useLibraryStore((s) => s.setPlaylistCover);
   const removeTrackFromPlaylist = useLibraryStore((s) => s.removeTrackFromPlaylist);
 
   const playTrack = usePlayerStore((s) => s.playTrack);
@@ -56,14 +67,6 @@ export const MobilePlaylistView: React.FC = () => {
   const [isRenaming, setRenaming] = useState(false);
   const [isExportOpen, setExportOpen] = useState(false);
   const [draftTitle, setDraftTitle] = useState('');
-  /**
-   * Выбранные треки. `null` — обычный список: нажатие играет.
-   *
-   * Отдельное состояние, а не «пустое множество значит не выбираем»: пустой
-   * выбор — законное состояние внутри режима, и путать его с выходом из
-   * режима значит выкидывать человека из него на снятии последней отметки.
-   */
-  const [selected, setSelected] = useState<Set<string> | null>(null);
   const [isMoveOpen, setMoveOpen] = useState(false);
 
   const playlist = useMemo(
@@ -124,19 +127,43 @@ export const MobilePlaylistView: React.FC = () => {
     [playlist, showToast]
   );
 
+  const coverInputRef = useRef<HTMLInputElement>(null);
+
+  const handleCoverPicked = useCallback(
+    async (event: React.ChangeEvent<HTMLInputElement>) => {
+      const file = event.target.files?.[0];
+      // Ввод сбрасывается сразу: иначе повторный выбор того же файла не
+      // поднимет событие вовсе, и человек решит, что кнопка сломалась.
+      event.target.value = '';
+      if (!file || !playlist) return;
+
+      try {
+        const dataUrl = await prepareCoverImage(file);
+        const ok = await setPlaylistCover(playlist.id, dataUrl);
+        showToast(ok ? 'Обложка обновлена' : 'Не удалось сменить обложку', ok ? 'success' : 'error');
+      } catch (err) {
+        showToast(err instanceof Error ? err.message : 'Не удалось прочитать картинку', 'error');
+      }
+    },
+    [playlist, setPlaylistCover, showToast]
+  );
+
+  const handleClearCover = useCallback(async () => {
+    if (!playlist) return;
+    if (await setPlaylistCover(playlist.id, null)) {
+      showToast('Вернулась мозаика из обложек треков', 'info');
+    }
+  }, [playlist, setPlaylistCover, showToast]);
+
+  const selected = useMemo(
+    () => (selectedIds === null ? null : new Set(selectedIds)),
+    [selectedIds]
+  );
+
   const selectedTracks = useMemo(
     () => (selected ? tracks.filter((track) => selected.has(track.id)) : []),
     [selected, tracks]
   );
-
-  const toggleSelected = useCallback((trackId: string) => {
-    setSelected((current) => {
-      const next = new Set(current ?? []);
-      if (next.has(trackId)) next.delete(trackId);
-      else next.add(trackId);
-      return next;
-    });
-  }, []);
 
   const handleSaveSelected = useCallback(async () => {
     const list = selectedTracks;
@@ -148,7 +175,7 @@ export const MobilePlaylistView: React.FC = () => {
         : 'Всё выбранное уже сохранено',
       added > 0 ? 'success' : 'info'
     );
-    setSelected(null);
+    clearSelection();
   }, [selectedTracks, showToast]);
 
   /**
@@ -176,8 +203,8 @@ export const MobilePlaylistView: React.FC = () => {
     }
 
     showToast(`Убрано ${pluralize(removed, 'трек', 'трека', 'треков')}`, 'success');
-    setSelected(null);
-  }, [playlist, removeTrackFromPlaylist, selected, showToast, tracks]);
+    clearSelection();
+  }, [clearSelection, playlist, removeTrackFromPlaylist, selected, showToast, tracks]);
 
   const handleMoveSelected = useCallback(
     async (targetId: string) => {
@@ -211,9 +238,9 @@ export const MobilePlaylistView: React.FC = () => {
         `${pluralize(moved, 'трек', 'трека', 'треков')} в «${target?.title ?? 'плейлист'}»`,
         'success'
       );
-      setSelected(null);
+      clearSelection();
     },
-    [addTrackToPlaylist, playlists, selectedTracks, showToast]
+    [addTrackToPlaylist, clearSelection, playlists, selectedTracks, showToast]
   );
 
   const handleSavePlaylist = useCallback(async () => {
@@ -279,22 +306,48 @@ export const MobilePlaylistView: React.FC = () => {
       </header>
 
       <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-4)' }}>
-        <span
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            width: '96px',
-            height: '96px',
-            flexShrink: 0,
-            borderRadius: 'var(--radius-md)',
-            background: 'var(--surface-sunken)',
-            border: '1px solid var(--border-subtle)',
-            color: 'var(--text-faint)'
-          }}
-        >
-          <Music2 size={ICON.display} aria-hidden="true" />
-        </span>
+        {/*
+          * Обложка — она же кнопка выбора картинки, как на большом экране:
+          * нажимают на то, что меняют. Отдельной кнопки рядом нет, на телефоне
+          * ей и места бы не нашлось.
+          */}
+        <div style={{ position: 'relative', flexShrink: 0 }}>
+          <button
+            type="button"
+            className="cover-button focus-ring"
+            onClick={() => coverInputRef.current?.click()}
+            aria-label={playlist.coverUrl ? 'Сменить обложку плейлиста' : 'Поставить обложку плейлиста'}
+            data-testid="mobile-playlist-cover-btn"
+          >
+            <PlaylistCover
+              tracks={tracks}
+              coverUrl={playlist.coverUrl}
+              size={96}
+              radius="var(--radius-md)"
+            />
+          </button>
+
+          <input
+            ref={coverInputRef}
+            type="file"
+            accept="image/*"
+            hidden
+            onChange={(event) => void handleCoverPicked(event)}
+            data-testid="mobile-playlist-cover-input"
+          />
+
+          {playlist.coverUrl && (
+            <button
+              type="button"
+              className="cover-clear press focus-ring"
+              onClick={() => void handleClearCover()}
+              aria-label="Убрать свою обложку"
+              data-testid="mobile-playlist-cover-clear"
+            >
+              <X size={ICON.sm} aria-hidden="true" />
+            </button>
+          )}
+        </div>
         <div style={{ display: 'flex', flexDirection: 'column', minWidth: 0, gap: 'var(--space-1)' }}>
           <h1
             style={{
@@ -342,92 +395,32 @@ export const MobilePlaylistView: React.FC = () => {
         </div>
       )}
 
-      {/*
-        * Панель выбора. Стоит над списком, а не под ним: на телефоне список
-        * длинный, и панель, уехавшая за экран вместе с прокруткой, не панель.
-        */}
-      {selected !== null && (
-        <div
-          style={{
-            position: 'sticky',
-            top: 0,
-            zIndex: 'var(--z-sticky)',
-            display: 'flex',
-            flexDirection: 'column',
-            gap: 'var(--space-2)',
-            padding: 'var(--space-3)',
-            borderRadius: 'var(--radius-md)',
-            background: 'var(--surface-2)',
-            border: '1px solid var(--border-subtle)'
-          }}
-          data-testid="mobile-playlist-selection-bar"
-        >
-          <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>
-            <span
-              style={{ flex: 1, fontSize: 'var(--text-sm)', color: 'var(--text-primary)' }}
-              data-testid="mobile-playlist-selection-count"
-            >
-              {selected.size === 0
-                ? 'Выберите треки'
-                : `Выбрано ${selected.size} из ${tracks.length}`}
-            </span>
-            <button
-              type="button"
-              className="press focus-ring"
-              onClick={() =>
-                setSelected(
-                  selected.size === tracks.length
-                    ? new Set()
-                    : new Set(tracks.map((track) => track.id))
-                )
-              }
-              style={{
-                padding: 'var(--space-2)',
-                fontSize: 'var(--text-sm)',
-                color: 'var(--accent)',
-                cursor: 'pointer'
-              }}
-              data-testid="mobile-playlist-select-all"
-            >
-              {selected.size === tracks.length ? 'Снять все' : 'Выбрать все'}
-            </button>
-            <button
-              type="button"
-              className="press focus-ring tap-target"
-              onClick={() => setSelected(null)}
-              aria-label="Выйти из режима выбора"
-              style={{ color: 'var(--text-secondary)', cursor: 'pointer' }}
-              data-testid="mobile-playlist-selection-close"
-            >
-              <X size={ICON.lg} aria-hidden="true" />
-            </button>
-          </div>
-
-          <div style={{ display: 'flex', gap: 'var(--space-2)' }}>
-            <ActionButton
-              icon={<ListPlus size={ICON.md} aria-hidden="true" />}
-              label="В плейлист"
-              onClick={() => setMoveOpen(true)}
-              stacked
-              testId="mobile-playlist-selection-move"
-            />
-            <ActionButton
-              icon={<Download size={ICON.md} aria-hidden="true" />}
-              label="Скачать"
-              onClick={() => void handleSaveSelected()}
-              stacked
-              testId="mobile-playlist-selection-save"
-            />
-            <ActionButton
-              icon={<Trash2 size={ICON.md} aria-hidden="true" />}
-              label="Убрать"
-              onClick={() => void handleRemoveSelected()}
-              stacked
-              testId="mobile-playlist-selection-remove"
-            />
-          </div>
-        </div>
-      )}
+      {/* Панель выбора — общая для всех списков телефона. */}
+      <TrackSelectionBar
+        total={tracks.length}
+        allIds={tracks.map((track) => track.id)}
+        testId="mobile-playlist-selection"
+        actions={[
+          {
+            icon: <ListPlus size={ICON.md} aria-hidden="true" />,
+            label: 'В плейлист',
+            onClick: () => setMoveOpen(true),
+            testId: 'mobile-playlist-selection-move'
+          },
+          {
+            icon: <Download size={ICON.md} aria-hidden="true" />,
+            label: 'Скачать',
+            onClick: () => void handleSaveSelected(),
+            testId: 'mobile-playlist-selection-save'
+          },
+          {
+            icon: <Trash2 size={ICON.md} aria-hidden="true" />,
+            label: 'Убрать',
+            onClick: () => void handleRemoveSelected(),
+            testId: 'mobile-playlist-selection-remove'
+          }
+        ]}
+      />
 
       {tracks.length === 0 ? (
         <p
@@ -480,7 +473,7 @@ export const MobilePlaylistView: React.FC = () => {
           label="Выбрать треки"
           hint="Чтобы перенести, скачать или убрать сразу несколько"
           onClick={() => {
-            setSelected(new Set());
+            startSelection();
             setMenuOpen(false);
           }}
           data-testid="mobile-playlist-select-mode"

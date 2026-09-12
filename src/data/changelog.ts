@@ -112,7 +112,7 @@ export const CHANGELOG: ReadonlyArray<ChangelogEntry> = [
   {
     version: '1.0.29',
     date: '2026-09-04',
-    headline: 'Продолжает с того же места, слушается клавиш и умеет забрать библиотеку из Spotify',
+    headline: 'Продолжает с того же места и слушается клавиш поверх других программ',
     items: [
       {
         kind: 'feature',
@@ -128,11 +128,6 @@ export const CHANGELOG: ReadonlyArray<ChangelogEntry> = [
         kind: 'feature',
         title: 'Управление из значка у часов',
         detail: 'Что играет, пауза, следующий и предыдущий — не открывая окно.'
-      },
-      {
-        kind: 'feature',
-        title: 'Вход в Spotify: переносятся все плейлисты и «Любимые»',
-        detail: 'Целиком, а не первая сотня треков, как при переносе по ссылке.'
       },
       {
         kind: 'fix',
