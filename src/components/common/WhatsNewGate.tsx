@@ -347,6 +347,13 @@ export const WhatsNewSheet: React.FC<WhatsNewSheetProps> = ({ entries, onClose }
           ))}
         </div>
 
+        {/*
+          * Подпись и кнопка переносятся, а кнопка не сжимается.
+          *
+          * На 360 px подпись забирала всю строку, кнопке доставался огрызок, и
+          * «Слушать дальше» обрезалось до «лушать дальш» — единственное
+          * действие в окне выглядело поломкой. Замерено на телефоне владельца.
+          */}
         <div
           style={{
             padding: 'var(--space-4) var(--space-5)',
@@ -354,14 +361,28 @@ export const WhatsNewSheet: React.FC<WhatsNewSheetProps> = ({ entries, onClose }
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'space-between',
+            flexWrap: 'wrap',
             gap: 'var(--space-3)',
             flexShrink: 0
           }}
         >
-          <span style={{ fontSize: 'var(--text-xs)', color: 'var(--text-faint)' }}>
+          <span
+            style={{
+              flex: '1 1 180px',
+              minWidth: 0,
+              fontSize: 'var(--text-xs)',
+              color: 'var(--text-faint)'
+            }}
+          >
             Список всегда есть в настройках, в разделе «О программе».
           </span>
-          <Button variant="primary" size="md" onClick={onClose} data-testid="whats-new-continue">
+          <Button
+            variant="primary"
+            size="md"
+            onClick={onClose}
+            style={{ flexShrink: 0, marginLeft: 'auto' }}
+            data-testid="whats-new-continue"
+          >
             Слушать дальше
           </Button>
         </div>

@@ -31,6 +31,10 @@ const ARTIST_SHELF_LIMIT = 8;
 
 export const MobileHomeView: React.FC = () => {
   const playTrack = usePlayerStore((s) => s.playTrack);
+  const play = usePlayerStore((s) => s.play);
+  const currentTrack = usePlayerStore((s) => s.currentTrack);
+  const resumePosition = usePlayerStore((s) => s.resumePosition);
+  const startTrackRadio = usePlayerStore((s) => s.startTrackRadio);
   const favorites = useLibraryStore((s) => s.favorites);
   const playlists = useLibraryStore((s) => s.playlists);
   const history = useLibraryStore((s) => s.history);
@@ -86,6 +90,29 @@ export const MobileHomeView: React.FC = () => {
     return [...seen.values()];
   }, [history]);
 
+  /**
+   * Герой — то, что играет сейчас, иначе последнее из истории.
+   *
+   * Тот же приём, что на большом экране: самое крупное на странице — сама
+   * музыка, а не слово «Wireon». Витринное направление на телефоне держится
+   * именно на этом: обложка во всю ширину и название под ней.
+   */
+  const heroTrack: UnifiedTrack | null = currentTrack ?? history[0] ?? null;
+
+  const heroKicker = resumePosition
+    ? 'Продолжить'
+    : currentTrack
+      ? 'Сейчас играет'
+      : 'Начните слушать';
+
+  const handleHeroPlay = useCallback(() => {
+    if (!heroTrack) return;
+    // Трек с прошлого запуска уже стоит в плеере на паузе: ему нужен именно
+    // `play`, иначе он начался бы сначала.
+    if (currentTrack && heroTrack.id === currentTrack.id) void play();
+    else void playTrack(heroTrack);
+  }, [currentTrack, heroTrack, play, playTrack]);
+
   const handleStartWave = useCallback(() => {
     setActiveView('wave');
   }, [setActiveView]);
@@ -100,20 +127,14 @@ export const MobileHomeView: React.FC = () => {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-6)' }} data-testid="mobile-home">
       <header style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-3)' }}>
-        <h1
-          style={{
-            margin: 0,
-            flex: 1,
-            minWidth: 0,
-            fontSize: 'var(--text-2xl)',
-            lineHeight: 'var(--leading-2xl)',
-            letterSpacing: 'var(--tracking-2xl)',
-            fontWeight: 'var(--weight-bold)',
-            color: 'var(--text-primary)'
-          }}
-        >
-          Wireon
-        </h1>
+        {/*
+          * Слова «Wireon» здесь больше нет.
+          *
+          * Название приложения занимало самую заметную строку экрана и не
+          * сообщало ничего: человек и так знает, что он открыл. Место отдано
+          * герою ниже — обложке того, на чём остановились.
+          */}
+        <span style={{ flex: 1 }} />
         {/*
           * Настройки на телефоне жили под аватаром в шапке. Шапки больше нет,
           * поэтому вход переезжает сюда — туда же, куда его кладут телефонные
@@ -140,6 +161,91 @@ export const MobileHomeView: React.FC = () => {
           <Settings size={ICON.lg} aria-hidden="true" />
         </button>
       </header>
+
+      {/* --- Герой: то, на чём остановились ------------------------------- */}
+      <section
+        style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-4)' }}
+        data-testid="mobile-home-hero"
+      >
+        <div
+          style={{
+            width: '100%',
+            aspectRatio: '1',
+            borderRadius: 'var(--radius-xl)',
+            overflow: 'hidden',
+            background: 'var(--surface-2)',
+            boxShadow: 'var(--shadow-lg)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            color: 'var(--text-faint)'
+          }}
+        >
+          {heroTrack?.artworkUrl ? (
+            <img
+              src={heroTrack.artworkUrl}
+              alt=""
+              style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+            />
+          ) : (
+            <Music2 size={ICON.display} aria-hidden="true" />
+          )}
+        </div>
+
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' }}>
+          <span
+            style={{
+              fontSize: 'var(--text-xs)',
+              letterSpacing: '0.14em',
+              textTransform: 'uppercase',
+              color: 'var(--info)',
+              fontWeight: 'var(--weight-semibold)'
+            }}
+          >
+            {heroKicker}
+          </span>
+
+          <h1
+            style={{
+              margin: 0,
+              fontFamily: 'var(--font-display)',
+              fontSize: 'var(--text-3xl)',
+              lineHeight: 'var(--leading-3xl)',
+              letterSpacing: 'var(--tracking-3xl)',
+              fontWeight: 'var(--weight-semibold)',
+              color: 'var(--text-primary)',
+              overflowWrap: 'anywhere'
+            }}
+            data-testid="mobile-home-hero-title"
+          >
+            {heroTrack?.title ?? 'Здесь появится то, на чём вы остановитесь'}
+          </h1>
+
+          {heroTrack && (
+            <span style={{ fontSize: 'var(--text-base)', color: 'var(--text-secondary)' }}>
+              {heroTrack.artist}
+            </span>
+          )}
+        </div>
+
+        <div style={{ display: 'flex', gap: 'var(--space-2)' }}>
+          <HeroButton
+            label={resumePosition ? 'Продолжить' : 'Слушать'}
+            primary
+            disabled={!heroTrack}
+            onClick={handleHeroPlay}
+            testId="mobile-home-hero-play"
+          />
+          <HeroButton
+            // «Радио по треку» на 360 px не влезало и обрезалось многоточием:
+            // половине кнопки досталось «Радио по тре…».
+            label="Радио"
+            disabled={!heroTrack}
+            onClick={() => heroTrack && void startTrackRadio(heroTrack)}
+            testId="mobile-home-hero-radio"
+          />
+        </div>
+      </section>
 
       {recent.length > 0 && (
         <section data-testid="mobile-home-recent">
@@ -395,6 +501,32 @@ export const MobileHomeView: React.FC = () => {
     </div>
   );
 };
+
+/**
+ * Кнопка под героем.
+ *
+ * Своя, а не общая `Button`: главная у героя — большая и в пилюлю, как на
+ * большом экране, и обе занимают ровно половину ширины. Общая кнопка растёт по
+ * содержимому, и «Слушать» с «Радио по треку» вышли бы разной величины.
+ */
+const HeroButton: React.FC<{
+  label: string;
+  primary?: boolean;
+  disabled?: boolean;
+  onClick: () => void;
+  testId: string;
+}> = ({ label, primary = false, disabled = false, onClick, testId }) => (
+  <button
+    type="button"
+    className="hero-button press focus-ring"
+    onClick={onClick}
+    disabled={disabled}
+    data-primary={primary}
+    data-testid={testId}
+  >
+    {label}
+  </button>
+);
 
 const SectionTitle: React.FC<{ children: React.ReactNode }> = ({ children }) => (
   <h2
