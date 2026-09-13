@@ -41,7 +41,11 @@ export const CoverCard: React.FC<CoverCardProps> = ({
   cover,
   testId,
   onClick
-}) => (
+}) => {
+  // Ссылка на обложку протухает (миксы берут её у случайного трека) — тогда
+  // вместо значка битой картинки показывается запасной.
+  const [broken, setBroken] = React.useState(false);
+  return (
   <button
     type="button"
     className="cover-card focus-ring"
@@ -54,8 +58,8 @@ export const CoverCard: React.FC<CoverCardProps> = ({
       style={round ? { borderRadius: 'var(--radius-full)' } : undefined}
       aria-hidden="true"
     >
-      {cover ?? (artworkUrl ? (
-        <img src={artworkUrl} alt="" loading="lazy" />
+      {cover ?? (artworkUrl && !broken ? (
+        <img src={artworkUrl} alt="" loading="lazy" onError={() => setBroken(true)} />
       ) : (
         fallbackIcon ?? <span style={{ fontSize: ICON.display }} />
       ))}
@@ -66,4 +70,5 @@ export const CoverCard: React.FC<CoverCardProps> = ({
       {subtitle && <div className="cover-card-subtitle text-truncate">{subtitle}</div>}
     </div>
   </button>
-);
+  );
+};

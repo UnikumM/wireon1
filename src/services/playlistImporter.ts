@@ -226,6 +226,22 @@ export class PlaylistImporterService {
 
     const trimmedUrl = url.trim();
 
+    /*
+     * Яндекс — через API, а не страницу. Сайт стал одностраничным приложением:
+     * HTML приходит пустой оболочкой без единого трека, и разбор страницы
+     * находил ноль. Страница остаётся запасным путём, а ошибка API — тем, что
+     * увидит человек, если запасной путь тоже пуст.
+     */
+    let yandexApiError: Error | null = null;
+    if (platform === 'yandex') {
+      try {
+        const viaApi = await this.fetchYandexApi(trimmedUrl);
+        if (viaApi && viaApi.items.length > 0) return viaApi;
+      } catch (err) {
+        yandexApiError = err instanceof Error ? err : new Error(String(err));
+      }
+    }
+
     // For Spotify, transform web URL to embed URL to guarantee clean structured data
     let fetchUrl = trimmedUrl;
     if (platform === 'spotify') {
@@ -272,6 +288,8 @@ export class PlaylistImporterService {
       } catch {}
     }
 
+    if (!res.ok && yandexApiError) throw yandexApiError;
+
     if (!res.ok) {
       // Текст ошибки уходит прямо в баннер модального окна, поэтому он на
       // русском; код ответа оставляем — с ним понятнее, чья это беда.
@@ -302,8 +320,11 @@ export class PlaylistImporterService {
     switch (platform) {
       case 'spotify':
         return this.parseSpotifyHtml(html, trimmedUrl);
-      case 'yandex':
-        return this.parseYandexHtml(html, trimmedUrl);
+      case 'yandex': {
+        const parsed = this.parseYandexHtml(html, trimmedUrl);
+        if (parsed.items.length === 0 && yandexApiError) throw yandexApiError;
+        return parsed;
+      }
       case 'vk':
         return this.parseVkHtml(html, trimmedUrl);
       case 'apple':
@@ -497,6 +518,68 @@ export class PlaylistImporterService {
       items: cleanItems,
       description,
       coverUrl
+    };
+  }
+
+  /**
+   * Плейлист или альбом Яндекс Музыки через их API.
+   *
+   * Запрос уходит без своих заголовков: любой лишний вызвал бы предзапрос
+   * CORS. Окно приложения, открытое с `file://`, API пропускает — проверено в
+   * Electron; 403 он отвечает только незнакомому `Origin` вроде адреса
+   * сервера разработки.
+   * `null` — ссылка не того вида, который API понимает.
+   */
+  private async fetchYandexApi(url: string): Promise<ParsedPlaylist | null> {
+    const API = 'https://api.music.yandex.net';
+    let endpoint: string | null = null;
+    let album = false;
+    const user = /\/users\/([^/?#]+)\/playlists\/(\d+)/i.exec(url);
+    const uuid = /\/playlists\/([^/?#]+)/i.exec(url);
+    const albumMatch = /\/album\/(\d+)/i.exec(url);
+    if (user) endpoint = `${API}/users/${encodeURIComponent(user[1])}/playlists/${user[2]}`;
+    else if (albumMatch) {
+      endpoint = `${API}/albums/${albumMatch[1]}/with-tracks`;
+      album = true;
+    } else if (uuid) endpoint = `${API}/playlists/${encodeURIComponent(uuid[1])}`;
+    if (!endpoint) return null;
+
+    const res = await fetch(endpoint);
+    if (res.status === 451) {
+      throw new Error('Яндекс Музыка не отдаёт плейлист в этой стране. Если включён VPN, выключите его и попробуйте снова.');
+    }
+    if (res.status === 403 || res.status === 401) {
+      throw new Error('Яндекс Музыка не показала плейлист: он закрыт или доступен только владельцу.');
+    }
+    if (res.status === 404) throw new Error('Плейлист на Яндекс Музыке не найден — проверьте ссылку.');
+    if (!res.ok) throw new Error(`Яндекс Музыка не ответила (HTTP ${res.status})`);
+
+    const data = await res.json();
+    const result = data?.result ?? data;
+    const rawTracks: any[] = album
+      ? (result?.volumes ?? []).flat()
+      : (result?.tracks ?? []).map((entry: any) => entry?.track ?? entry);
+
+    const items: ParsedPlaylistItem[] = [];
+    for (const track of rawTracks) {
+      if (!track?.title) continue;
+      const artist = Array.isArray(track.artists) && track.artists.length > 0
+        ? track.artists.map((a: any) => a?.name).filter(Boolean).join(', ')
+        : UNKNOWN_ARTIST;
+      items.push({
+        title: track.version ? `${track.title} (${track.version})` : track.title,
+        artist,
+        duration: track.durationMs ? Math.round(track.durationMs / 1000) : undefined
+      });
+    }
+
+    const cover = result?.ogImage || result?.coverUri || result?.cover?.uri;
+    return {
+      title: result?.title || (album ? 'Альбом Яндекс Музыки' : 'Плейлист Яндекс Музыки'),
+      platform: 'yandex',
+      items,
+      description: result?.description || undefined,
+      coverUrl: cover ? `https://${String(cover).replace(/%%/, '400x400')}` : undefined
     };
   }
 

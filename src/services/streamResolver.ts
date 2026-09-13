@@ -603,9 +603,15 @@ export class StreamResolver {
 
       console.info(`[StreamResolver] Подмена с YouTube: "${match.title}" — ${match.artist}`);
 
+      /*
+       * Срок — как у обычного включения с YouTube, а не короткий срок замены.
+       * Замерено на «XXL» (5opka): первая конфигурация получила 403, ссылка
+       * пришла с четвёртой через 16,2 с — а замена сдавалась на пятнадцатой и
+       * показывала ошибку. Это последний шанс трека сыграть, спешить некуда.
+       */
       const resolved = await withTimeout(
         this.ytService.resolveStreamUrl(match.originalId),
-        SUBSTITUTE_TIMEOUT_MS,
+        sourceTimeoutMs(),
         `youtube substitute ${match.originalId}`
       );
       if (!resolved || !resolved.streamUrl) return null;

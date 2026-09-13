@@ -110,6 +110,24 @@ describe('StreamResolver Service', () => {
     expect(ytResolve).toHaveBeenCalledWith('sub1');
   });
 
+  it('замена с YouTube дожидается медленной ссылки, а не сдаётся на 15 секундах', async () => {
+    vi.useFakeTimers();
+    const scTrack: UnifiedTrack = { ...mockScTrack, id: 'sc_slow', originalId: 'slow1', title: 'Test YouTube Track', artist: 'Test Artist', duration: 200 };
+    vi.spyOn(soundCloudService, 'resolveStreamUrl').mockRejectedValue(new Error('SoundCloud track slow1: HTTP 404'));
+    vi.spyOn(youtubeService, 'search').mockResolvedValue([{ ...mockYtTrack, id: 'yt_slow', originalId: 'slowyt' }]);
+    // Как в журнале: три конфигурации отказали, ссылка пришла через 16,2 с.
+    vi.spyOn(youtubeService, 'resolveStreamUrl').mockImplementation(
+      () => new Promise((resolve) => setTimeout(() => resolve({ streamUrl: 'https://googlevideo.com/late', format: 'm4a', bitrate: 128, expiresAt: Date.now() + 3600_000 }), 16_200))
+    );
+
+    const pending = resolver.resolve(scTrack);
+    await vi.advanceTimersByTimeAsync(17_000);
+    const result = await pending;
+
+    expect(result.streamUrl).toBe('https://googlevideo.com/late');
+    expect(result.substitutedFrom).toBe('youtube');
+  });
+
   it('когда песни нет и на YouTube, ошибка остаётся честной', async () => {
     const scTrack: UnifiedTrack = {
       id: 'sc_nowhere',

@@ -197,8 +197,8 @@ export const Header: React.FC<HeaderProps> = ({ className = '' }) => {
             aria-label="Открыть палитру команд"
             data-testid="header-command-palette-btn"
           >
-            <span>Команды</span>
-            <kbd className="kbd" style={{ marginLeft: 'var(--space-2)' }}>
+            <span className="header-label">Команды</span>
+            <kbd className="kbd header-label" style={{ marginLeft: 'var(--space-2)' }}>
               Ctrl K
             </kbd>
           </Button>
@@ -220,7 +220,7 @@ export const Header: React.FC<HeaderProps> = ({ className = '' }) => {
             * кнопки съедают всю строку, и заголовок раздела вытесняется за
             * край. Значок с `title` и `aria-label` доносит то же самое.
             */}
-          <span className="hide-on-mobile">Визуализация</span>
+          <span className="hide-on-mobile header-label">Визуализация</span>
         </Button>
 
         {/*
@@ -246,7 +246,7 @@ export const Header: React.FC<HeaderProps> = ({ className = '' }) => {
           aria-pressed={isGroupConnected}
           data-testid="header-group-listen-btn"
         >
-          <span className="hide-on-mobile">Вместе</span>
+          <span className="hide-on-mobile header-label">Вместе</span>
           {isGroupConnected && (
             <span
               style={{

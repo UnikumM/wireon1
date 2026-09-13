@@ -244,6 +244,67 @@ describe('Unit: Playlist Importer Service (M5)', () => {
       expect(result.items[0].duration).toBe(163);
     });
 
+    it('Яндекс: плейлист берётся из API, а не из пустой страницы', async () => {
+      const mock = installFetchMock([
+        {
+          match: 'api.music.yandex.net/users/someone/playlists/7',
+          respond: () =>
+            jsonResponse({
+              result: {
+                title: 'Вечер',
+                tracks: [
+                  { id: 1, track: { title: 'XXL', artists: [{ name: '5opka' }], durationMs: 180000 } },
+                  { id: 2, track: { title: 'Вторая', version: 'Remix', artists: [], durationMs: 60000 } }
+                ]
+              }
+            })
+        }
+      ]);
+
+      const result = await service.parsePlaylistUrl('https://music.yandex.ru/users/someone/playlists/7');
+      expect(result.title).toBe('Вечер');
+      expect(result.items).toEqual([
+        { title: 'XXL', artist: '5opka', duration: 180 },
+        { title: 'Вторая (Remix)', artist: expect.any(String), duration: 60 }
+      ]);
+      // Страница не нужна, когда API ответил.
+      expect(mock.calls.some((u) => u.startsWith('https://music.yandex.ru'))).toBe(false);
+    });
+
+    it('Яндекс: альбом собирается из всех дисков', async () => {
+      installFetchMock([
+        {
+          match: 'api.music.yandex.net/albums/42/with-tracks',
+          respond: () =>
+            jsonResponse({
+              result: {
+                title: 'Двойной',
+                volumes: [
+                  [{ title: 'Раз', artists: [{ name: 'A' }] }],
+                  [{ title: 'Два', artists: [{ name: 'B' }] }]
+                ]
+              }
+            })
+        }
+      ]);
+
+      const result = await service.parsePlaylistUrl('https://music.yandex.ru/album/42');
+      expect(result.items.map((i) => i.title)).toEqual(['Раз', 'Два']);
+    });
+
+    it('Яндекс: отказ по стране объясняется человеку, а не «0 треков»', async () => {
+      installFetchMock([
+        { match: 'api.music.yandex.net', respond: () => new Response('{}', { status: 451 }) },
+        // Страница — пустая оболочка приложения, как у живого сайта.
+        {
+          match: 'music.yandex.ru',
+          respond: () => new Response('<html><body><div id="root"></div></body></html>', { headers: { 'Content-Type': 'text/html' } })
+        }
+      ]);
+
+      await expect(service.parsePlaylistUrl('https://music.yandex.ru/users/u/playlists/1')).rejects.toThrow(/VPN/);
+    });
+
     it('parses Yandex Music playlist with JSON handler', async () => {
       installFetchMock([
         {

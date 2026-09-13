@@ -248,8 +248,9 @@ export const HomeView: React.FC = () => {
       {/* --- Собрано для тебя --------------------------------------------- */}
       <Shelf title="Собрано для тебя" note="обновляется каждый день" testId="home-daily">
           <CoverCard
-            title="Моя волна"
+            title="Поток"
             subtitle="бесконечный подбор"
+            fallbackIcon={<Radio size={ICON.display} />}
             testId="home-card-wave"
             onClick={() => {
               setActiveView('wave');
