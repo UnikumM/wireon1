@@ -9,7 +9,8 @@ import {
   startLibrarySignal,
   librarySignalStatus,
   stopLibrarySignal,
-  topicForUser
+  topicForUser,
+  wsBlockedHere
 } from '../../src/services/librarySignal';
 
 /**
@@ -215,6 +216,10 @@ describe('librarySignal: почему звонка нет', () => {
 
     expect(started).toBe(true);
     expect(librarySignalStatus()).toBe('online');
+  });
+
+  it('Android-сборка использует разрешённый WS, не притворяясь обычным браузером', () => {
+    expect(wsBlockedHere('ws://наш-сервер.test/mqtt', 'https:', true)).toBe(false);
   });
 
   it('без входа состояние — «ещё не пробовали», а не «нет связи»', () => {

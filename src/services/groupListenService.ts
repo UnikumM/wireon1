@@ -111,26 +111,67 @@ const DEFAULT_MQTT_WS_ENDPOINTS: string[] = [];
 /**
  * Адреса брокера, из окружения, а не из файла.
  *
- * `VITE_WIREON_MQTT_URL` — один адрес или несколько через запятую. Значение не
- * секрет (это URL, а не пароль), но в репозиторий оно всё равно не попадает.
- * Пустой список означает «межмашинного транспорта нет» — см. комментарий выше.
+ * `VITE_WIREON_MQTT_URL` — один адрес или несколько через запятую. Токен у
+ * комнат и остальных серверных ручек один и тот же, поэтому он всегда берётся
+ * из `VITE_WIREON_SERVER_TOKEN`: две копии одного секрета однажды разошлись, и
+ * все комнаты стали получать HTTP 401 при живом сервере.
+ *
+ * Если отдельный MQTT-адрес не задан, он выводится из
+ * `VITE_WIREON_SERVER_URL` (`http(s)` -> `ws(s)`, путь `/mqtt`).
  */
-export function resolveBrokerEndpoints(raw?: string | null): string[] {
-  const candidates = (raw ?? '')
+export function resolveBrokerEndpoints(
+  raw?: string | null,
+  serverUrl?: string | null,
+  serverToken?: string | null
+): string[] {
+  let candidates = (raw ?? '')
     .split(',')
     .map((url) => url.trim())
     .filter((url) => /^wss?:\/\//i.test(url));
+
+  if (candidates.length === 0 && /^https?:\/\//i.test(serverUrl?.trim() ?? '')) {
+    try {
+      const derived = new URL(serverUrl!.trim());
+      derived.protocol = derived.protocol === 'https:' ? 'wss:' : 'ws:';
+      derived.pathname = `${derived.pathname.replace(/\/+$/, '')}/mqtt`;
+      derived.search = '';
+      derived.hash = '';
+      candidates = [derived.toString()];
+    } catch {
+      candidates = [];
+    }
+  }
+
+  const token = serverToken?.trim();
+  if (token) {
+    candidates = candidates.flatMap((candidate) => {
+      try {
+        const endpoint = new URL(candidate);
+        // Replace rather than append: a stale token in the MQTT URL was the
+        // production outage this guard is here to prevent.
+        endpoint.searchParams.set('token', token);
+        return [endpoint.toString()];
+      } catch {
+        return [];
+      }
+    });
+  }
+
   return candidates.length > 0 ? candidates : DEFAULT_MQTT_WS_ENDPOINTS;
 }
 
 function configuredEndpoints(): string[] {
-  let fromEnv: string | undefined;
+  let mqttUrl: string | undefined;
+  let serverUrl: string | undefined;
+  let serverToken: string | undefined;
   try {
-    fromEnv = import.meta.env?.VITE_WIREON_MQTT_URL as string | undefined;
+    mqttUrl = import.meta.env?.VITE_WIREON_MQTT_URL as string | undefined;
+    serverUrl = import.meta.env?.VITE_WIREON_SERVER_URL as string | undefined;
+    serverToken = import.meta.env?.VITE_WIREON_SERVER_TOKEN as string | undefined;
   } catch {
-    fromEnv = undefined; // no bundler-injected env, e.g. under plain Node
+    mqttUrl = undefined; // no bundler-injected env, e.g. under plain Node
   }
-  return resolveBrokerEndpoints(fromEnv);
+  return resolveBrokerEndpoints(mqttUrl, serverUrl, serverToken);
 }
 
 type MessageListener = (message: GroupListenMessage, adjustment: SyncAdjustmentResult | null) => void;

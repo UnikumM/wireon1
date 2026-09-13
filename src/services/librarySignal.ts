@@ -27,6 +27,8 @@
  */
 
 import { MqttClient, WebSocketLike } from './mqttClient';
+import { resolveBrokerEndpoints } from './groupListenService';
+import { detectPlatform } from './nativeBridge';
 
 /** Тема выводится из личности, поэтому имя в открытом виде туда не уходит. */
 const TOPIC_PREFIX = 'wireon/lib/';
@@ -106,35 +108,36 @@ const deviceId = `${Date.now().toString(36)}${Math.random().toString(36).slice(2
  * over HTTPS». На настольной сборке страница отдаётся по `file://`, где этого
  * запрета нет, — оттуда всё работает.
  *
- * Обычные запросы к серверу при этом проходят: Capacitor уводит их в нативный
- * слой мимо правил страницы (проверено там же: `/health` вернул 200).
- * WebSocket так увести нечем.
- *
- * Поэтому здесь мы не пытаемся и не сыплем ошибкой в журнал на каждом входе, а
- * честно говорим наверх: канала нет, остаётся сверка по расписанию.
+ * В Android-сборке смешанное содержимое разрешено именно для этого соединения
+ * (`capacitor.config.ts`): сама страница остаётся HTTPS, а сокет может выйти к
+ * нашему серверу по WS. В обычном браузере такого разрешения нет.
  */
-export function wsBlockedHere(endpoint: string, pageProtocol?: string): boolean {
+export function wsBlockedHere(
+  endpoint: string,
+  pageProtocol?: string,
+  nativePlatform = detectPlatform() === 'mobile'
+): boolean {
   const protocol =
     pageProtocol ?? (typeof location === 'undefined' ? undefined : location.protocol);
   if (!protocol) return false;
-  return protocol === 'https:' && endpoint.toLowerCase().startsWith('ws://');
+  return !nativePlatform && protocol === 'https:' && endpoint.toLowerCase().startsWith('ws://');
 }
 
 /**
  * Свой брокер и только он. Без настройки звонка нет — см. шапку файла.
  */
 function configuredEndpoint(): string | null {
-  let raw: string | undefined;
+  let mqttUrl: string | undefined;
+  let serverUrl: string | undefined;
+  let serverToken: string | undefined;
   try {
-    raw = import.meta.env?.VITE_WIREON_MQTT_URL as string | undefined;
+    mqttUrl = import.meta.env?.VITE_WIREON_MQTT_URL as string | undefined;
+    serverUrl = import.meta.env?.VITE_WIREON_SERVER_URL as string | undefined;
+    serverToken = import.meta.env?.VITE_WIREON_SERVER_TOKEN as string | undefined;
   } catch {
-    raw = undefined; // сборщик не подставил env — например, под обычным Node
+    mqttUrl = undefined; // сборщик не подставил env — например, под обычным Node
   }
-  const first = (raw ?? '')
-    .split(',')
-    .map((url) => url.trim())
-    .find((url) => /^wss?:\/\//i.test(url));
-  return first ?? null;
+  return resolveBrokerEndpoints(mqttUrl, serverUrl, serverToken)[0] ?? null;
 }
 
 /**

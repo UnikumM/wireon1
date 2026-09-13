@@ -5,13 +5,42 @@ import '../setup';
 
 import {
   GroupListenService,
-  GroupListenMessage
+  GroupListenMessage,
+  resolveBrokerEndpoints
 } from '../../src/services/groupListenService';
 import { useGroupListenStore } from '../../src/store/useGroupListenStore';
 import { GroupListenModal } from '../../src/components/modals/GroupListenModal';
 import { Header } from '../../src/components/layout/Header';
 import { createMockTrack } from '../helpers/mockData';
 import { resetPlayerStore, flushAsync } from '../helpers/testUtils';
+
+describe('Group room endpoint configuration', () => {
+  it('replaces a stale MQTT token with the shared server token', () => {
+    expect(
+      resolveBrokerEndpoints(
+        'ws://music.example:25545/mqtt?token=old&region=eu',
+        'http://music.example:25545',
+        'current-token'
+      )
+    ).toEqual(['ws://music.example:25545/mqtt?token=current-token&region=eu']);
+  });
+
+  it('derives the room endpoint from the music server when no duplicate URL is configured', () => {
+    expect(resolveBrokerEndpoints('', 'https://api.wireon.example/', 'shared token')).toEqual([
+      'wss://api.wireon.example/mqtt?token=shared+token'
+    ]);
+  });
+
+  it('keeps an explicit endpoint usable when authentication is intentionally absent', () => {
+    expect(resolveBrokerEndpoints('wss://broker.example/mqtt')).toEqual([
+      'wss://broker.example/mqtt'
+    ]);
+  });
+
+  it('does not invent an endpoint from invalid configuration', () => {
+    expect(resolveBrokerEndpoints('ftp://wrong.example', 'not a URL', 'token')).toEqual([]);
+  });
+});
 
 describe('Unit: GroupListenService (M7 Protocol & Engine)', () => {
   let service: GroupListenService;

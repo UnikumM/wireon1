@@ -20,7 +20,14 @@ const config: CapacitorConfig = {
   android: {
     // Разметка приложения тёмная; светлый фон WebView успевает мигнуть белым
     // на запуске, и это первое, что видит человек.
-    backgroundColor: '#0b0d12'
+    backgroundColor: '#0b0d12',
+    /*
+     * Сервер пока доступен по обычным HTTP/WS. `CapacitorHttp` проводит
+     * запросы мимо ограничений страницы, но WebSocket комнат остаётся внутри
+     * WebView и без этого флага Chromium отклоняет его ещё до выхода в сеть.
+     * HTTPS-схему самой страницы сохраняем ради Web Audio и MediaSession.
+     */
+    allowMixedContent: true
   },
   server: {
     androidScheme: 'https'
