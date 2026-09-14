@@ -474,6 +474,25 @@ export class YouTubeService {
   }
 
   /**
+   * Поиск среди видео, а не песен — запасная ступень для подмены.
+   *
+   * Часть записей в YouTube Music есть только клипом или чужой загрузкой:
+   * «MONTAGEM BADDEST» (ZAYLO), «VPN» (5opka). Фильтр «Songs» их не видит, а
+   * SoundCloud отдаёт такие треки только под DRM. Параметр снят с кнопки
+   * фильтра «Videos» в живом ответе поиска 2026-09-14.
+   */
+  public async searchVideos(query: string, limit: number = 8): Promise<UnifiedTrack[]> {
+    const data = await this.innertube('search', {
+      context: {
+        client: { clientName: 'WEB_REMIX', clientVersion: '1.20240101.01.00', hl: 'en', gl: 'US' }
+      },
+      query,
+      params: 'EgWKAQIQAWoSEAQQAxAFEAkQChAQEBUQDhAR'
+    });
+    return this.parseInnerTubeResponse(data, limit);
+  }
+
+  /**
    * Один запрос к InnerTube — через главный процесс, если он есть.
    *
    * Прямой `fetch` из окна к `music.youtube.com` отбивает предзапрос CORS:

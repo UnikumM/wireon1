@@ -598,7 +598,17 @@ export class StreamResolver {
         `youtube search "${query}"`
       );
 
-      const match = this.pickSameRecording(track, candidates);
+      let match = this.pickSameRecording(track, candidates);
+      if (!match && typeof this.ytService.searchVideos === 'function') {
+        // Песни нет — есть клип или чужая загрузка. Отбор тот же, строгий:
+        // «slowed» вместо обычной версии он не пропустит.
+        const videos = await withTimeout(
+          this.ytService.searchVideos(query, 8),
+          SUBSTITUTE_TIMEOUT_MS,
+          `youtube video search "${query}"`
+        ).catch(() => [] as UnifiedTrack[]);
+        match = this.pickSameRecording(track, videos);
+      }
       if (!match) return null;
 
       console.info(`[StreamResolver] Подмена с YouTube: "${match.title}" — ${match.artist}`);

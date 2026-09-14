@@ -128,6 +128,28 @@ describe('StreamResolver Service', () => {
     expect(result.substitutedFrom).toBe('youtube');
   });
 
+  it('трек под DRM на SoundCloud находится среди видео YouTube, если песни нет', async () => {
+    // Живой случай: «MONTAGEM BADDEST» (ZAYLO) — SoundCloud отдаёт только
+    // зашифрованный поток, в песнях YouTube Music записи нет, а клип есть.
+    const scTrack: UnifiedTrack = { ...mockScTrack, id: 'sc_drm_video', originalId: 'drm2', title: 'MONTAGEM BADDEST', artist: 'ZAYLO', duration: 105 };
+    vi.spyOn(soundCloudService, 'resolveStreamUrl').mockRejectedValue(new Error('SoundCloud track drm2: HTTP 404'));
+    vi.spyOn(youtubeService, 'search').mockResolvedValue([
+      { ...mockYtTrack, id: 'yt_other', originalId: 'other', title: 'MONTAGEM URANIUM', artist: 'ZAYLO', duration: 89 }
+    ]);
+    const videos = vi.spyOn(youtubeService, 'searchVideos').mockResolvedValue([
+      { ...mockYtTrack, id: 'yt_clip', originalId: 'clip1', title: 'MONTAGEM BADDEST', artist: 'ZAYLO', duration: 111 }
+    ]);
+    const ytResolve = vi.spyOn(youtubeService, 'resolveStreamUrl').mockResolvedValue({
+      streamUrl: 'https://googlevideo.com/clip', format: 'm4a', bitrate: 128, expiresAt: Date.now() + 3600_000
+    });
+
+    const result = await resolver.resolve(scTrack);
+
+    expect(videos).toHaveBeenCalled();
+    expect(ytResolve).toHaveBeenCalledWith('clip1');
+    expect(result.substitutedFrom).toBe('youtube');
+  });
+
   it('когда песни нет и на YouTube, ошибка остаётся честной', async () => {
     const scTrack: UnifiedTrack = {
       id: 'sc_nowhere',
