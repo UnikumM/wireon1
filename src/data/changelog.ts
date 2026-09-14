@@ -33,6 +33,18 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ReadonlyArray<ChangelogEntry> = [
   {
+    version: '2.0.3',
+    date: '2026-09-14',
+    headline: 'Больше треков SoundCloud включаются без ошибки',
+    items: [
+      {
+        kind: 'fix',
+        title: 'Защищённые треки подхватываются с YouTube',
+        detail: 'Если SoundCloud не отдаёт обычный аудиопоток, Wireon ищет ту же запись не только среди песен, но и среди клипов и обычных видео YouTube.'
+      }
+    ]
+  },
+  {
     version: '2.0.2',
     date: '2026-09-14',
     headline: 'Импорт из Яндекс Музыки и пять исправлений',
