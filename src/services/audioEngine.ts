@@ -2,6 +2,7 @@ import { UnifiedTrack, PlaybackState, EqSettings } from '../types/music';
 import { streamResolver, StreamResolver } from './streamResolver';
 import { attachHls, isHlsUrl, HlsHandle } from './hls';
 import { detectPlatform } from './nativeBridge';
+import { isAudioProcessingEnabled, onAudioProcessingChange } from './audioProcessing';
 
 export type TimeUpdateCallback = (currentTime: number, duration: number, buffered: number) => void;
 export type EndedCallback = () => void;
@@ -130,6 +131,7 @@ export class AudioEngine implements IAudioEngine {
    */
   private frequencyBuffer = new Uint8Array(128);
   private eqNodes: EqNodes | null = null;
+  private unsubscribeProcessing: (() => void) | null = null;
   private isGraphConnected: boolean = false;
   private graphUnavailable: boolean = false;
 
@@ -215,7 +217,12 @@ export class AudioEngine implements IAudioEngine {
      * На десктопе всё остаётся как было: там ссылку добывает главный процесс,
      * а Electron эти запросы не режет.
      */
-    const needsTaintedPlayback = detectPlatform() === 'mobile';
+    /*
+     * Телефон играет прямую ссылку без `crossOrigin` — иначе её отвергает сам
+     * элемент. Исключение — включённая обработка звука: там играет файл из
+     * кэша, он свой, и атрибут ему не мешает (`audioProcessing.ts`).
+     */
+    const needsTaintedPlayback = detectPlatform() === 'mobile' && !isAudioProcessingEnabled();
 
     if (this.audioA && typeof this.audioA.addEventListener === 'function') {
       if (!needsTaintedPlayback) this.audioA.crossOrigin = 'anonymous';
@@ -231,6 +238,18 @@ export class AudioEngine implements IAudioEngine {
     // слышно — вернее, не слышно. Громкостью тогда заведует сам элемент, и эта
     // ветка в движке уже есть и уже покрыта тестами.
     this.graphUnavailable = needsTaintedPlayback;
+
+    /*
+     * Включение обработки на телефоне действует сразу: граф строится на
+     * следующем включении трека. Выключение граф не разбирает — отвязать
+     * элемент от него нельзя, — а только распрямляет полосы, и это делает
+     * `applyEqGains`.
+     */
+    this.unsubscribeProcessing = onAudioProcessingChange((enabled) => {
+      if (detectPlatform() !== 'mobile') return;
+      if (enabled) this.graphUnavailable = false;
+      this.applyEqGains();
+    });
 
     this.boundTimeUpdate = this.handleTimeUpdate.bind(this);
     this.boundProgress = this.handleProgress.bind(this);
@@ -1204,10 +1223,16 @@ export class AudioEngine implements IAudioEngine {
 
   private applyEqGains(): void {
     if (!this.eqNodes) return;
+    /*
+     * Выключенная обработка на телефоне распрямляет полосы, а не разбирает
+     * граф: отвязать элемент от графа нельзя, и разбор оставил бы тишину.
+     */
+    const bypass = detectPlatform() === 'mobile' && !isAudioProcessingEnabled();
+    const gains = bypass ? { bass: 0, mid: 0, treble: 0 } : this.eqGains;
     try {
-      this.eqNodes.bass.gain.value = this.eqGains.bass;
-      this.eqNodes.mid.gain.value = this.eqGains.mid;
-      this.eqNodes.treble.gain.value = this.eqGains.treble;
+      this.eqNodes.bass.gain.value = gains.bass;
+      this.eqNodes.mid.gain.value = gains.mid;
+      this.eqNodes.treble.gain.value = gains.treble;
     } catch (err) {
       console.warn('[AudioEngine] Failed to apply EQ gains:', err);
     }
@@ -1817,6 +1842,8 @@ export class AudioEngine implements IAudioEngine {
    * the AudioContext. Safe to call more than once.
    */
   public destroy(): void {
+    this.unsubscribeProcessing?.();
+    this.unsubscribeProcessing = null;
     this.playRequestId++;
     this.loadRequestId++;
     this.fadeToken++;

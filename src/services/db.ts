@@ -1112,7 +1112,9 @@ export async function clearAllData(): Promise<void> {
       //
       // Подключается на месте, а не сверху файла: `offlineFiles` тянет за собой
       // Capacitor, а базу читают и тесты, и главный процесс, где его нет.
-      import('./offlineFiles').then((files) => files.clearTrackFiles())
+      import('./offlineFiles').then((files) => files.clearTrackFiles()),
+      // Кэш звука телефона — там лежат копии последних треков.
+      import('./streamCache').then((cache) => cache.clearStreamCache())
     ]);
   } catch (err) {
     console.error('[DB] clearAllData error:', err);

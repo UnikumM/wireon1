@@ -2,6 +2,7 @@ import { create } from 'zustand';
 import { UnifiedTrack, RepeatMode, EqSettings } from '../types/music';
 import { VisualizerPreset } from '../types/visualizer';
 import { PlayerStore, PlayerStoreState, QueueMode, WaveMood, WaveConfig, WaveSeedKind } from '../types/store';
+import { setAudioProcessingEnabled } from '../services/audioProcessing';
 import { audioEngine, MIN_PLAYBACK_RATE, MAX_PLAYBACK_RATE } from '../services/audioEngine';
 import { MediaSessionService } from '../services/mediaSession';
 import { streamResolver } from '../services/streamResolver';
@@ -43,6 +44,7 @@ export const PLAYER_SETTING_KEYS = {
   crossfadeEnabled: 'crossfadeEnabled',
   crossfadeDuration: 'crossfadeDuration',
   loudnessNormalization: 'loudnessNormalization',
+  mobileAudioFx: 'mobileAudioFx',
   playbackRate: 'playbackRate',
   preservePitch: 'preservePitch',
   waveNovelty: 'waveNovelty',
@@ -635,6 +637,7 @@ export const usePlayerStore = create<PlayerStore>((set, get) => {
     crossfadeEnabled: false,
     crossfadeDuration: 3,
     loudnessNormalization: false,
+    mobileAudioFx: false,
     playbackRate: 1,
     preservePitch: false,
     mediaKeysEnabled: true,
@@ -1432,7 +1435,8 @@ export const usePlayerStore = create<PlayerStore>((set, get) => {
             globalHotkeysEnabled,
             globalHotkeys,
             waveSeedKind,
-            waveSeedArtist
+            waveSeedArtist,
+            mobileAudioFx
           ] = await Promise.all([
             dbService.getSetting<number>(PLAYER_SETTING_KEYS.volume, current.volume),
             dbService.getSetting<boolean>(PLAYER_SETTING_KEYS.isMuted, current.isMuted),
@@ -1454,12 +1458,14 @@ export const usePlayerStore = create<PlayerStore>((set, get) => {
             dbService.getSetting<boolean>(PLAYER_SETTING_KEYS.globalHotkeysEnabled, current.globalHotkeysEnabled),
             dbService.getSetting<Record<string, string>>(PLAYER_SETTING_KEYS.globalHotkeys, current.globalHotkeys),
             dbService.getSetting<WaveSeedKind>(PLAYER_SETTING_KEYS.waveSeedKind, current.waveSeedKind),
-            dbService.getSetting<string | null>(PLAYER_SETTING_KEYS.waveSeedArtist, current.waveSeedArtist)
+            dbService.getSetting<string | null>(PLAYER_SETTING_KEYS.waveSeedArtist, current.waveSeedArtist),
+            dbService.getSetting<boolean>(PLAYER_SETTING_KEYS.mobileAudioFx, current.mobileAudioFx)
           ]);
 
           const nextVolume = typeof volume === 'number' && Number.isFinite(volume) ? clampVolume(volume) : current.volume;
           const nextMuted = typeof isMuted === 'boolean' ? isMuted : nextVolume === 0;
           const nextEq = normalizeEq(eq, current.eq);
+          const nextMobileFx = typeof mobileAudioFx === 'boolean' ? mobileAudioFx : current.mobileAudioFx;
           const nextPreset = VISUALIZER_PRESETS.includes(visualizerPreset) ? visualizerPreset : current.visualizerPreset;
           const nextCrossfadeEnabled = typeof crossfadeEnabled === 'boolean' ? crossfadeEnabled : current.crossfadeEnabled;
           const nextCrossfadeDuration =
@@ -1502,6 +1508,7 @@ export const usePlayerStore = create<PlayerStore>((set, get) => {
             crossfadeEnabled: nextCrossfadeEnabled,
             crossfadeDuration: nextCrossfadeDuration,
             loudnessNormalization: nextLoudnessNorm,
+            mobileAudioFx: nextMobileFx,
             playbackRate: nextRate,
             preservePitch: nextPreservePitch,
             waveNovelty: nextNovelty,
@@ -1516,6 +1523,8 @@ export const usePlayerStore = create<PlayerStore>((set, get) => {
           audioEngine.setMuted(nextMuted || nextVolume === 0);
           audioEngine.setEqGains(nextEq);
           audioEngine.setCrossfade(nextCrossfadeEnabled, nextCrossfadeDuration);
+          // Обработку включаем до движка: он читает флаг, решая, строить ли граф.
+          setAudioProcessingEnabled(nextMobileFx);
           audioEngine.setLoudnessNormalization(nextLoudnessNorm);
           audioEngine.setPlaybackRate(nextRate, nextPreservePitch);
           const nextHotkeys =
@@ -1609,6 +1618,12 @@ export const usePlayerStore = create<PlayerStore>((set, get) => {
       set({ crossfadeDuration: clamped });
       audioEngine.setCrossfade(get().crossfadeEnabled, clamped);
       persistSetting(PLAYER_SETTING_KEYS.crossfadeDuration, clamped);
+    },
+
+    setMobileAudioFx: (enabled: boolean) => {
+      set({ mobileAudioFx: enabled });
+      setAudioProcessingEnabled(enabled);
+      persistSetting(PLAYER_SETTING_KEYS.mobileAudioFx, enabled);
     },
 
     setLoudnessNormalization: (enabled: boolean) => {

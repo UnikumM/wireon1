@@ -5,6 +5,8 @@ import { detectVariants, normalizeForMatch, pickBestMatch } from './trackMatchin
 import { db, getSetting, setSetting } from './db';
 import { detectPlatform } from './nativeBridge';
 import { objectUrlFor, trackFileUrl } from './offlineFiles';
+import { needsLocalSource } from './audioProcessing';
+import { cacheStreamToFile } from './streamCache';
 
 export interface ResolvedStreamInfo {
   streamUrl: string;
@@ -76,6 +78,9 @@ export const SOURCE_TIMEOUT_MOBILE_MS = 90000;
 
 /** На подмену времени меньше: человек к этому моменту ждёт уже вдвое дольше обычного. */
 export const SUBSTITUTE_TIMEOUT_MS = 15000;
+
+/** Срок годности записи о файле в кэше: сам файл не протухает, но вытесняется. */
+export const LOCAL_SOURCE_TTL_MS = 6 * 60 * 60 * 1000;
 
 /**
  * Фора YouTube перед тем, как за ту же песню возьмётся SoundCloud.
@@ -405,6 +410,25 @@ export class StreamResolver {
 
     if (!result || !result.streamUrl) {
       throw new Error(`Stream resolution returned no URL for ${track.id}`);
+    }
+
+    /*
+     * Телефон с включённой обработкой звука играет файл, а не ссылку.
+     *
+     * Через Web Audio проходит только «чистый» источник, а прямой поток
+     * googlevideo без заголовков CORS считается запятнанным и даёт тишину
+     * (`audioProcessing.ts`). Поэтому трек кладётся в кэш целиком и играет
+     * оттуда. Не получилось — играем ссылку, как раньше: звук важнее эффектов.
+     *
+     * HLS так не забрать: по ссылке лежит список кусков, а не звук.
+     */
+    if (needsLocalSource() && detectPlatform() === 'mobile' && result.format !== 'hls') {
+      const local = await cacheStreamToFile(track.id, result.streamUrl);
+      if (local) {
+        // Файл не протухает вместе со ссылкой, но и вечным его считать нельзя:
+        // кэш вытесняется по числу файлов.
+        result = { ...result, streamUrl: local, expiresAt: Date.now() + LOCAL_SOURCE_TTL_MS };
+      }
     }
 
     // Purge expired & enforce LRU size limit

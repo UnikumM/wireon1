@@ -290,6 +290,32 @@ const ProgressLine: React.FC<{ progress: number }> = ({ progress }) => (
   </div>
 );
 
+/** Кнопка звука и ползунок рядом. Колёсико работает и так, но его не видно. */
+const VolumeControl: React.FC<{ state: MiniPlayerState; compact?: boolean }> = ({ state, compact }) => (
+  <div className="mini-volume-group" data-compact={compact ? 'true' : undefined}>
+    <IconButton
+      onClick={() => send({ type: 'volume', value: state.volume > 0 ? 0 : 1 })}
+      title={state.volume > 0 ? 'Выключить звук' : 'Включить звук'}
+      aria-label={state.volume > 0 ? 'Выключить звук' : 'Включить звук'}
+      data-testid="mini-window-mute"
+    >
+      <VolumeIcon volume={state.volume} />
+    </IconButton>
+    <input
+      type="range"
+      className="mini-volume"
+      min={0}
+      max={1}
+      step={0.01}
+      value={state.volume}
+      onChange={(event) => send({ type: 'volume', value: Number(event.target.value) })}
+      aria-label="Громкость"
+      style={{ '--range-fill': `${Math.round(state.volume * 100)}%` } as React.CSSProperties}
+      data-testid="mini-window-volume"
+    />
+  </div>
+);
+
 const VolumeIcon: React.FC<{ volume: number }> = ({ volume }) =>
   volume <= 0 ? <VolumeX size={ICON.sm} /> : volume < 0.5 ? <Volume1 size={ICON.sm} /> : <Volume2 size={ICON.sm} />;
 
@@ -374,26 +400,7 @@ const CardForm: React.FC<FormProps> = (props) => {
           >
             {state.repeat === 'one' ? <Repeat1 size={ICON.sm} /> : <Repeat size={ICON.sm} />}
           </IconButton>
-          <IconButton
-            onClick={() => send({ type: 'volume', value: state.volume > 0 ? 0 : 1 })}
-            title={state.volume > 0 ? 'Выключить звук' : 'Включить звук'}
-            aria-label={state.volume > 0 ? 'Выключить звук' : 'Включить звук'}
-            data-testid="mini-window-mute"
-          >
-            <VolumeIcon volume={state.volume} />
-          </IconButton>
-          <input
-            type="range"
-            className="mini-volume"
-            min={0}
-            max={1}
-            step={0.01}
-            value={state.volume}
-            onChange={(event) => send({ type: 'volume', value: Number(event.target.value) })}
-            aria-label="Громкость"
-            style={{ '--range-fill': `${Math.round(state.volume * 100)}%` } as React.CSSProperties}
-            data-testid="mini-window-volume"
-          />
+          <VolumeControl state={state} />
         </div>
       </div>
     </div>
@@ -444,6 +451,7 @@ const IslandForm: React.FC<FormProps> = (props) => {
           >
             {state.repeat === 'one' ? <Repeat1 size={ICON.sm} /> : <Repeat size={ICON.sm} />}
           </IconButton>
+          <VolumeControl state={state} compact />
         </div>
       </div>
     </>

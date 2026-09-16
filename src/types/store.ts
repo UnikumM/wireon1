@@ -103,6 +103,8 @@ export interface PlayerStoreState {
   crossfadeEnabled: boolean;
   crossfadeDuration: number; // 0..12 seconds
   loudnessNormalization: boolean;
+  /** Телефон: пропускать звук через эквалайзер и спектр. См. services/audioProcessing.ts. */
+  mobileAudioFx: boolean;
   /** Playback speed, 0.5–2.0. Anything other than 1 is shown in the player bar. */
   playbackRate: number;
   /** True keeps the original key while the tempo changes. */
@@ -173,6 +175,7 @@ export interface PlayerStoreActions {
   setCrossfadeEnabled: (enabled: boolean) => void;
   setCrossfadeDuration: (seconds: number) => void;
   setLoudnessNormalization: (enabled: boolean) => void;
+  setMobileAudioFx: (enabled: boolean) => void;
   setPlaybackRate: (rate: number, preservePitch?: boolean) => void;
   setPreservePitch: (preserve: boolean) => void;
   resetPlaybackRate: () => void;

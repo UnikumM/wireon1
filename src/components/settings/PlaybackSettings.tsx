@@ -6,6 +6,7 @@ import { usePlayerStore } from '../../store/usePlayerStore';
 import { formatDuration } from '../../utils/time';
 import { EQ_PRESETS, matchEqPreset } from '../../utils/eqPresets';
 import { ICON } from '../../styles/icons';
+import { detectPlatform } from '../../services/nativeBridge';
 
 const SLEEP_OPTIONS: { label: string; minutes: number | null }[] = [
   { label: 'Выключен', minutes: null },
@@ -63,6 +64,9 @@ export const PlaybackSettings: React.FC = () => {
 
   // The store only keeps the deadline, so the picker remembers which option
   // produced it and clears itself once the timer fires or is cancelled.
+  const mobileAudioFx = usePlayerStore((s) => s.mobileAudioFx);
+  const setMobileAudioFx = usePlayerStore((s) => s.setMobileAudioFx);
+  const isMobile = detectPlatform() === 'mobile';
   const [selectedSleepOption, setSelectedSleepOption] = useState('');
 
   useEffect(() => {
@@ -119,6 +123,16 @@ export const PlaybackSettings: React.FC = () => {
       />
 
       <div className="divider" role="presentation" />
+
+      {isMobile && (
+        <ToggleSetting
+          id="setting-mobile-audio-fx"
+          label="Обработка звука на телефоне"
+          description="Без неё эквалайзер и спектр на телефоне не действуют: звук идёт по ссылке, которую система не пускает в обработку. С ней трек сначала забирается целиком, поэтому начинается на несколько секунд позже, зато полосы работают. Выключение убирает обработку, а играть из файла приложение продолжит до перезапуска."
+          checked={mobileAudioFx}
+          onChange={setMobileAudioFx}
+        />
+      )}
 
       <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 'var(--space-4)' }}>
         <div>

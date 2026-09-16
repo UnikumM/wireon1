@@ -114,7 +114,7 @@ describe('Формы мини-плеера', () => {
     });
 
     it('ползунок громкости сильнее общего правила ползунков — иначе он растягивается на кнопки', () => {
-      expect(MINI_CSS).toContain('.mini-group input.mini-volume {');
+      expect(MINI_CSS).toContain('.mini-volume-group input.mini-volume {');
     });
 
     it('прозрачное окно не закрашено фоном документа и подсветом верха', () => {

@@ -236,7 +236,7 @@ html[data-mini-window] #root::after {
 }
 
 [data-mini-form='island'] .mini-shape[data-expanded='true'] {
-  width: 380px;
+  width: 396px;
   height: 180px;
   border-radius: 28px;
 }
@@ -528,7 +528,21 @@ html[data-mini-window] #root::after {
 
 /* Сильнее общего input[type=range] { width: 100% }: без этого ползунок
  * растягивался на всю группу и ложился на кнопки транспорта. */
-.mini-group input.mini-volume {
+.mini-volume-group {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  flex-shrink: 0;
+}
+
+/* В раскрытом «Острове» громкость стоит в одном ряду с транспортом, поэтому
+ * ползунок там короче: место делится с пятью кнопками. */
+.mini-volume-group[data-compact='true'] input.mini-volume {
+  width: 44px;
+}
+
+.mini-group input.mini-volume,
+.mini-volume-group input.mini-volume {
   width: 56px;
   flex-shrink: 0;
   /* Заливка общего ползунка берёт акцент темы; здесь — цвет обложки, как у
