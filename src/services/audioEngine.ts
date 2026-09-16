@@ -657,7 +657,8 @@ export class AudioEngine implements IAudioEngine {
           streamExpiry: resolved.expiresAt,
           format: resolved.format,
           bitrate: resolved.bitrate,
-          isPreview: resolved.isPreview === true
+          isPreview: resolved.isPreview === true,
+          substitutedFrom: resolved.substitutedFrom
         };
       }
 

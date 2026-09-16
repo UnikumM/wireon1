@@ -12,6 +12,7 @@ import {
   Music2,
   PictureInPicture2,
   Radio,
+  Repeat,
   Scissors,
   Waves,
   X
@@ -67,6 +68,7 @@ export const PlayerBar: React.FC<PlayerBarProps> = ({ className = '' }) => {
   const error = usePlayerStore((s) => s.error);
   const errorDetail = usePlayerStore((s) => s.errorDetail);
   const isPreviewStream = usePlayerStore((s) => s.isPreviewStream);
+  const substitutedFrom = usePlayerStore((s) => s.substitutedFrom);
   const userQueue = usePlayerStore((s) => s.userQueue);
   const visualizerEnabled = usePlayerStore((s) => s.visualizerEnabled);
   const visualizerPreset = usePlayerStore((s) => s.visualizerPreset);
@@ -611,6 +613,34 @@ export const PlayerBar: React.FC<PlayerBarProps> = ({ className = '' }) => {
                   >
                     <Scissors size={ICON.xs} aria-hidden="true" />
                     Отрывок
+                  </span>
+                )}
+                {substitutedFrom && substitutedFrom !== currentTrack.source && (
+                  /*
+                   * Свой источник отказал, и та же запись играет с чужого.
+                   *
+                   * Замена подбирается строго — все значимые слова названия,
+                   * та же версия, близкая длительность, — но это всё-таки
+                   * сопоставление по названию, а не доказательство. Значит
+                   * человек должен видеть, что слушает не то, что выбрал, а
+                   * найденную нами копию.
+                   */
+                  <span
+                    className="badge"
+                    title={`${
+                      currentTrack.source === 'soundcloud' ? 'SoundCloud' : 'YouTube'
+                    } не отдал эту запись — играет та же песня с ${
+                      substitutedFrom === 'youtube' ? 'YouTube' : 'SoundCloud'
+                    }`}
+                    style={{
+                      color: 'var(--text-muted)',
+                      borderColor: 'var(--border-subtle)',
+                      flexShrink: 0
+                    }}
+                    data-testid="player-substitute-badge"
+                  >
+                    <Repeat size={ICON.xs} aria-hidden="true" />
+                    {substitutedFrom === 'youtube' ? 'с YouTube' : 'с SoundCloud'}
                   </span>
                 )}
               </div>

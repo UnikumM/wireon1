@@ -3,6 +3,7 @@ import { youtubeService, YouTubeService } from './youtube';
 import { soundCloudService, SoundCloudService } from './soundcloud';
 import { streamResolver, StreamResolver } from './streamResolver';
 import { isPlaceholderArtist } from '../utils/placeholders';
+import { detectVariants } from './trackMatching';
 
 export interface SearchOptions {
   source?: AudioSource | 'all';
@@ -50,6 +51,32 @@ const RADIO_MIN_SURVIVORS = 3;
  */
 const LONG_FORM_TITLE_PATTERN =
   /\b(?:full album|album completo|podcast|episode|ep\.?\s*\d+|compilation|megamix|dj set|liveset|live set|playlist|non[- ]stop|\d+\s*hours?)\b/i;
+
+/**
+ * Опускает вниз версии, о которых не просили.
+ *
+ * Источники сортируют по популярности, а самая популярная загрузка по запросу
+ * «название песни» сплошь и рядом — ускоренный эдит, караоке или часовой микс.
+ * Оригинал при этом в выдаче есть, просто ниже.
+ *
+ * Порядок внутри каждой из двух групп сохраняется: это перестановка, а не новая
+ * сортировка — ранжировать выдачу источника заново мы не беремся. И если в
+ * запросе попросили ремикс или замедленную версию, такие записи остаются
+ * наверху: пометка становится желаемой, а не мусором.
+ */
+function demoteUnwantedVariants(query: string, results: UnifiedTrack[]): UnifiedTrack[] {
+  const wanted = new Set(detectVariants(query));
+  const plain: UnifiedTrack[] = [];
+  const tinted: UnifiedTrack[] = [];
+
+  for (const track of results) {
+    const carried = detectVariants(`${track.title || ''} ${track.artist || ''}`);
+    const unwanted = carried.some((marker) => !wanted.has(marker));
+    (unwanted ? tinted : plain).push(track);
+  }
+
+  return plain.length === 0 || tinted.length === 0 ? results : [...plain, ...tinted];
+}
 
 /**
  * Normalizes title string for duplicate comparison
@@ -253,7 +280,7 @@ export class SearchAggregator implements ISearchAggregator {
     }
 
     const result: SearchAggregateResult = {
-      results: mergedResults,
+      results: demoteUnwantedVariants(trimmed, mergedResults),
       sources: {
         youtube: ytResults.length,
         soundcloud: scResults.length

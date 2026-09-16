@@ -20,6 +20,14 @@ export interface UnifiedTrack {
   bitrate?: number; // kbps
   format?: 'm4a' | 'opus' | 'mp3' | 'hls' | string;
   isPreview?: boolean; // the resolved stream is a snipped preview, not the full track
+  /**
+   * Звук пришёл не от того источника, которому принадлежит запись.
+   *
+   * Ставится, когда свой источник отказал и ту же запись сыграли с чужого.
+   * Отбор при замене строгий, но это всё-таки сопоставление по названию, а не
+   * доказательство — поэтому факт замены полагается показывать, а не умалчивать.
+   */
+  substitutedFrom?: AudioSource;
   addedAt?: number; // epoch timestamp in ms
 }
 

@@ -413,7 +413,8 @@ export const usePlayerStore = create<PlayerStore>((set, get) => {
       error: null,
       errorDetail: null,
       errorCanRetry: true,
-      isPreviewStream: false
+      isPreviewStream: false,
+      substitutedFrom: null
     };
     if (options.queue) patch.sourceQueue = options.queue;
     if (options.index !== undefined) patch.currentIndex = options.index;
@@ -441,6 +442,9 @@ export const usePlayerStore = create<PlayerStore>((set, get) => {
         // Known only after resolution: SoundCloud hands back a 30-second snippet
         // for some uploads, and the bar has to label it.
         isPreviewStream: audioEngine.getCurrentTrack()?.isPreview === true,
+        // Тоже известно только после разбора: свой источник мог отказать, и
+        // тогда играет та же запись с чужого. Молчать об этом нельзя.
+        substitutedFrom: audioEngine.getCurrentTrack()?.substitutedFrom ?? null,
         ...NO_ERROR
       });
       MediaSessionService.updatePlaybackState('playing');
@@ -603,6 +607,7 @@ export const usePlayerStore = create<PlayerStore>((set, get) => {
     errorDetail: null,
     errorCanRetry: true,
     isPreviewStream: false,
+    substitutedFrom: null,
     resumePosition: null,
     globalHotkeysEnabled: true,
     globalHotkeys: { ...DEFAULT_GLOBAL_HOTKEYS },

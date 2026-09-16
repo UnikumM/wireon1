@@ -76,11 +76,56 @@ describe('SearchAggregator Service', () => {
     expect(res.sources.soundcloud).toBe(2);
     expect(res.results.length).toBe(4);
 
-    // Verify 1:1 interleaving (yt0, sc0, yt1, sc1)
+    /*
+     * Чередование 1:1 сохраняется, но только между равными.
+     *
+     * Загрузки SoundCloud в этих данных — «(Live Remix)» и «Radio Ga Ga Remix»,
+     * а в запросе ремикса не просили. Такие записи уходят вниз: источники
+     * сортируют по популярности, и по запросу с названием песни наверху
+     * оказывается эдит, хотя оригинал в выдаче есть.
+     */
+    expect(res.results.slice(0, 2).every((track) => track.source === 'youtube')).toBe(true);
+    expect(res.results.slice(2).every((track) => track.source === 'soundcloud')).toBe(true);
+  });
+
+  it('чередует источники, когда ни у кого нет лишних пометок', async () => {
+    vi.spyOn(mockScService, 'search').mockResolvedValue([
+      {
+        id: 'sc_3',
+        source: 'soundcloud',
+        originalId: '103',
+        title: 'Somebody to Love',
+        artist: 'Queen',
+        duration: 296,
+        artworkUrl: 'https://i1.sndcdn.com/artworks-3-t500x500.jpg'
+      },
+      {
+        id: 'sc_4',
+        source: 'soundcloud',
+        originalId: '104',
+        title: 'Under Pressure',
+        artist: 'Queen',
+        duration: 248,
+        artworkUrl: 'https://i1.sndcdn.com/artworks-4-t500x500.jpg'
+      }
+    ]);
+
+    const res = await aggregator.search('Queen', { source: 'all' });
+
     expect(res.results[0].source).toBe('youtube');
     expect(res.results[1].source).toBe('soundcloud');
     expect(res.results[2].source).toBe('youtube');
     expect(res.results[3].source).toBe('soundcloud');
+  });
+
+  it('оставляет ремиксы наверху, когда о них попросили', async () => {
+    // В данных лежит «Bohemian Rhapsody (Live Remix)» — то есть попросить
+    // нужно обе пометки, иначе «живое» остаётся непрошеным и уводит запись вниз.
+    const res = await aggregator.search('Queen live remix', { source: 'all' });
+
+    // Пометка стала желаемой — значит переставлять нечего.
+    expect(res.results[0].source).toBe('youtube');
+    expect(res.results[1].source).toBe('soundcloud');
   });
 
   it('filters search strictly to YouTube when specified', async () => {

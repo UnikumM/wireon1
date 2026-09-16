@@ -177,6 +177,41 @@ export function rankTranscodings(transcodings: any[]): any[] {
 }
 
 /**
+ * Приманка, которую SoundCloud кладёт к закрытым лейблом загрузкам.
+ *
+ * Замерено 2026-09-16 на «Blinding Lights» (The Weeknd) и «Headlines» (Drake):
+ * у обеих записей шесть дорожек `*-encrypted-hls` (aac_160k, aac_96k, abr_sq) и
+ * ровно одна незашифрованная с пресетом `mp3_0_1` — и эта одна **всегда**
+ * отвечает 404. У обычных загрузок картина другая: зашифрованных нет вовсе, а
+ * пресеты называются `mp3_1_0`, `aac_160k`, `abr_sq`, и они отдаются.
+ *
+ * Пока мы этого не различали, приговор выглядел так: «не DRM, дорожка есть» —
+ * поход за ней, 404, и только потом замена. Теперь лишнего похода нет.
+ */
+const DRM_DECOY_PRESET = 'mp3_0_1';
+
+/**
+ * Есть ли у записи шанс сыграть, или это загрузка лейбла с одной приманкой.
+ *
+ * Правило нарочно узкое: срабатывает, только когда зашифрованные дорожки есть
+ * **и** единственное незашифрованное — та самая приманка. Запись, у которой
+ * рядом с зашифрованными лежит настоящая дорожка, мы по-прежнему пробуем.
+ */
+export function isDrmLockedTranscodings(transcodings: any[]): boolean {
+  const list = Array.isArray(transcodings) ? transcodings : [];
+  if (list.length === 0) return false;
+
+  const encrypted = list.filter((t) => String(t?.format?.protocol || '').includes('encrypted'));
+  if (encrypted.length === 0) return false;
+
+  const plain = list.filter((t) => {
+    const protocol = t?.format?.protocol;
+    return protocol === 'progressive' || protocol === 'hls';
+  });
+  return plain.length > 0 && plain.every((t) => t?.preset === DRM_DECOY_PRESET);
+}
+
+/**
  * Picks the best progressive transcoding, falling back to the best HLS one.
  */
 export function pickBestTranscoding(transcodings: any[]): any | null {
@@ -860,6 +895,14 @@ export class SoundCloudService {
 
     if (!mediaTranscodings || mediaTranscodings.length === 0) {
       throw new Error(`No transcodings found for SoundCloud track ${trackId}`);
+    }
+
+    // Загрузка лейбла: настоящие дорожки зашифрованы, незашифрованная —
+    // приманка, которая ответит 404. Ходить за ней незачем, ответ известен.
+    if (isDrmLockedTranscodings(mediaTranscodings)) {
+      throw new Error(
+        `SoundCloud track ${trackId} is only offered as DRM-protected audio (label upload), which cannot be played here`
+      );
     }
 
     const candidates = rankTranscodings(mediaTranscodings);

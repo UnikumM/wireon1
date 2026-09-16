@@ -27,6 +27,7 @@ import {
 } from '../../services/playlistImporter';
 import { parsePlaylistFile, PlaylistFileError } from '../../services/playlistTransfer';
 import { rankCandidates } from '../../services/trackMatching';
+import { rememberLink } from '../../services/matchLinks';
 import { searchAggregator } from '../../services/aggregator';
 import { UnifiedTrack } from '../../types/music';
 import { useUIStore } from '../../store/useUIStore';
@@ -482,6 +483,12 @@ export const ImportPlaylistModal: React.FC<ImportPlaylistModalProps> = ({
         return;
       }
 
+      // Выбор человека — окончательный ответ для этой строки: в следующий раз
+      // (другой плейлист, другое устройство, повторный перенос) подбор по
+      // названию для неё не запускается вовсе.
+      const item = matches[index]?.item;
+      if (item) void rememberLink(item, track, true);
+
       setResolvedTracks((prev) => [...prev, track]);
       setManual((prev) => ({
         ...prev,
@@ -489,7 +496,7 @@ export const ImportPlaylistModal: React.FC<ImportPlaylistModalProps> = ({
       }));
       showToast(`«${track.title}» добавлен в плейлист`, 'success');
     },
-    [addTrackToPlaylist, importedPlaylistId, showToast]
+    [addTrackToPlaylist, importedPlaylistId, matches, showToast]
   );
 
   const handleOpenCreatedPlaylist = () => {

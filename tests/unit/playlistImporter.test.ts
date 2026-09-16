@@ -658,7 +658,14 @@ describe('Unit: Playlist Importer Service (M5)', () => {
         { title: 'Звезда по имени Солнце', artist: 'Kino', duration: 230 }
       ]);
 
-      expect(searchSpy).toHaveBeenCalledTimes(2);
+      /*
+       * Три запроса, а не два: сначала «исполнитель + название» у каталога,
+       * потом тот же запрос у SoundCloud (каталог не ответил ничем), и лишь
+       * затем второй проход по одному названию. Второй проход платный, поэтому
+       * идёт только по строкам, которым пары не нашлось.
+       */
+      expect(searchSpy).toHaveBeenCalledTimes(3);
+      expect(searchSpy.mock.calls[2][0]).toBe('Звезда по имени Солнце');
       expect(matches[0].track?.id).toBe('yt_fallback');
     });
 

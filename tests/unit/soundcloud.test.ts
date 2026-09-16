@@ -6,6 +6,7 @@ import {
   pickBestTranscoding,
   rankTranscodings,
   getSoundCloudStreamExpiry,
+  isDrmLockedTranscodings,
   SoundCloudAuthError
 } from '../../src/services/soundcloud';
 
@@ -60,6 +61,40 @@ const DRM_HLS = {
   quality: 'sq',
   format: { protocol: 'cbc-encrypted-hls', mime_type: 'audio/mp4; codecs="mp4a.40.2"' }
 };
+
+/**
+ * Приманка у загрузок лейбла: пресет `mp3_0_1`, протокол не зашифрован — и
+ * ответ 404 при любой попытке. Замерено 2026-09-16 на «Blinding Lights» (The
+ * Weeknd) и «Headlines» (Drake): у обеих ровно такой набор.
+ */
+const DRM_DECOY = {
+  url: 'https://api-v2.soundcloud.com/media/soundcloud:tracks:718846078/decoy',
+  quality: 'sq',
+  preset: 'mp3_0_1',
+  format: { protocol: 'hls', mime_type: 'audio/mpeg' }
+};
+
+describe('Загрузка лейбла опознаётся до похода за дорожкой', () => {
+  it('зашифрованные дорожки плюс одна приманка — играть нечего', () => {
+    // Раньше приманка считалась обычной дорожкой: поход, 404, и только потом
+    // замена. Ответ известен заранее — значит и ходить незачем.
+    expect(isDrmLockedTranscodings([DRM_HLS, DRM_HLS, DRM_DECOY])).toBe(true);
+  });
+
+  it('обычная загрузка приманкой не считается', () => {
+    expect(isDrmLockedTranscodings([PROGRESSIVE_MP3, HLS_AAC, HLS_ABR])).toBe(false);
+  });
+
+  it('настоящая дорожка рядом с зашифрованными — пробуем', () => {
+    // Правило нарочно узкое: отказываемся только когда незашифрованное —
+    // исключительно приманка.
+    expect(isDrmLockedTranscodings([DRM_HLS, PROGRESSIVE_MP3])).toBe(false);
+  });
+
+  it('пустой список ни о чём не говорит', () => {
+    expect(isDrmLockedTranscodings([])).toBe(false);
+  });
+});
 
 describe('SoundCloud Service & Normalizer', () => {
   describe('Artwork Upgrader', () => {

@@ -118,6 +118,75 @@ export function stripNoise(title: string | undefined | null): string {
 }
 
 /**
+ * Хвост версии, который каталоги дописывают через тире.
+ *
+ * Spotify и Apple пишут «Bohemian Rhapsody - Remastered 2011», а в каталоге
+ * YouTube Music та же запись называется просто «Bohemian Rhapsody». Слова
+ * «remastered» и «2011» в кандидате не найдутся никогда, и строка уходит в «не
+ * нашли» — замерено на живых запросах: так проваливались все ремастеры подряд,
+ * хотя нужная запись лежала в выдаче второй-третьей.
+ *
+ * Список закрытый нарочно: всё, что стоит после тире и не похоже на версию,
+ * скорее всего часть названия («Numb / Encore - Live» — версия, «Mr. Brightside
+ * - Jacques Lu Cont Mix» — тоже, а «Сплин - Выхода нет» — нет).
+ */
+/*
+ * Второй вид хвоста: пометка стоит последним словом — «Mr. Brightside -
+ * Jacques Lu Cont Mix», «Song - Extended Club Edit». Отдельным выражением,
+ * потому что здесь опознаётся конец строки, а не её начало.
+ */
+const VERSION_TAIL_SUFFIX = /\s+-\s+([\w\s.'()-]*\b(?:remix|mix|edit|version|remaster(?:ed)?|dub|bootleg)\s*)$/i;
+
+const VERSION_TAIL =
+  /\s+-\s+((?:\d{4}\s+)?(?:remaster(?:ed)?|re-?recorded|mono|stereo|live(?:\s+.*)?|radio\s+edit|single\s+version|album\s+version|acoustic|instrumental|remix|mix|edit|demo|bonus\s+track|deluxe|anniversary[\w\s]*|version)[\w\s\d.'()-]*)$/i;
+
+/**
+ * Соавторы в скобках: «(with Ariana Grande)», «(feat. DaBaby)».
+ *
+ * У кандидата в каталоге их обычно нет — соавторы стоят отдельным полем
+ * исполнителя. Пока они считались словами названия, лучший из возможных
+ * кандидатов отбрасывался: «Save Your Tears (with Ariana Grande)» требовал
+ * найти «ariana» внутри «Save Your Tears».
+ */
+const COLLABORATORS = /\s*[([](?:with|feat\.?|ft\.?|featuring)\s[^)\]]*[)\]]/gi;
+
+export interface CatalogTitle {
+  /** Название без хвоста версии и без скобок с соавторами. */
+  base: string;
+  /** «Remastered 2011», «Live», «Remix» — или null, если хвоста не было. */
+  version: string | null;
+  /** Имена соавторов из скобок — пригодятся как подсказка об исполнителе. */
+  collaborators: string;
+}
+
+/**
+ * Разбирает название из чужого каталога на то, что ищут, и то, что уточняет.
+ *
+ * Разница принципиальная: по базовому названию сверяют совпадение, а версия —
+ * это пожелание, которое нельзя требовать дословно, но нельзя и потерять, иначе
+ * вместо живой записи приедет студийная.
+ */
+export function splitCatalogTitle(raw: string | undefined | null): CatalogTitle {
+  const title = (raw || '').trim();
+  if (!title) return { base: '', version: null, collaborators: '' };
+
+  const collaborators = (title.match(COLLABORATORS) || []).join(' ').trim();
+  let base = title.replace(COLLABORATORS, ' ').replace(/\s+/g, ' ').trim();
+
+  let version: string | null = null;
+  const tail = VERSION_TAIL.exec(base) || VERSION_TAIL_SUFFIX.exec(base);
+  if (tail) {
+    version = tail[1].trim();
+    base = base.slice(0, tail.index).trim();
+  }
+
+  // Хвост съел всё название целиком («Live» одним словом) — тогда это не хвост.
+  if (!base) return { base: title.replace(COLLABORATORS, ' ').replace(/\s+/g, ' ').trim(), version: null, collaborators };
+
+  return { base, version, collaborators };
+}
+
+/**
  * Splits "Artist - Title" style upload titles.
  *
  * YouTube uploads carry the artist in the title and the uploader's channel name
@@ -265,6 +334,14 @@ export function scoreCandidate(target: MatchTarget, candidate: UnifiedTrack): Ma
       score -= 45;
       notes.push(`длительность отличается на ${Math.round(delta)} с`);
     }
+  }
+
+  // --- Album ------------------------------------------------------------------
+  // Только прибавка и только при совпадении: названия изданий расходятся
+  // («After Hours» против «After Hours (Deluxe)»), поэтому расхождение здесь
+  // ничего не доказывает, а совпадение отличает альбомную версию от сингловой.
+  if (target.album && candidate.album && overlapRatio(target.album, candidate.album) >= 0.5) {
+    score += 12;
   }
 
   if (candidate.duration && candidate.duration > MAX_PLAUSIBLE_SONG_S) {

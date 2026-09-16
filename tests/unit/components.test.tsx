@@ -560,6 +560,44 @@ describe('Milestone 3 UI & Player Components Test Suite', () => {
       expect(screen.queryByTestId('player-preview-badge')).not.toBeInTheDocument();
     });
 
+    it('PlayerBar говорит, что играет запись с другого источника', () => {
+      /*
+       * Свой источник отказал, и та же песня играет с чужого. Отбор при замене
+       * строгий — все значимые слова названия, та же версия, близкая
+       * длительность, — но это сопоставление по названию, а не доказательство:
+       * радио-версия без пометки или чужой перезалив с другим мастерингом сюда
+       * пройдут. Поэтому факт замены показывается, а не умалчивается.
+       */
+      usePlayerStore.setState({
+        currentTrack: sampleTrackSC,
+        playbackState: 'playing',
+        isPreviewStream: false,
+        substitutedFrom: 'youtube'
+      });
+
+      const { rerender } = render(<PlayerBar />);
+
+      expect(screen.getByTestId('player-substitute-badge')).toHaveTextContent(/youtube/i);
+
+      act(() => {
+        usePlayerStore.setState({ substitutedFrom: null });
+      });
+      rerender(<PlayerBar />);
+      expect(screen.queryByTestId('player-substitute-badge')).not.toBeInTheDocument();
+    });
+
+    it('своя запись пометкой о замене не помечается', () => {
+      // Источник совпал — замены не было, и говорить не о чем.
+      usePlayerStore.setState({
+        currentTrack: sampleTrackSC,
+        playbackState: 'playing',
+        substitutedFrom: 'soundcloud'
+      });
+
+      render(<PlayerBar />);
+      expect(screen.queryByTestId('player-substitute-badge')).not.toBeInTheDocument();
+    });
+
     it('миниатюра визуализатора снимается, пока открыт плеер на весь экран', () => {
       // Оверлей непрозрачный и держит свой визуализатор. Оставленный под ним
       // холст никому не виден, а кадры считает — два спектра одновременно.

@@ -1,4 +1,4 @@
-import { UnifiedTrack, PlaybackState, RepeatMode, EqSettings, SearchCollection } from './music';
+import { AudioSource, UnifiedTrack, PlaybackState, RepeatMode, EqSettings, SearchCollection } from './music';
 import { VisualizerPreset } from './visualizer';
 
 export type QueueMode = 'sequential' | 'track_radio' | 'my_wave';
@@ -56,6 +56,13 @@ export interface PlayerStoreState {
   errorDetail: string | null; // the raw message behind `error`, for tooltips and bug reports
   errorCanRetry: boolean; // false when pressing play again cannot help
   isPreviewStream: boolean; // the resolved stream is a snipped preview, not the full track
+  /**
+   * Источник, с которого пришёл звук, когда свой источник записи отказал.
+   *
+   * `null` — играет своё. Полоса плеера показывает это отдельной пометкой:
+   * замена подбирается строго, но остаётся сопоставлением по названию.
+   */
+  substitutedFrom: AudioSource | null;
   /**
    * Секунда, с которой продолжится трек, оставшийся с прошлого запуска.
    *

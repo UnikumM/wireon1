@@ -8,6 +8,7 @@ import {
 import { youtubeService, YouTubeService } from '../../src/services/youtube';
 import { soundCloudService, SoundCloudService } from '../../src/services/soundcloud';
 import { UnifiedTrack } from '../../src/types/music';
+import { db } from '../../src/services/db';
 
 describe('StreamResolver Service', () => {
   let resolver: StreamResolver;
@@ -32,10 +33,17 @@ describe('StreamResolver Service', () => {
     artworkUrl: 'https://i1.sndcdn.com/artworks-001-t500x500.jpg'
   };
 
-  beforeEach(() => {
+  beforeEach(async () => {
     resolver = new StreamResolver();
     resolver.clearCache();
     vi.restoreAllMocks();
+    /*
+     * Удачная замена запоминается (`matchLinks`), и это переживает отдельный
+     * случай: база одна на весь файл. Без очистки тест, который проверяет, что
+     * замены не было, находил связь, оставленную предыдущим, — и ходил за
+     * ссылкой там, где ходить не должен был.
+     */
+    await db.matchLinks.clear();
   });
 
   afterEach(() => {
@@ -642,6 +650,139 @@ describe('Кэш ссылок переживает перезапуск', () => 
   });
 });
 
+describe('Подтверждённая замена вместо повторной догадки', () => {
+  /*
+   * Ради чего. Замена подбирается строго, но это сопоставление по названию, а
+   * не доказательство. Однажды сыгравшая запись запоминается — и следующий
+   * отказ того же трека стоит одного запроса за ссылкой вместо поиска с
+   * перебором кандидатов, у которого каждый раз есть шанс ошибиться заново.
+   */
+  const scTrack = {
+    id: 'sc_locked',
+    source: 'soundcloud' as const,
+    originalId: 'locked1',
+    title: 'Blinding Lights',
+    artist: 'The Weeknd',
+    duration: 200,
+    artworkUrl: ''
+  };
+
+  beforeEach(async () => {
+    await db.matchLinks.clear();
+  });
+
+  afterEach(async () => {
+    await db.matchLinks.clear();
+  });
+
+  it('известную замену играет сразу, не трогая поиск', async () => {
+    const { StreamResolver } = await import('../../src/services/streamResolver');
+    const { rememberLink } = await import('../../src/services/matchLinks');
+
+    await rememberLink(scTrack, {
+      id: 'yt_known',
+      source: 'youtube',
+      originalId: 'known1',
+      title: 'Blinding Lights',
+      artist: 'The Weeknd',
+      duration: 202,
+      artworkUrl: ''
+    });
+
+    const yt = {
+      resolveStreamUrl: vi.fn(async () => ({
+        streamUrl: 'https://yt.test/known.m4a',
+        format: 'm4a',
+        bitrate: 128,
+        expiresAt: Date.now() + 3_600_000
+      })),
+      search: vi.fn(async () => [])
+    };
+    const sc = {
+      resolveStreamUrl: vi.fn(async () => {
+        throw new Error('SoundCloud track locked1 is only offered as DRM-protected audio');
+      }),
+      search: vi.fn(async () => [])
+    };
+
+    const resolver = new StreamResolver(yt as never, sc as never);
+    const result = await resolver.resolve(scTrack);
+
+    expect(yt.resolveStreamUrl).toHaveBeenCalledWith('known1');
+    expect(yt.search).not.toHaveBeenCalled();
+    expect(result.substitutedFrom).toBe('youtube');
+  });
+
+  it('удачная замена запоминается — второй раз ищем уже не поиском', async () => {
+    const { StreamResolver } = await import('../../src/services/streamResolver');
+    const { findLink } = await import('../../src/services/matchLinks');
+
+    const yt = {
+      resolveStreamUrl: vi.fn(async () => ({
+        streamUrl: 'https://yt.test/found.m4a',
+        format: 'm4a',
+        bitrate: 128,
+        expiresAt: Date.now() + 3_600_000
+      })),
+      search: vi.fn(async () => [
+        {
+          id: 'yt_found',
+          source: 'youtube',
+          originalId: 'found1',
+          title: 'Blinding Lights',
+          artist: 'The Weeknd',
+          duration: 202,
+          artworkUrl: ''
+        }
+      ])
+    };
+    const sc = {
+      resolveStreamUrl: vi.fn(async () => {
+        throw new Error('SoundCloud refused');
+      }),
+      search: vi.fn(async () => [])
+    };
+
+    const resolver = new StreamResolver(yt as never, sc as never);
+    await resolver.resolve(scTrack);
+
+    expect(yt.search).toHaveBeenCalled();
+    expect((await findLink(scTrack))?.originalId).toBe('found1');
+  });
+
+  it('чужую песню не запоминает: подбор её и не отдаёт', async () => {
+    const { StreamResolver } = await import('../../src/services/streamResolver');
+    const { findLink } = await import('../../src/services/matchLinks');
+
+    const yt = {
+      resolveStreamUrl: vi.fn(),
+      search: vi.fn(async () => [
+        {
+          id: 'yt_other',
+          source: 'youtube',
+          originalId: 'other1',
+          title: 'Blinding Lights (Slowed + Reverb)',
+          artist: 'Некто',
+          duration: 260,
+          artworkUrl: ''
+        }
+      ])
+    };
+    const sc = {
+      resolveStreamUrl: vi.fn(async () => {
+        throw new Error('SoundCloud refused');
+      }),
+      search: vi.fn(async () => [])
+    };
+
+    const resolver = new StreamResolver(yt as never, sc as never);
+    await expect(resolver.resolve(scTrack)).rejects.toThrow();
+
+    expect(yt.resolveStreamUrl).not.toHaveBeenCalled();
+    expect(await findLink(scTrack)).toBeNull();
+  });
+});
+
 describe('Медленный YouTube уступает SoundCloud', () => {
   /*
    * Ради чего. Разбор ссылки YouTube на телефоне идёт секундами — замерено 35 с
@@ -654,6 +795,12 @@ describe('Медленный YouTube уступает SoundCloud', () => {
    * опасен: что фора соблюдается, что быстрый YouTube не подменяется, что
    * подмена проходит строгую сверку и что фоновые прогревы в гонку не идут.
    */
+
+  // База одна на весь файл: подтверждённые связи из соседних случаев сюда не
+  // должны доезжать, иначе проверка «подмены не было» найдёт готовый ответ.
+  beforeEach(async () => {
+    await db.matchLinks.clear();
+  });
 
   const ytTrack = {
     id: 'yt_slow',

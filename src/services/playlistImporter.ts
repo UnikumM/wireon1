@@ -17,7 +17,15 @@ import { searchAggregator } from './aggregator';
 import * as dbService from './db';
 import { useLibraryStore } from '../store/useLibraryStore';
 import { UNKNOWN_ARTIST, UNKNOWN_TITLE } from '../utils/placeholders';
-import { normalizeForMatch, pickBestMatch, rankCandidates, type MatchConfidence } from './trackMatching';
+import {
+  detectVariants,
+  normalizeForMatch,
+  pickBestMatch,
+  rankCandidates,
+  splitCatalogTitle,
+  type MatchConfidence
+} from './trackMatching';
+import { findLink, trackFromLink } from './matchLinks';
 
 export type PlatformType = 'spotify' | 'yandex' | 'vk' | 'apple' | 'youtube';
 
@@ -90,6 +98,16 @@ export interface ImportMatch {
 const MIN_IMPORT_MATCH_SCORE = 78;
 
 /**
+ * Сколько кандидатов запрашивать на строку.
+ *
+ * Было восемь на оба источника разом, то есть около четырёх записей каталога —
+ * и этого не хватало. Замерено на «Все идет по плану»: первые четыре ответа —
+ * издания на 300, 291 и 321 секунду, а нужные 186 лежат ниже. С двадцатью
+ * кандидатами строка находится.
+ */
+const IMPORT_CANDIDATE_LIMIT = 20;
+
+/**
  * Все значимые слова названия обязаны найтись у кандидата.
  *
  * Оценка считает совпадение долей общего, поэтому короткое название целиком
@@ -103,6 +121,19 @@ function coversTitle(target: string, candidate: UnifiedTrack): boolean {
   if (words.length === 0) return true;
   const haystack = normalizeForMatch(`${candidate.title || ''} ${candidate.artist || ''}`);
   return words.every((word) => haystack.includes(word));
+}
+
+/**
+ * Пометки версии, которые кандидат обязан нести, если о них просили.
+ *
+ * Без этого правила отделение хвоста версии стало бы новой бедой: у строки
+ * «Numb - Live» искали бы «Numb», а нашли бы студийную запись — то есть ровно
+ * ту молчаливую подмену, ради запрета которой всё и делалось.
+ */
+function variantAllowed(wanted: ReadonlyArray<string>, candidate: UnifiedTrack): boolean {
+  if (wanted.length === 0) return true;
+  const carried = detectVariants(`${candidate.title || ''} ${candidate.artist || ''}`);
+  return wanted.some((marker) => carried.includes(marker));
 }
 
 /**
@@ -895,7 +926,6 @@ export class PlaylistImporterService {
     });
 
     const resolveSingleItem = async (item: ParsedPlaylistItem, index: number): Promise<void> => {
-      const artist = (item.artist || '').trim();
       const title = (item.title || '').trim();
 
       // Ссылка вместо названия — обычно битая строка чужого экспорта, искать нечего.
@@ -903,55 +933,24 @@ export class PlaylistImporterService {
         matches[index] = emptyMatch(item, ['в строке нет названия трека']);
       } else {
         try {
-          const cleanArtist = artist.replace(/\s*(?:feat\.|ft\.).*$/i, '').trim();
-          const cleanTitle = title
-            .replace(/\s*[\(\[][^()\[\]]*(?:official|music\s*video|audio|video|lyrics|hd|4k)[^()\[\]]*[\)\]]/gi, '')
-            .trim();
-          const cleanQuery =
-            cleanArtist && !cleanTitle.toLowerCase().includes(cleanArtist.toLowerCase())
-              ? `${cleanArtist} ${cleanTitle}`
-              : cleanTitle;
-
-          // Берём с запасом: оценщику нужен выбор, иначе он оценивает то же
-          // самое, что раньше просто бралось первым.
-          const primary = await searchAggregator.search(cleanQuery, { source: 'all', limit: 8 });
-          let candidates: UnifiedTrack[] = primary?.results ?? [];
-
-          // Ничего не нашлось по «исполнитель + название» — пробуем одно название:
-          // у чужих экспортов исполнитель часто написан иначе или отсутствует.
-          if (candidates.length === 0 && cleanTitle && cleanQuery !== cleanTitle) {
-            const fallback = await searchAggregator.search(cleanTitle, { source: 'all', limit: 6 });
-            candidates = fallback?.results ?? [];
-          }
-
-          if (candidates.length === 0) {
-            matches[index] = emptyMatch(item, ['источники ничего не вернули']);
-          } else {
-            const ranked = rankCandidates(
-              { title: cleanTitle || title, artist: cleanArtist || undefined, album: item.album, duration: item.duration },
-              candidates
-            );
-            const covering = candidates.filter((candidate) => coversTitle(cleanTitle || title, candidate));
-            const best = pickBestMatch(
-              { title: cleanTitle || title, artist: cleanArtist || undefined, album: item.album, duration: item.duration },
-              covering,
-              MIN_IMPORT_MATCH_SCORE
-            );
-
+          // Эту строку уже когда-то подтвердили — гадать заново незачем.
+          const known = await findLink(item);
+          if (known) {
             matches[index] = {
               item,
-              track: best ? best.candidate : null,
-              score: ranked[0]?.score ?? 0,
-              confidence: best ? best.confidence : null,
-              // Когда уверенного совпадения нет, полезнее знать, чем именно
-              // не подошёл лучший кандидат.
-              notes: best ? best.notes : ranked[0]?.notes ?? [],
-              // Лучший уже выбран — в альтернативы идут остальные.
-              alternatives: ranked
-                .filter((entry) => entry.candidate.id !== best?.candidate.id)
-                .slice(0, 5)
-                .map((entry) => entry.candidate)
+              track: trackFromLink(known, item),
+              score: MIN_IMPORT_MATCH_SCORE,
+              confidence: 'high',
+              notes: [known.manual ? 'выбрано вами раньше' : 'найдено раньше'],
+              alternatives: []
             };
+          } else {
+            const plan = this.queryFor(item);
+            const candidates = await this.searchCandidates(plan.query);
+            matches[index] =
+              candidates.length === 0
+                ? emptyMatch(item, ['источники ничего не вернули'])
+                : this.buildMatch(item, candidates);
           }
         } catch (err) {
           console.warn('[PlaylistImporter] Track search resolution error for:', title, err);
@@ -979,7 +978,166 @@ export class PlaylistImporterService {
       await Promise.all(batchIndices.map((idx) => resolveSingleItem(items[idx], idx)));
     }
 
-    return matches.map((entry, index) => entry ?? emptyMatch(items[index], ['строка не обработана']));
+    const first = matches.map((entry, index) => entry ?? emptyMatch(items[index], ['строка не обработана']));
+    return this.secondPass(first);
+  }
+
+  /**
+   * Второй заход — только по тем строкам, которым пары не нашлось.
+   *
+   * Смысл в очерёдности: сначала быстро проходим весь список одним запросом на
+   * строку, и лишь остаток ищем иначе. Другие запросы стоят времени, и платить
+   * ими за всю библиотеку ради нескольких строк незачем.
+   *
+   * Запросы другие, а мерка прежняя: порог не снижается. Задача второго прохода
+   * — показать оценщику кандидатов, которых он не видел, а не уговорить его
+   * согласиться на тех, кого он уже отверг.
+   */
+  private async secondPass(matches: ImportMatch[]): Promise<ImportMatch[]> {
+    const pending = matches
+      .map((entry, index) => ({ entry, index }))
+      .filter(({ entry }) => entry.track === null && (entry.item.title || '').trim().length > 0)
+      // Строки без названия второй проход не спасёт.
+      .filter(({ entry }) => !entry.notes.includes('в строке нет названия трека'));
+
+    if (pending.length === 0) return matches;
+
+    const retry = async ({ entry, index }: { entry: ImportMatch; index: number }): Promise<void> => {
+      try {
+        const plan = this.queryFor(entry.item);
+        const pool: UnifiedTrack[] = [...entry.alternatives];
+
+        for (const query of plan.retries) {
+          const found = await this.searchCandidates(query);
+          for (const candidate of found) {
+            if (!pool.some((existing) => existing.id === candidate.id)) pool.push(candidate);
+          }
+          if (pool.length === 0) continue;
+          const attempt = this.buildMatch(entry.item, pool);
+          if (attempt.track) {
+            matches[index] = attempt;
+            return;
+          }
+        }
+
+        // Ничего не подтвердилось — но кандидатов для ручного выбора стало
+        // больше, и это уже польза: выбирать не из пустоты.
+        if (pool.length > entry.alternatives.length) {
+          const attempt = this.buildMatch(entry.item, pool);
+          matches[index] = { ...attempt, notes: entry.notes.length > 0 ? entry.notes : attempt.notes };
+        }
+      } catch (err) {
+        console.warn('[PlaylistImporter] второй проход не удался:', entry.item.title, err);
+      }
+    };
+
+    for (let i = 0; i < pending.length; i += 3) {
+      await Promise.all(pending.slice(i, i + 3).map(retry));
+    }
+
+    return matches;
+  }
+
+  /**
+   * Что именно спрашивать у источников по одной строке чужого каталога.
+   *
+   * Здесь и лечится главная беда переноса: Spotify пишет «Bohemian Rhapsody -
+   * Remastered 2011» и «Save Your Tears (with Ariana Grande)», а в каталоге
+   * запись называется просто «Bohemian Rhapsody» и «Save Your Tears». Пока
+   * хвост версии и скобки с соавторами считались словами названия, правильный
+   * кандидат отбрасывался до подсчёта очков — замерено на живых запросах.
+   *
+   * Версию при этом не выбрасываем: если она обозначает другую запись (живую,
+   * ремикс, акустику), она идёт и в запрос, и в мерку совпадения.
+   */
+  private queryFor(item: ParsedPlaylistItem): {
+    query: string;
+    retries: string[];
+    base: string;
+    version: string | null;
+    artist: string;
+  } {
+    const artist = (item.artist || '')
+      .trim()
+      .replace(/\s*(?:feat\.|ft\.).*$/i, '')
+      .trim();
+    const title = (item.title || '').trim();
+    const noNoise = title
+      .replace(/\s*[([][^()[\]]*(?:official|music\s*video|audio|video|lyrics|hd|4k)[^()[\]]*[)\]]/gi, '')
+      .trim();
+    const { base, version } = splitCatalogTitle(noNoise);
+    const searchTitle = base || noNoise || title;
+
+    // Пометку версии добавляем в запрос, только если она означает другую
+    // запись: «Remastered 2011» ищет ту же песню, а «Live» — другую.
+    const wantsVariant = detectVariants(version || '').length > 0;
+    const head = artist && !searchTitle.toLowerCase().includes(artist.toLowerCase()) ? `${artist} ` : '';
+    const query = `${head}${searchTitle}${wantsVariant && version ? ` ${version}` : ''}`.trim();
+
+    const retries: string[] = [];
+    // Одно название без исполнителя: в чужих выгрузках имя пишут иначе
+    // («Kino» против «Кино»), и тогда запрос целиком уводит в сторону.
+    const titleOnly = `${searchTitle}${wantsVariant && version ? ` ${version}` : ''}`.trim();
+    if (titleOnly && titleOnly !== query) retries.push(titleOnly);
+    // Хвост мог оказаться частью настоящего названия — проверяем и так.
+    if (version && noNoise !== searchTitle) retries.push(`${head}${noNoise}`.trim());
+
+    return { query, retries, base: searchTitle, version, artist };
+  }
+
+  /**
+   * Кандидаты на одну строку: каталог песен, а не общая выдача.
+   *
+   * SoundCloud спрашиваем только когда каталог не ответил ничем. Раньше бюджет
+   * делился поровну, и половину мест занимали перезаливы — при поиске
+   * официального оригинала это чистая потеря мест.
+   */
+  private async searchCandidates(query: string): Promise<UnifiedTrack[]> {
+    if (!query) return [];
+    const songs = await searchAggregator.search(query, {
+      source: 'youtube',
+      limit: IMPORT_CANDIDATE_LIMIT
+    });
+    const found = songs?.results ?? [];
+    if (found.length > 0) return found;
+
+    const anywhere = await searchAggregator.search(query, { source: 'soundcloud', limit: 10 });
+    return anywhere?.results ?? [];
+  }
+
+  /** Оценивает кандидатов по одной строке и собирает отчёт. */
+  private buildMatch(item: ParsedPlaylistItem, candidates: UnifiedTrack[]): ImportMatch {
+    const plan = this.queryFor(item);
+    const target = {
+      // Пометка версии идёт в цель, чтобы `detectVariants` считал её
+      // запрошенной: иначе живую запись штрафовали бы за то, что её просили.
+      title: plan.version ? `${plan.base} ${plan.version}` : plan.base,
+      artist: plan.artist || undefined,
+      album: item.album,
+      duration: item.duration
+    };
+    const wantedVariants = detectVariants(plan.version || '');
+
+    const ranked = rankCandidates(target, candidates);
+    const covering = candidates.filter(
+      (candidate) => coversTitle(plan.base, candidate) && variantAllowed(wantedVariants, candidate)
+    );
+    const best = pickBestMatch(target, covering, MIN_IMPORT_MATCH_SCORE);
+
+    return {
+      item,
+      track: best ? best.candidate : null,
+      score: ranked[0]?.score ?? 0,
+      confidence: best ? best.confidence : null,
+      // Когда уверенного совпадения нет, полезнее знать, чем именно
+      // не подошёл лучший кандидат.
+      notes: best ? best.notes : ranked[0]?.notes ?? [],
+      // Лучший уже выбран — в альтернативы идут остальные.
+      alternatives: ranked
+        .filter((entry) => entry.candidate.id !== best?.candidate.id)
+        .slice(0, 5)
+        .map((entry) => entry.candidate)
+    };
   }
 
   /**

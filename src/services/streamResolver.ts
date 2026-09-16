@@ -3,6 +3,7 @@ import { youtubeService, YouTubeService } from './youtube';
 import { soundCloudService, SoundCloudService } from './soundcloud';
 import { detectVariants, normalizeForMatch, pickBestMatch } from './trackMatching';
 import { db, getSetting, setSetting } from './db';
+import { findLink, rememberLink } from './matchLinks';
 import { detectPlatform } from './nativeBridge';
 import { objectUrlFor, trackFileUrl } from './offlineFiles';
 import { needsLocalSource } from './audioProcessing';
@@ -508,6 +509,52 @@ export class StreamResolver {
   }
 
   /**
+   * Подтверждённая замена, если она уже известна.
+   *
+   * Смысл: подбор по названию — догадка, и повторять её при каждом отказе
+   * незачем. Один раз найденная и сыгравшая запись запоминается
+   * (`matchLinks`), и дальше отказ источника стоит одного запроса за ссылкой
+   * вместо поиска с перебором кандидатов.
+   *
+   * Неудача здесь не повод забывать связь: источник мог не ответить разово, а
+   * стереть подтверждённое соответствие из-за одной сетевой ошибки — значит
+   * начать гадать заново.
+   */
+  private async resolveKnownLink(
+    track: UnifiedTrack,
+    want: 'youtube' | 'soundcloud'
+  ): Promise<CachedStream | null> {
+    try {
+      const known = await findLink(track);
+      if (!known || known.source !== want || !known.originalId) return null;
+
+      const resolved =
+        want === 'youtube'
+          ? await withTimeout(
+              this.ytService.resolveStreamUrl(known.originalId),
+              sourceTimeoutMs(),
+              `youtube link ${known.originalId}`
+            )
+          : await withTimeout(
+              this.scService.resolveStreamUrl(known.originalId),
+              SUBSTITUTE_TIMEOUT_MS,
+              `soundcloud link ${known.originalId}`
+            );
+
+      if (!resolved || !resolved.streamUrl) return null;
+      // Отрывок вместо трека — не ответ, даже подтверждённый. Поле есть только
+      // у SoundCloud: у YouTube обрезанных потоков не бывает.
+      if ((resolved as { isPreview?: boolean }).isPreview) return null;
+
+      console.info(`[StreamResolver] Подтверждённая замена: "${known.title}" — ${known.artist}`);
+      return { ...resolved, substitutedFrom: want };
+    } catch (err) {
+      console.warn('[StreamResolver] подтверждённая связь не сыграла:', err);
+      return null;
+    }
+  }
+
+  /**
    * Finds the same song on SoundCloud and resolves that instead.
    *
    * Only accepts a candidate whose artist and title both match and whose length
@@ -517,6 +564,9 @@ export class StreamResolver {
    * @returns the substitute stream, or null when nothing close enough exists
    */
   private async resolveViaSoundCloud(track: UnifiedTrack): Promise<CachedStream | null> {
+    const known = await this.resolveKnownLink(track, 'soundcloud');
+    if (known) return known;
+
     try {
       const query = `${track.artist || ''} ${track.title || ''}`.trim();
       if (query.length < 3) return null;
@@ -546,6 +596,11 @@ export class StreamResolver {
       if (!resolved || !resolved.streamUrl) return null;
       // A 30-second preview is worse than an honest error message.
       if (resolved.isPreview) return null;
+
+      // Сыграло — значит для этой записи запасной источник известен. Пишем
+      // до возврата, а не вдогонку: запись крошечная, а незавершённая запись
+      // в фоне означала бы, что следующий отказ может ещё не знать ответа.
+      await rememberLink(track, match);
 
       return { ...resolved, substitutedFrom: 'soundcloud' };
     } catch (err) {
@@ -612,6 +667,9 @@ export class StreamResolver {
    * @returns поток замены или null, если ничего достаточно близкого нет
    */
   private async resolveViaYouTube(track: UnifiedTrack): Promise<CachedStream | null> {
+    const known = await this.resolveKnownLink(track, 'youtube');
+    if (known) return known;
+
     try {
       const query = `${track.artist || ''} ${track.title || ''}`.trim();
       if (query.length < 3) return null;
@@ -649,6 +707,11 @@ export class StreamResolver {
         `youtube substitute ${match.originalId}`
       );
       if (!resolved || !resolved.streamUrl) return null;
+
+      // Сыграло — значит для этой записи запасной источник известен. Пишем
+      // до возврата, а не вдогонку: запись крошечная, а незавершённая запись
+      // в фоне означала бы, что следующий отказ может ещё не знать ответа.
+      await rememberLink(track, match);
 
       return { ...resolved, substitutedFrom: 'youtube' };
     } catch (err) {

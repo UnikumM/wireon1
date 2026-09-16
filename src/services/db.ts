@@ -1,5 +1,5 @@
 import Dexie, { type Table } from 'dexie';
-import { UnifiedTrack, Playlist } from '../types/music';
+import { AudioSource, UnifiedTrack, Playlist } from '../types/music';
 import { UNTITLED_PLAYLIST } from '../utils/placeholders';
 import { EARLY_SKIP_SECONDS } from './tasteProfile';
 
@@ -144,6 +144,34 @@ export interface SubscriptionRecord {
   seenReleaseIds?: string[];
 }
 
+/**
+ * Запись, которую уже однажды нашли и подтвердили.
+ *
+ * Зачем: подбор по названию — это догадка, и повторять её каждый раз незачем.
+ * Человек выбрал вручную нужную песню при переносе, или замена при отказе
+ * SoundCloud однажды сыграла — значит для этой строки ответ известен, и в
+ * следующий раз гадать не нужно вовсе.
+ *
+ * Ключ — не идентификатор Spotify, а нормализованная тройка «исполнитель,
+ * название, длительность». Так одна таблица обслуживает и перенос из любого
+ * каталога (Spotify, Яндекс, VK, Apple), и подмену источника при
+ * воспроизведении, и не требует, чтобы чужой идентификатор вообще был.
+ */
+export interface MatchLinkRecord {
+  /** `linkKey()` — исполнитель + название + длительность с точностью до 5 с. */
+  key: string;
+  /** Где лежит подтверждённая запись. */
+  source: AudioSource;
+  /** Идентификатор у источника — без нашей приставки. */
+  originalId: string;
+  /** Как называется найденное: для отчёта и для отладки. */
+  title: string;
+  artist: string;
+  confirmedAt: number;
+  /** Выбрал человек руками — такую связь не перебивает ничто. */
+  manual?: boolean;
+}
+
 export class WireonDB extends Dexie {
   tracks!: Table<UnifiedTrack, string>;
   playlists!: Table<Playlist, string>;
@@ -155,6 +183,7 @@ export class WireonDB extends Dexie {
   lyrics!: Table<LyricsRecord, string>;
   plays!: Table<PlayEventRecord, number>;
   subscriptions!: Table<SubscriptionRecord, string>;
+  matchLinks!: Table<MatchLinkRecord, string>;
 
   constructor(dbName = 'WireonDB') {
     super(dbName);
@@ -198,6 +227,15 @@ export class WireonDB extends Dexie {
      */
     this.version(6).stores({
       subscriptions: 'key, subscribedAt, checkedAt'
+    });
+    /*
+     * Подтверждённые соответствия «строка чужого каталога → наша запись».
+     *
+     * Индекс по `confirmedAt` нужен только чистке: связей копится по одной на
+     * трек, и запрашивают их всегда по ключу.
+     */
+    this.version(7).stores({
+      matchLinks: 'key, confirmedAt'
     });
   }
 }
