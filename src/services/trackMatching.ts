@@ -135,6 +135,18 @@ export function stripNoise(title: string | undefined | null): string {
  * Jacques Lu Cont Mix», «Song - Extended Club Edit». Отдельным выражением,
  * потому что здесь опознаётся конец строки, а не её начало.
  */
+/*
+ * Третий вид хвоста: пометка в скобках — «Wonderwall (Remastered)»,
+ * «Tequila (Original)», «Numb (Live)».
+ *
+ * Замерено на выборке из 180 строк Spotify: без этого случая три записи
+ * уходили в «не нашли», хотя правильный кандидат стоял в выдаче первым и
+ * набирал 130 из 130 — слова «remastered» и «original» просто не могли
+ * найтись у записи, которая в каталоге называется «Wonderwall».
+ */
+const VERSION_PAREN =
+  /\s*[([]((?:\d{4}\s+)?(?:remaster(?:ed)?|re-?recorded|original|mono|stereo|live|radio\s+edit|single\s+version|album\s+version|acoustic|instrumental|remix|edit|demo|deluxe|expanded|anniversary|version)[^)\]]*)[)\]]\s*$/i;
+
 const VERSION_TAIL_SUFFIX = /\s+-\s+([\w\s.'()-]*\b(?:remix|mix|edit|version|remaster(?:ed)?|dub|bootleg)\s*)$/i;
 
 const VERSION_TAIL =
@@ -174,7 +186,7 @@ export function splitCatalogTitle(raw: string | undefined | null): CatalogTitle 
   let base = title.replace(COLLABORATORS, ' ').replace(/\s+/g, ' ').trim();
 
   let version: string | null = null;
-  const tail = VERSION_TAIL.exec(base) || VERSION_TAIL_SUFFIX.exec(base);
+  const tail = VERSION_TAIL.exec(base) || VERSION_TAIL_SUFFIX.exec(base) || VERSION_PAREN.exec(base);
   if (tail) {
     version = tail[1].trim();
     base = base.slice(0, tail.index).trim();
@@ -302,18 +314,34 @@ export function scoreCandidate(target: MatchTarget, candidate: UnifiedTrack): Ma
   // --- Artist ----------------------------------------------------------------
   let artistMatched: boolean | null = null;
   if (target.artist) {
-    const artistRatio = Math.max(
+    // Имя в отдельном поле — надёжное свидетельство.
+    const byField = Math.max(
       overlapRatio(target.artist, candidate.artist || ''),
-      overlapRatio(target.artist, candidateSplit.artist || ''),
-      // Исполнитель часто сидит внутри названия загрузки («Артист — Песня»),
-      // а в поле артиста стоит имя канала. Поэтому сверяем и с названием.
-      overlapRatio(target.artist, candidate.title || '')
+      overlapRatio(target.artist, candidateSplit.artist || '')
     );
-    score += artistRatio * 40;
+    // Исполнитель часто сидит внутри названия загрузки («Артист — Песня»),
+    // а в поле артиста стоит имя канала. Поэтому сверяем и с названием.
+    const byTitle = overlapRatio(target.artist, candidate.title || '');
+    score += Math.max(byField, byTitle) * 40;
     // У заглушек вроде «Various Artists» сверять нечего: и вывод «не совпадает»
     // в отчёте об импорте был бы не подсказкой, а шумом на каждой строке.
     if (!isPlaceholderArtist(target.artist)) {
-      artistMatched = artistRatio >= ARTIST_MATCH_FLOOR;
+      /*
+       * Для вердикта берём только поле, не название. Разница существенная, и
+       * вот почему.
+       *
+       * Каталог иногда подписывает песню не исполнителем, а альбомом: по
+       * запросу «Coldplay Yellow» приходит «Yellow — Parachutes» (замерено
+       * 2026-09-16, там же «The Scientist — A Rush of Blood to the Head»). У
+       * такой записи поле не сходится. А рядом лежит чужая загрузка «Yellow
+       * (Coldplay) [Slowed Down Version]», где имя стоит в названии.
+       *
+       * Пока название считалось свидетельством, «исполнитель нашёлся» объявлял
+       * именно эта чужая загрузка — и включался относительный штраф, который
+       * сбивал настоящую запись с 90 до 45, ниже порога. В итоге строка уходила
+       * в «не нашли», хотя правильный ответ стоял в выдаче первым.
+       */
+      artistMatched = byField >= ARTIST_MATCH_FLOOR;
       if (!artistMatched) notes.push('исполнитель не совпадает');
     }
   }

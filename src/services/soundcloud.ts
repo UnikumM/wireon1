@@ -212,10 +212,43 @@ export function isDrmLockedTranscodings(transcodings: any[]): boolean {
 }
 
 /**
+ * Состояние проверки приметы — на один запуск приложения.
+ *
+ * Примета сильная, но это примета, а не документ: `api-v2` нигде не описан, и
+ * SoundCloud вправе поменять состав дорожек, ничего никому не сказав. Поэтому
+ * один раз за запуск мы всё-таки ходим за «приманкой» по-настоящему:
+ *
+ *   • ответила 404 — примета подтверждена, дальше отказываем сразу;
+ *   • неожиданно сыграла — примета отключается до конца запуска, и все такие
+ *     записи снова проверяются обычным порядком.
+ *
+ * В настройках это не хранится нарочно: цена ошибки в обе стороны — один
+ * запрос, а запомненное «примета верна» пережило бы то самое изменение на
+ * стороне SoundCloud, ради которого проверка и заведена.
+ */
+const drmProbe = { done: false, trusted: true };
+
+/** Для тестов: вернуть проверку приметы в исходное состояние. */
+export function resetDrmProbeForTests(): void {
+  drmProbe.done = false;
+  drmProbe.trusted = true;
+}
+
+/**
  * Picks the best progressive transcoding, falling back to the best HLS one.
  */
 export function pickBestTranscoding(transcodings: any[]): any | null {
   return rankTranscodings(transcodings)[0] ?? null;
+}
+
+export interface SoundCloudResolveOptions {
+  /**
+   * Для этой записи уже известен рабочий запасной источник.
+   *
+   * Тогда проверять примету не на чем: уйти на подтверждённый источник дешевле
+   * и надёжнее, чем выяснять, не поменялся ли состав дорожек у SoundCloud.
+   */
+  preferKnownFallback?: boolean;
 }
 
 export class SoundCloudService {
@@ -794,7 +827,8 @@ export class SoundCloudService {
   public async resolveStreamUrl(
     trackId: string,
     transcodings?: any[],
-    trackAuthorization?: string
+    trackAuthorization?: string,
+    options?: SoundCloudResolveOptions
   ): Promise<SoundCloudStreamResult> {
     if (!trackId) {
       throw new Error('Missing SoundCloud trackId');
@@ -838,7 +872,13 @@ export class SoundCloudService {
       tried.add(clientId);
 
       try {
-        const resolved = await this.resolveWithClientId(trackId, clientId, transcodings, trackAuthorization);
+        const resolved = await this.resolveWithClientId(
+          trackId,
+          clientId,
+          transcodings,
+          trackAuthorization,
+          options
+        );
         // Ключ доказал, что он рабочий: запоминаем именно его.
         this.noteClientIdWorked(clientId);
         this.setClientId(clientId);
@@ -868,7 +908,8 @@ export class SoundCloudService {
     trackId: string,
     clientId: string,
     transcodings?: any[],
-    trackAuthorization?: string
+    trackAuthorization?: string,
+    options?: SoundCloudResolveOptions
   ): Promise<SoundCloudStreamResult> {
     let mediaTranscodings = transcodings;
     let authorization = trackAuthorization;
@@ -897,9 +938,18 @@ export class SoundCloudService {
       throw new Error(`No transcodings found for SoundCloud track ${trackId}`);
     }
 
-    // Загрузка лейбла: настоящие дорожки зашифрованы, незашифрованная —
-    // приманка, которая ответит 404. Ходить за ней незачем, ответ известен.
-    if (isDrmLockedTranscodings(mediaTranscodings)) {
+    /*
+     * Загрузка лейбла: настоящие дорожки зашифрованы, незашифрованная —
+     * приманка, которая отвечает 404.
+     *
+     * Отказываем сразу в двух случаях: примета уже проверена в этом запуске,
+     * либо ждать нечего — для этой записи известен рабочий запасной источник, и
+     * лучше уйти на него, чем тратить на проверку чужое время. Иначе делаем
+     * настоящую попытку и запоминаем, чем она кончилась.
+     */
+    const drmLocked = isDrmLockedTranscodings(mediaTranscodings);
+    const skipProbe = drmProbe.done || options?.preferKnownFallback === true;
+    if (drmLocked && drmProbe.trusted && skipProbe) {
       throw new Error(
         `SoundCloud track ${trackId} is only offered as DRM-protected audio (label upload), which cannot be played here`
       );
@@ -969,6 +1019,14 @@ export class SoundCloudService {
           continue;
         }
 
+        if (drmLocked) {
+          // Примета не сработала: приманка сыграла. Значит состав дорожек у
+          // SoundCloud изменился — до конца запуска верим только попыткам.
+          drmProbe.done = true;
+          drmProbe.trusted = false;
+          console.info('[SoundCloudService] примета «загрузка лейбла» не подтвердилась — отключена до перезапуска');
+        }
+
         return {
           streamUrl,
           format: isHls || looksLikeManifest ? 'hls' : 'mp3',
@@ -979,6 +1037,14 @@ export class SoundCloudService {
       } catch (err) {
         attempts.push(`${label}: ${(err as Error).message}`);
       }
+    }
+
+    if (drmLocked && !sawUnauthorized) {
+      // Проверили по-настоящему: приманка не сыграла. Дальше отказываем сразу.
+      drmProbe.done = true;
+      throw new Error(
+        `SoundCloud track ${trackId} is only offered as DRM-protected audio (label upload), which cannot be played here`
+      );
     }
 
     const detail = `track ${trackId}: no transcoding produced a playable URL (${attempts.join('; ')})`;

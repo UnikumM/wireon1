@@ -12,14 +12,18 @@
  *     записи известен рабочий запасной источник, и в следующий раз искать
  *     заново незачем.
  *
- * Ключ нарочно не идентификатор чужого сервиса, а нормализованная тройка
- * «исполнитель, название, длительность»: так одна таблица обслуживает перенос
- * из любого каталога и подмену при воспроизведении, и работает даже там, где
- * чужого идентификатора у нас нет вовсе (разбор публичной страницы его не даёт).
+ * Ключ нарочно не идентификатор чужого сервиса, а нормализованное
+ * «исполнитель, название, версия, длительность»: так одна таблица обслуживает
+ * перенос из любого каталога и подмену при воспроизведении, и работает даже
+ * там, где чужого идентификатора у нас нет вовсе (разбор публичной страницы его
+ * не даёт). Идентификатор, когда он есть, лежит рядом со связью.
+ *
+ * Связь не приговор. Ручная переписывается ручной и снимается из отчёта о
+ * переносе; автоматическая снимается сама, как только перестала играть.
  */
 
 import { db, MatchLinkRecord } from './db';
-import { normalizeForMatch } from './trackMatching';
+import { detectVariants, normalizeForMatch, splitCatalogTitle } from './trackMatching';
 import { AudioSource, UnifiedTrack } from '../types/music';
 
 /**
@@ -39,23 +43,36 @@ export interface LinkTarget {
   title: string;
   artist?: string;
   duration?: number;
+  /** Идентификатор строки у чужого каталога, если он известен. */
+  sourceId?: string;
+  /** Откуда эта строка: `spotify`, `yandex`, … Хранится рядом с ключом. */
+  sourcePlatform?: string;
 }
 
 /**
  * Ключ связи. Пустая строка означает «ключа нет» — связывать нечего.
  *
- * Длительность входит в ключ, но необязательна: у разбора публичных страниц её
- * часто нет, и без неё ключ всё равно осмысленный — просто чуть более общий.
+ * В ключ входит версия записи, а не только название. Иначе «Numb» и
+ * «Numb - Live» делили бы одну связь, и подтверждённый однажды студийный
+ * вариант молча отвечал бы на просьбу о живом — то есть подтверждённая связь
+ * сама стала бы источником подмены. Версия берётся не дословно: сравниваются
+ * пометки (`live`, `remix`, `acoustic`), поэтому «Remastered 2011» и «2011
+ * Remaster» остаются одной и той же записью, а «Live» — другой.
+ *
+ * Длительность необязательна: у разбора публичных страниц её часто нет, и без
+ * неё ключ всё равно осмысленный — просто чуть более общий.
  */
 export function linkKey(target: LinkTarget): string {
-  const title = normalizeForMatch(target.title);
+  const { base, version } = splitCatalogTitle(target.title);
+  const title = normalizeForMatch(base);
   if (!title) return '';
   const artist = normalizeForMatch(target.artist);
+  const variant = detectVariants(version || '').sort().join('+');
   const bucket =
     typeof target.duration === 'number' && Number.isFinite(target.duration) && target.duration > 0
       ? String(Math.round(target.duration / DURATION_BUCKET_S))
       : '';
-  return `${artist}:::${title}:::${bucket}`;
+  return `${artist}:::${title}${variant ? '|' + variant : ''}:::${bucket}`;
 }
 
 /** Подтверждённая запись для этой строки, или null. Никогда не бросает. */
@@ -95,7 +112,12 @@ export async function rememberLink(
       title: track.title,
       artist: track.artist,
       confirmedAt: Date.now(),
-      manual: manual || existing?.manual === true
+      manual: manual || existing?.manual === true,
+      // Идентификатор чужого каталога кладём рядом, когда он есть: сам ключ
+      // собран из названия, и по нему уже не восстановить, о какой именно
+      // строке шла речь.
+      foreignId: target.sourceId || existing?.foreignId,
+      foreignPlatform: target.sourcePlatform || existing?.foreignPlatform
     });
     await prune();
   } catch (err) {

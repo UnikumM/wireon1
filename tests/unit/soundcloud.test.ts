@@ -7,6 +7,7 @@ import {
   rankTranscodings,
   getSoundCloudStreamExpiry,
   isDrmLockedTranscodings,
+  resetDrmProbeForTests,
   SoundCloudAuthError
 } from '../../src/services/soundcloud';
 
@@ -93,6 +94,66 @@ describe('Загрузка лейбла опознаётся до похода �
 
   it('пустой список ни о чём не говорит', () => {
     expect(isDrmLockedTranscodings([])).toBe(false);
+  });
+});
+
+describe('Примета про загрузки лейблов проверяется, а не считается законом', () => {
+  /*
+   * `api-v2` нигде не описан, и состав дорожек SoundCloud вправе поменять. Поэтому
+   * один раз за запуск примета проверяется по-настоящему: вдруг «приманка»
+   * теперь играет.
+   */
+  const LABEL = [DRM_HLS, DRM_HLS, DRM_DECOY];
+
+  beforeEach(() => {
+    resetDrmProbeForTests();
+  });
+
+  afterEach(() => {
+    resetDrmProbeForTests();
+    vi.restoreAllMocks();
+  });
+
+  it('первая такая запись всё-таки проверяется, вторая уже нет', async () => {
+    const service = new SoundCloudService({ clientIds: ['mock_client_1'], hlsSupported: true });
+    const fetchSpy = vi.fn().mockResolvedValue({ ok: false, status: 404 } as any);
+    globalThis.fetch = fetchSpy as any;
+
+    await expect(service.resolveStreamUrl('718846078', LABEL)).rejects.toThrow(/DRM-protected/);
+    expect(fetchSpy).toHaveBeenCalledTimes(1);
+
+    // Примета подтвердилась — второй раз ходить незачем.
+    await expect(service.resolveStreamUrl('718846079', LABEL)).rejects.toThrow(/DRM-protected/);
+    expect(fetchSpy).toHaveBeenCalledTimes(1);
+  });
+
+  it('если приманка вдруг сыграла — примета отключается до перезапуска', async () => {
+    const service = new SoundCloudService({ clientIds: ['mock_client_1'], hlsSupported: true });
+    const fetchSpy = vi.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: async () => ({ url: 'https://cf-media.sndcdn.com/stream/718846078.128.mp3' })
+    } as any);
+    globalThis.fetch = fetchSpy as any;
+
+    const first = await service.resolveStreamUrl('718846078', LABEL);
+    expect(first.streamUrl).toContain('sndcdn.com');
+
+    // Раз состав дорожек уже не тот, следующая такая запись тоже проверяется.
+    const second = await service.resolveStreamUrl('718846079', LABEL);
+    expect(second.streamUrl).toContain('sndcdn.com');
+    expect(fetchSpy).toHaveBeenCalledTimes(2);
+  });
+
+  it('когда запасной источник известен, проверку не тратим', async () => {
+    const service = new SoundCloudService({ clientIds: ['mock_client_1'], hlsSupported: true });
+    const fetchSpy = vi.fn();
+    globalThis.fetch = fetchSpy as any;
+
+    await expect(
+      service.resolveStreamUrl('718846078', LABEL, undefined, { preferKnownFallback: true })
+    ).rejects.toThrow(/DRM-protected/);
+    expect(fetchSpy).not.toHaveBeenCalled();
   });
 });
 

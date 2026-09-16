@@ -27,7 +27,7 @@ import {
 } from '../../services/playlistImporter';
 import { parsePlaylistFile, PlaylistFileError } from '../../services/playlistTransfer';
 import { rankCandidates } from '../../services/trackMatching';
-import { rememberLink } from '../../services/matchLinks';
+import { forgetLink, rememberLink } from '../../services/matchLinks';
 import { searchAggregator } from '../../services/aggregator';
 import { UnifiedTrack } from '../../types/music';
 import { useUIStore } from '../../store/useUIStore';
@@ -232,6 +232,30 @@ export const ImportPlaylistModal: React.FC<ImportPlaylistModalProps> = ({
   const unmatched = useMemo(
     () => matches.map((match, index) => ({ match, index })).filter((entry) => !entry.match.track),
     [matches]
+  );
+
+  /**
+   * Строки, взятые из памяти прошлых подтверждений.
+   *
+   * Показываются отдельно, чтобы подтверждённое соответствие не превращалось в
+   * необратимое: если однажды выбрали не ту запись, это видно здесь и снимается
+   * одной кнопкой.
+   */
+  const remembered = useMemo(
+    () => matches.map((match, index) => ({ match, index })).filter((entry) => entry.match.fromLink),
+    [matches]
+  );
+  const [forgotten, setForgotten] = useState<Record<number, boolean>>({});
+
+  const handleForgetLink = useCallback(
+    async (index: number) => {
+      const item = matches[index]?.item;
+      if (!item) return;
+      await forgetLink(item);
+      setForgotten((prev) => ({ ...prev, [index]: true }));
+      showToast('Соответствие забыто — при следующем переносе поищем заново', 'info');
+    },
+    [matches, showToast]
   );
 
   // Reset modal state when opened/closed
@@ -1158,6 +1182,79 @@ export const ImportPlaylistModal: React.FC<ImportPlaylistModalProps> = ({
                       </div>
                     );
                   })}
+                </div>
+              </div>
+            )}
+
+            {remembered.length > 0 && (
+              <div
+                style={{
+                  border: '1px solid var(--border-subtle)',
+                  borderRadius: 'var(--radius-md)',
+                  backgroundColor: 'var(--surface-2)',
+                  overflow: 'hidden'
+                }}
+                data-testid="import-remembered-list"
+              >
+                <div
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 'var(--space-2)',
+                    padding: 'var(--space-2) var(--space-3)',
+                    borderBottom: '1px solid var(--border-subtle)',
+                    fontSize: 'var(--text-xs)',
+                    color: 'var(--text-secondary)'
+                  }}
+                >
+                  <Check size={ICON.sm} style={{ color: 'var(--success)' }} />
+                  <span>
+                    {pluralize(remembered.length, 'трек взят', 'трека взяты', 'треков взяты')} по прошлым
+                    подтверждениям. Если запись не та — забудьте выбор.
+                  </span>
+                </div>
+
+                <div className="scrollbar-thin" style={{ maxHeight: '200px', overflowY: 'auto' }}>
+                  {remembered.map(({ match, index }) => (
+                    <div
+                      key={index}
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 'var(--space-2)',
+                        padding: 'var(--space-2) var(--space-3)',
+                        borderBottom: '1px solid var(--border-subtle)'
+                      }}
+                      data-testid={`import-remembered-row-${index}`}
+                    >
+                      <div style={{ minWidth: 0, flex: 1 }}>
+                        <div className="text-truncate" style={{ fontSize: 'var(--text-sm)' }}>
+                          {match.item.title}
+                        </div>
+                        <div
+                          className="text-truncate"
+                          style={{ fontSize: 'var(--text-xs)', color: 'var(--text-muted)' }}
+                        >
+                          {match.track?.title} — {match.track?.artist}
+                          {match.fromLink === 'manual' ? ' · выбрано вами' : ' · найдено раньше'}
+                        </div>
+                      </div>
+                      {forgotten[index] ? (
+                        <span style={{ fontSize: 'var(--text-xs)', color: 'var(--text-muted)', flexShrink: 0 }}>
+                          Забыто
+                        </span>
+                      ) : (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => void handleForgetLink(index)}
+                          data-testid={`import-forget-link-${index}`}
+                        >
+                          Забыть выбор
+                        </Button>
+                      )}
+                    </div>
+                  ))}
                 </div>
               </div>
             )}

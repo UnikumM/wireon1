@@ -777,6 +777,69 @@ describe('Unit: Playlist Importer Service (M5)', () => {
   // 6. UI Modal: ImportPlaylistModal
   // =========================================================================
   describe('6. ImportPlaylistModal UI Component', () => {
+    it('подтверждённое соответствие видно в отчёте и снимается кнопкой', async () => {
+      /*
+       * Подтверждённая связь не должна становиться необратимой: если однажды
+       * выбрали не ту запись, перенос будет молча повторять этот выбор во всех
+       * следующих плейлистах. Поэтому такие строки показываются отдельно и
+       * снимаются одной кнопкой.
+       */
+      const { rememberLink, findLink } = await import('../../src/services/matchLinks');
+      const { db } = await import('../../src/services/db');
+      await db.matchLinks.clear();
+
+      const remembered = { title: 'Tech Noir', artist: 'GUNSHIP', duration: 297 };
+      await rememberLink(
+        remembered,
+        createMockTrack({ id: 'yt_chosen', originalId: 'chosen1', title: 'Tech Noir', artist: 'GUNSHIP', duration: 297 }),
+        true
+      );
+
+      installFetchMock([
+        {
+          match: 'open.spotify.com/playlist/test',
+          respond: () =>
+            jsonResponse({
+              title: 'Synthwave Night Drive',
+              items: [{ title: 'Tech Noir', artist: 'GUNSHIP', duration: 297 }]
+            })
+        }
+      ]);
+
+      const searchSpy = vi.spyOn(searchAggregator, 'search').mockResolvedValue({
+        results: [],
+        sources: { youtube: 0, soundcloud: 0 }
+      });
+
+      render(
+        React.createElement(ImportPlaylistModal, {
+          isOpen: true,
+          onClose: vi.fn(),
+          onImported: vi.fn()
+        })
+      );
+
+      fireEvent.change(screen.getByTestId('import-url-input'), {
+        target: { value: 'https://open.spotify.com/playlist/test' }
+      });
+      fireEvent.click(screen.getByTestId('fetch-playlist-btn'));
+      await waitFor(() => {
+        expect(screen.getByTestId('preview-playlist-title')).toBeInTheDocument();
+      });
+      fireEvent.click(screen.getByTestId('start-import-btn'));
+      await waitFor(() => {
+        expect(screen.getByTestId('import-remembered-list')).toBeInTheDocument();
+      });
+
+      // Искать не ходили вовсе: ответ для этой строки уже known.
+      expect(searchSpy).not.toHaveBeenCalled();
+
+      fireEvent.click(screen.getByTestId('import-forget-link-0'));
+      await waitFor(async () => {
+        expect(await findLink(remembered)).toBeNull();
+      });
+    });
+
     it('renders input, auto-detects platform badge, previews tracks, and runs import', async () => {
       const handleClose = vi.fn();
       const handleImported = vi.fn();

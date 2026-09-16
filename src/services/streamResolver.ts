@@ -1,9 +1,9 @@
 import { UnifiedTrack } from '../types/music';
 import { youtubeService, YouTubeService } from './youtube';
 import { soundCloudService, SoundCloudService } from './soundcloud';
-import { detectVariants, normalizeForMatch, pickBestMatch } from './trackMatching';
+import { detectVariants, normalizeForMatch, rankCandidates } from './trackMatching';
 import { db, getSetting, setSetting } from './db';
-import { findLink, rememberLink } from './matchLinks';
+import { findLink, forgetLink, rememberLink } from './matchLinks';
 import { detectPlatform } from './nativeBridge';
 import { objectUrlFor, trackFileUrl } from './offlineFiles';
 import { needsLocalSource } from './audioProcessing';
@@ -380,9 +380,15 @@ export class StreamResolver {
         }
       }
     } else if (track.source === 'soundcloud') {
+      // Есть ли куда уйти, если SoundCloud откажет. Знать это нужно заранее:
+      // при подтверждённом запасном источнике SoundCloud не тратит время на
+      // проверку своей приметы про загрузки лейблов.
+      const fallbackKnown = (await findLink(track).catch(() => null))?.source === 'youtube';
       try {
         result = await withTimeout(
-          this.scService.resolveStreamUrl(track.originalId),
+          this.scService.resolveStreamUrl(track.originalId, undefined, undefined, {
+            preferKnownFallback: fallbackKnown
+          }),
           sourceTimeoutMs(),
           `soundcloud ${track.originalId}`
         );
@@ -516,9 +522,11 @@ export class StreamResolver {
    * (`matchLinks`), и дальше отказ источника стоит одного запроса за ссылкой
    * вместо поиска с перебором кандидатов.
    *
-   * Неудача здесь не повод забывать связь: источник мог не ответить разово, а
-   * стереть подтверждённое соответствие из-за одной сетевой ошибки — значит
-   * начать гадать заново.
+   * Что делать с неудачей, зависит от того, кто связь подтвердил. Выбранную
+   * человеком оставляем: он сказал, какая запись верна, и разовое молчание
+   * источника этого не отменяет. Найденную нами — снимаем: она была догадкой,
+   * которая однажды сыграла, и если играть перестала, честнее поискать заново,
+   * чем возвращаться к ней при каждом отказе.
    */
   private async resolveKnownLink(
     track: UnifiedTrack,
@@ -541,16 +549,33 @@ export class StreamResolver {
               `soundcloud link ${known.originalId}`
             );
 
-      if (!resolved || !resolved.streamUrl) return null;
+      if (!resolved || !resolved.streamUrl) {
+        await this.dropAutomaticLink(track);
+        return null;
+      }
       // Отрывок вместо трека — не ответ, даже подтверждённый. Поле есть только
       // у SoundCloud: у YouTube обрезанных потоков не бывает.
-      if ((resolved as { isPreview?: boolean }).isPreview) return null;
+      if ((resolved as { isPreview?: boolean }).isPreview) {
+        await this.dropAutomaticLink(track);
+        return null;
+      }
 
       console.info(`[StreamResolver] Подтверждённая замена: "${known.title}" — ${known.artist}`);
       return { ...resolved, substitutedFrom: want };
     } catch (err) {
       console.warn('[StreamResolver] подтверждённая связь не сыграла:', err);
+      await this.dropAutomaticLink(track);
       return null;
+    }
+  }
+
+  /** Снимает связь, если её подтвердили не руками. Ручную не трогает. */
+  private async dropAutomaticLink(track: UnifiedTrack): Promise<void> {
+    try {
+      const known = await findLink(track);
+      if (known && !known.manual) await forgetLink(track);
+    } catch (err) {
+      console.warn('[StreamResolver] связь снять не удалось:', err);
     }
   }
 
@@ -636,20 +661,29 @@ export class StreamResolver {
       .split(' ')
       .filter((word) => word.length >= 3);
 
-    const sameRecording = candidates.filter((candidate) => {
+    /*
+     * Оцениваем всех, отбираем после — по той же причине, что и при переносе.
+     *
+     * Штраф за чужого исполнителя относительный и считается по всему набору
+     * кандидатов. Если сначала отфильтровать, а потом оценивать, отсев
+     * правильной записи заодно снимает штраф со всех остальных — и чужая песня
+     * с похожим названием получает проходной балл.
+     */
+    const fits = (candidate: UnifiedTrack): boolean => {
       const haystack = normalizeForMatch(`${candidate.title || ''} ${candidate.artist || ''}`);
       const titleCovered = wantedWords.every((word) => haystack.includes(word));
       const sameVariant = detectVariants(`${candidate.title || ''} ${candidate.artist || ''}`).every((marker) =>
         wantedVariants.has(marker)
       );
       return titleCovered && sameVariant;
-    });
-    if (sameRecording.length === 0) return null;
+    };
 
-    const best = pickBestMatch(
+    const ranked = rankCandidates(
       { title: track.title, artist: track.artist, duration: track.duration },
-      sameRecording,
-      SUBSTITUTE_MIN_SCORE
+      candidates
+    );
+    const best = ranked.find(
+      (entry) => entry.score >= SUBSTITUTE_MIN_SCORE && fits(entry.candidate)
     );
     return best ? best.candidate : null;
   }

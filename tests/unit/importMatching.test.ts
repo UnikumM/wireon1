@@ -23,7 +23,7 @@ import { PlaylistImporterService, type ParsedPlaylistItem } from '../../src/serv
 import { searchAggregator } from '../../src/services/aggregator';
 import { splitCatalogTitle, scoreCandidate } from '../../src/services/trackMatching';
 import { db } from '../../src/services/db';
-import { findLink, linkKey, rememberLink } from '../../src/services/matchLinks';
+import { findLink, forgetLink, linkKey, rememberLink } from '../../src/services/matchLinks';
 import { UnifiedTrack } from '../../src/types/music';
 
 function track(partial: Partial<UnifiedTrack> & { title: string }): UnifiedTrack {
@@ -234,5 +234,86 @@ describe('Память о подтверждённых соответствия�
 
   it('строка без названия ключа не имеет', () => {
     expect(linkKey({ title: '   ' })).toBe('');
+  });
+
+  it('живая запись и студийная — разные связи', () => {
+    // Иначе подтверждённая однажды студийная версия молча отвечала бы на
+    // просьбу о живой: связь сама стала бы источником подмены.
+    expect(linkKey({ title: 'Numb', artist: 'Linkin Park', duration: 185 })).not.toBe(
+      linkKey({ title: 'Numb - Live', artist: 'Linkin Park', duration: 185 })
+    );
+  });
+
+  it('ремастер и обычное издание — одна связь', () => {
+    // «Remastered 2011» не делает запись другой: пометки версии у неё нет.
+    expect(linkKey({ title: 'Bohemian Rhapsody - Remastered 2011', artist: 'Queen', duration: 354 })).toBe(
+      linkKey({ title: 'Bohemian Rhapsody', artist: 'Queen', duration: 354 })
+    );
+  });
+
+  it('идентификатор чужого каталога хранится рядом со связью', async () => {
+    const target = {
+      title: 'Blinding Lights',
+      artist: 'The Weeknd',
+      duration: 200,
+      sourceId: '0VjIjW4GlUZAMYd2vXMi3b',
+      sourcePlatform: 'spotify'
+    };
+    await rememberLink(target, track({ title: 'Blinding Lights', originalId: 'bl1' }), true);
+
+    const link = await findLink(target);
+    expect(link?.foreignId).toBe('0VjIjW4GlUZAMYd2vXMi3b');
+    expect(link?.foreignPlatform).toBe('spotify');
+  });
+
+  it('связь можно забыть', async () => {
+    const target = { title: 'Song', artist: 'X', duration: 180 };
+    await rememberLink(target, track({ title: 'Правильная', originalId: 'right' }), true);
+    await forgetLink(target);
+    expect(await findLink(target)).toBeNull();
+  });
+});
+
+describe('Оценка идёт до отбора, а не после', () => {
+  let service: PlaylistImporterService;
+
+  beforeEach(async () => {
+    service = new PlaylistImporterService();
+    await db.matchLinks.clear();
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('чужой исполнитель не проходит, когда своего отсеял фильтр названия', async () => {
+    /*
+     * Поймано на живой выборке из 180 строк Spotify: строке «Do For Love» (LP
+     * Giobbi и другие) подставлялась «Do For Love (feat. AMEE)» — B Ray.
+     *
+     * Механика: запись нужного исполнителя называлась иначе и отсеивалась по
+     * названию, а вместе с ней исчезал повод для штрафа за чужого исполнителя —
+     * штраф-то относительный. Оставшаяся чужая запись набирала проходной балл.
+     */
+    vi.spyOn(searchAggregator, 'search').mockImplementation(async () => {
+      const results = [
+        // Свой исполнитель, но название другое — отбор по названию его срежет.
+        track({
+          id: 'yt_right',
+          title: 'Do For Love (Extended Mix)',
+          artist: 'LP Giobbi',
+          duration: 320
+        }),
+        // Чужой исполнитель, зато название подходит дословно.
+        track({ id: 'yt_wrong', title: 'Do For Love (feat. AMEE)', artist: 'B Ray', duration: 190 })
+      ];
+      return { results, sources: { youtube: results.length, soundcloud: 0 } };
+    });
+
+    const [match] = await service.matchImportedTracks([
+      { title: 'Do For Love', artist: 'LP Giobbi, Bruno Be, Carola', duration: 194 }
+    ]);
+
+    expect(match.track).toBeNull();
   });
 });

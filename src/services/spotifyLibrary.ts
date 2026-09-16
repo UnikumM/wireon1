@@ -114,7 +114,11 @@ function toItem(track: any): ParsedPlaylistItem | null {
     artist,
     duration: typeof track.duration_ms === 'number' ? Math.round(track.duration_ms / 1000) : undefined,
     album: typeof track?.album?.name === 'string' ? track.album.name : undefined,
-    artworkUrl: Array.isArray(track?.album?.images) && track.album.images[0]?.url ? String(track.album.images[0].url) : undefined
+    artworkUrl: Array.isArray(track?.album?.images) && track.album.images[0]?.url ? String(track.album.images[0].url) : undefined,
+    // Идентификатор Spotify кладём рядом с подтверждённой связью: ключом он не
+    // служит, но по нему видно, откуда она взялась.
+    sourceId: typeof track.id === 'string' ? track.id : undefined,
+    sourcePlatform: 'spotify'
   };
 }
 
@@ -122,7 +126,7 @@ function toItem(track: any): ParsedPlaylistItem | null {
 export async function fetchPlaylistItems(token: string, playlistId: string): Promise<ParsedPlaylistItem[]> {
   const raw = await collect<any>(
     token,
-    `/playlists/${encodeURIComponent(playlistId)}/tracks?limit=${PAGE_SIZE}&fields=next,items(track(name,type,duration_ms,artists(name),album(name,images)))`
+    `/playlists/${encodeURIComponent(playlistId)}/tracks?limit=${PAGE_SIZE}&fields=next,items(track(id,name,type,duration_ms,artists(name),album(name,images)))`
   );
   return raw.map((entry) => toItem(entry?.track)).filter((item): item is ParsedPlaylistItem => item !== null);
 }

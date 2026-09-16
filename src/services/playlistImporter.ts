@@ -20,7 +20,6 @@ import { UNKNOWN_ARTIST, UNKNOWN_TITLE } from '../utils/placeholders';
 import {
   detectVariants,
   normalizeForMatch,
-  pickBestMatch,
   rankCandidates,
   splitCatalogTitle,
   type MatchConfidence
@@ -35,6 +34,10 @@ export interface ParsedPlaylistItem {
   duration?: number; // duration in seconds
   album?: string;
   artworkUrl?: string;
+  /** Идентификатор трека у чужого каталога, когда источник его даёт. */
+  sourceId?: string;
+  /** Чей это идентификатор: `spotify`, `yandex`, … */
+  sourcePlatform?: string;
 }
 
 export interface ParsedPlaylist {
@@ -81,6 +84,14 @@ export interface ImportMatch {
   notes: string[];
   /** Остальные кандидаты, лучший первым, для ручного выбора. */
   alternatives: UnifiedTrack[];
+  /**
+   * Пара взята из памяти подтверждений, а не найдена сейчас.
+   *
+   * `manual` — человек выбирал эту строку сам, `auto` — однажды подтвердилось
+   * воспроизведением. Разница видна в отчёте: забыть автоматическую связь
+   * дёшево, а ручную — значит отменить чужое решение.
+   */
+  fromLink?: 'manual' | 'auto';
 }
 
 /**
@@ -942,7 +953,8 @@ export class PlaylistImporterService {
               score: MIN_IMPORT_MATCH_SCORE,
               confidence: 'high',
               notes: [known.manual ? 'выбрано вами раньше' : 'найдено раньше'],
-              alternatives: []
+              alternatives: [],
+              fromLink: known.manual ? 'manual' : 'auto'
             };
           } else {
             const plan = this.queryFor(item);
@@ -1118,11 +1130,27 @@ export class PlaylistImporterService {
     };
     const wantedVariants = detectVariants(plan.version || '');
 
+    /*
+     * Сначала оцениваем всех, потом отбираем — а не наоборот.
+     *
+     * Порядок здесь не вкусовщина. Штраф за чужого исполнителя относительный:
+     * он включается, только если среди кандидатов **есть** тот, чьё имя
+     * сошлось. Пока отбор шёл первым, правильная запись могла отсеяться по
+     * названию, вместе с ней исчезал повод для штрафа — и запись чужого
+     * исполнителя, прошедшая отбор, набирала проходной балл.
+     *
+     * Поймано на живой выборке: строке «Do For Love» (LP Giobbi и другие)
+     * подставлялась «Do For Love (feat. AMEE)» — B Ray. При общей оценке той же
+     * пары выходило 35 баллов, при оценке после отбора — за 78.
+     */
     const ranked = rankCandidates(target, candidates);
-    const covering = candidates.filter(
-      (candidate) => coversTitle(plan.base, candidate) && variantAllowed(wantedVariants, candidate)
-    );
-    const best = pickBestMatch(target, covering, MIN_IMPORT_MATCH_SCORE);
+    const best =
+      ranked.find(
+        (entry) =>
+          entry.score >= MIN_IMPORT_MATCH_SCORE &&
+          coversTitle(plan.base, entry.candidate) &&
+          variantAllowed(wantedVariants, entry.candidate)
+      ) ?? null;
 
     return {
       item,

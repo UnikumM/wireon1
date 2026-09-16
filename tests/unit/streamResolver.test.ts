@@ -750,6 +750,82 @@ describe('Подтверждённая замена вместо повторн�
     expect((await findLink(scTrack))?.originalId).toBe('found1');
   });
 
+  it('своя связь, которая перестала играть, снимается сама', async () => {
+    /*
+     * Найденная нами связь была догадкой, которая однажды сыграла. Перестала —
+     * значит честнее поискать заново, чем возвращаться к ней при каждом отказе.
+     */
+    const { StreamResolver } = await import('../../src/services/streamResolver');
+    const { findLink, rememberLink } = await import('../../src/services/matchLinks');
+
+    await rememberLink(scTrack, {
+      id: 'yt_dead',
+      source: 'youtube',
+      originalId: 'dead1',
+      title: 'Blinding Lights',
+      artist: 'The Weeknd',
+      duration: 202,
+      artworkUrl: ''
+    });
+
+    const yt = {
+      resolveStreamUrl: vi.fn(async () => {
+        throw new Error('YT_UNAVAILABLE');
+      }),
+      search: vi.fn(async () => [])
+    };
+    const sc = {
+      resolveStreamUrl: vi.fn(async () => {
+        throw new Error('SoundCloud refused');
+      }),
+      search: vi.fn(async () => [])
+    };
+
+    const resolver = new StreamResolver(yt as never, sc as never);
+    await expect(resolver.resolve(scTrack)).rejects.toThrow();
+
+    expect(await findLink(scTrack)).toBeNull();
+  });
+
+  it('выбранную человеком связь не снимает даже при отказе', async () => {
+    // Человек сказал, какая запись верна. Разовое молчание источника этого не
+    // отменяет — иначе чужое решение отменялось бы за него.
+    const { StreamResolver } = await import('../../src/services/streamResolver');
+    const { findLink, rememberLink } = await import('../../src/services/matchLinks');
+
+    await rememberLink(
+      scTrack,
+      {
+        id: 'yt_chosen',
+        source: 'youtube',
+        originalId: 'chosen1',
+        title: 'Blinding Lights',
+        artist: 'The Weeknd',
+        duration: 202,
+        artworkUrl: ''
+      },
+      true
+    );
+
+    const yt = {
+      resolveStreamUrl: vi.fn(async () => {
+        throw new Error('YT_UNAVAILABLE');
+      }),
+      search: vi.fn(async () => [])
+    };
+    const sc = {
+      resolveStreamUrl: vi.fn(async () => {
+        throw new Error('SoundCloud refused');
+      }),
+      search: vi.fn(async () => [])
+    };
+
+    const resolver = new StreamResolver(yt as never, sc as never);
+    await expect(resolver.resolve(scTrack)).rejects.toThrow();
+
+    expect((await findLink(scTrack))?.originalId).toBe('chosen1');
+  });
+
   it('чужую песню не запоминает: подбор её и не отдаёт', async () => {
     const { StreamResolver } = await import('../../src/services/streamResolver');
     const { findLink } = await import('../../src/services/matchLinks');

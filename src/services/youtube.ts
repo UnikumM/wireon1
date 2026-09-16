@@ -148,6 +148,25 @@ export function getStreamExpiryFromUrl(url: string, fallbackTtlMs: number = DEFA
 }
 
 /**
+ * Позиция первого « - », не накрытого скобками, или -1.
+ *
+ * Считаем открытые скобки слева направо: пока хоть одна не закрыта, тире
+ * принадлежит пометке внутри скобок, а не разделяет исполнителя и песню.
+ */
+export function splitIndexOutsideBrackets(value: string): number {
+  let depth = 0;
+  for (let i = 0; i < value.length; i++) {
+    const ch = value[i];
+    if (ch === '(' || ch === '[') depth += 1;
+    else if (ch === ')' || ch === ']') depth = Math.max(0, depth - 1);
+    else if (depth === 0 && ch === ' ' && value.slice(i, i + 3) === ' - ' && i > 0) {
+      return i;
+    }
+  }
+  return -1;
+}
+
+/**
  * Sanitizes YouTube video titles by stripping noise tags ([Official Video], (Lyrics), etc.)
  * and splitting "Artist - Title" formats.
  */
@@ -163,12 +182,18 @@ export function sanitizeYouTubeTitle(rawTitle: string, channelName: string = '')
   let artist = (channelName || '').replace(/ - Topic$/i, '').trim();
   let title = cleaned;
 
-  if (cleaned.includes(' - ')) {
-    const parts = cleaned.split(' - ');
-    if (parts.length >= 2) {
-      artist = parts[0].trim();
-      title = parts.slice(1).join(' - ').trim();
-    }
+  /*
+   * Делим только по тире вне скобок.
+   *
+   * «Rock You Like a Hurricane (2015 - Remaster)» разваливалось на
+   * исполнителя «Rock You Like a Hurricane (2015» и песню «Remaster)» —
+   * попалось на выборке Spotify. Звук при этом брался правильный, но в
+   * плейлисте появлялась строка с именем «Remaster)».
+   */
+  const dash = splitIndexOutsideBrackets(cleaned);
+  if (dash >= 0) {
+    artist = cleaned.slice(0, dash).trim();
+    title = cleaned.slice(dash + 3).trim();
   }
 
   return {
