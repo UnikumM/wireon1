@@ -19,7 +19,12 @@
  */
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { PlaylistImporterService, type ParsedPlaylistItem } from '../../src/services/playlistImporter';
+import {
+  PlaylistImporterService,
+  fetchSpotifyPlaylistFull,
+  spotifyEmbedToken,
+  type ParsedPlaylistItem
+} from '../../src/services/playlistImporter';
 import { searchAggregator } from '../../src/services/aggregator';
 import { detectVariants, splitCatalogTitle, scoreCandidate } from '../../src/services/trackMatching';
 import { db } from '../../src/services/db';
@@ -344,6 +349,126 @@ describe('Оценка идёт до отбора, а не после', () => {
 
     const [match] = await service.matchImportedTracks([
       { title: 'Я не один', artist: 'Sharlot', duration: 160 }
+    ]);
+
+    expect(match.track?.id).toBe('yt_right');
+  });
+});
+
+describe('Страница плейлиста Spotify', () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    vi.restoreAllMocks();
+  });
+
+  /** Встраиваемая страница в том виде, в каком её отдаёт Spotify. */
+  function embedHtml(tracks: Array<{ title: string; subtitle: string; duration: number }>, token = 'anon-token') {
+    const data = {
+      props: {
+        pageProps: {
+          state: {
+            settings: { session: { accessToken: token } },
+            data: { entity: { name: 'заплуп', trackList: tracks } }
+          }
+        }
+      }
+    };
+    return `<html><script id="__NEXT_DATA__" type="application/json">${JSON.stringify(data)}</script></html>`;
+  }
+
+  function page(names: string[], total: number) {
+    return {
+      ok: true,
+      status: 200,
+      headers: { get: () => 'application/json' },
+      json: async () => ({
+        data: {
+          playlistV2: {
+            content: {
+              totalCount: total,
+              items: names.map((name) => ({
+                itemV2: {
+                  data: {
+                    __typename: 'Track',
+                    name,
+                    uri: `spotify:track:${name}`,
+                    artists: { items: [{ profile: { name: 'isq' } }] },
+                    trackDuration: { totalMilliseconds: 96000 },
+                    albumOfTrack: { name: 'pursuit', coverArt: { sources: [{ url: 'https://i.scdn.co/x' }] } }
+                  }
+                }
+              }))
+            }
+          }
+        }
+      })
+    };
+  }
+
+  it('исполнитель берётся из subtitle, а не теряется', async () => {
+    /*
+     * Все строки плейлиста приходили как «Неизвестный исполнитель»: страница
+     * кладёт имя в subtitle, а разбор его не читал. Подбор шёл по одному
+     * названию — отсюда «Pursuit» чужого автора.
+     */
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (url: string) =>
+        String(url).includes('pathfinder')
+          ? { ok: false, status: 400, headers: { get: (): string | null => null }, json: async () => ({}) }
+          : {
+              ok: true,
+              status: 200,
+              headers: { get: (): string | null => 'text/html' },
+              text: async () => embedHtml([{ title: 'pursuit', subtitle: 'isq,\u00a0Kordhell', duration: 96000 }])
+            }
+      )
+    );
+
+    const parsed = await new PlaylistImporterService().parsePlaylistUrl(
+      'https://open.spotify.com/playlist/1JlTGPhqOTeR9HTKGmUEVh'
+    );
+
+    expect(parsed.items[0]).toMatchObject({ title: 'pursuit', artist: 'isq, Kordhell', duration: 96 });
+  });
+
+  it('ключ веб-плеера достаётся из страницы', () => {
+    expect(spotifyEmbedToken(embedHtml([], 'abc'))).toBe('abc');
+    expect(spotifyEmbedToken('<html></html>')).toBeNull();
+  });
+
+  it('полный список читается постранично, дальше первой сотни', async () => {
+    // Плейлист на 159 треков переносился как 100: страница больше не отдаёт.
+    const first = Array.from({ length: 100 }, (_, i) => `t${i}`);
+    const second = Array.from({ length: 59 }, (_, i) => `u${i}`);
+    const fetchMock = vi.fn().mockResolvedValueOnce(page(first, 159)).mockResolvedValueOnce(page(second, 159));
+    vi.stubGlobal('fetch', fetchMock);
+
+    const items = await fetchSpotifyPlaylistFull('5efT5CmBVPcKDrmLLI8zVw', 'anon-token');
+
+    expect(items).toHaveLength(159);
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(decodeURIComponent(String(fetchMock.mock.calls[1][0]))).toContain('"offset":100');
+    expect(items?.[0]).toMatchObject({ artist: 'isq', duration: 96, album: 'pursuit', sourceId: 't0' });
+  });
+
+  it('если внутренний API не ответил — остаётся страница, без ошибки', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false, status: 400, json: async () => ({}) }));
+    expect(await fetchSpotifyPlaylistFull('x', 'anon-token')).toBeNull();
+    expect(await fetchSpotifyPlaylistFull('x', null)).toBeNull();
+  });
+
+  it('«VAI DO TRAIR» — не «VAI VAI TRAIR»: короткие слова названия тоже сверяются', async () => {
+    vi.spyOn(searchAggregator, 'search').mockImplementation(async () => {
+      const results = [
+        track({ id: 'yt_wrong', title: 'VAI VAI TRAIR (Ultra Slowed)', artist: 'DJ Asul', duration: 135 }),
+        track({ id: 'yt_right', title: 'VAI DO TRAIR (Ultra Slowed)', artist: 'DJ Asul', duration: 136 })
+      ];
+      return { results, sources: { youtube: results.length, soundcloud: 0 } };
+    });
+
+    const [match] = await new PlaylistImporterService().matchImportedTracks([
+      { title: 'VAI DO TRAIR - Ultra Slowed', artist: 'DJ Asul, DJ Javi26', duration: 135 }
     ]);
 
     expect(match.track?.id).toBe('yt_right');

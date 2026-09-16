@@ -667,7 +667,8 @@ export class StreamResolver {
     const wantedVariants = new Set(detectVariants(`${track.title} ${track.artist || ''}`));
     const wantedWords = normalizeForMatch(track.title)
       .split(' ')
-      .filter((word) => word.length >= 3);
+      // От двух букв — как при переносе: «VAI DO TRAIR» не «VAI VAI TRAIR».
+      .filter((word) => word.length >= 2);
 
     /*
      * Оцениваем всех, отбираем после — по той же причине, что и при переносе.

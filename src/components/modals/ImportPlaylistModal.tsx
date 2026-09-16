@@ -191,8 +191,7 @@ const SpotifyLibraryBlock: React.FC<{ onPicked: (title: string, items: ParsedPla
   return (
     <div style={{ marginTop: 'var(--space-5)', paddingTop: 'var(--space-4)', borderTop: '1px solid var(--border-subtle)' }}>
       <p style={{ margin: '0 0 var(--space-3)', fontSize: 'var(--text-sm)', color: 'var(--text-secondary)' }}>
-        Или войдите в Spotify — тогда «Любимые» и ваши собственные плейлисты приедут целиком. Чужие
-        плейлисты Spotify отдаёт только первой сотней треков.
+        Или войдите в Spotify — тогда можно перенести «Любимые» и выбрать плейлист из своего списка.
       </p>
 
       {error && (

@@ -128,7 +128,9 @@ const IMPORT_CANDIDATE_LIMIT = 20;
 function coversTitle(target: string, candidate: UnifiedTrack): boolean {
   const words = normalizeForMatch(target)
     .split(' ')
-    .filter((word) => word.length >= 3);
+    // От двух букв: «VAI DO TRAIR» иначе совпадало с «VAI VAI TRAIR», а «Я не
+    // один» — с «Я один». Короткие слова в названии тоже отличают песни.
+    .filter((word) => word.length >= 2);
   if (words.length === 0) return true;
   const haystack = normalizeForMatch(`${candidate.title || ''} ${candidate.artist || ''}`);
   return words.every((word) => haystack.includes(word));
@@ -145,6 +147,96 @@ function variantAllowed(wanted: ReadonlyArray<string>, candidate: UnifiedTrack):
   if (wanted.length === 0) return true;
   const carried = detectVariants(`${candidate.title || ''} ${candidate.artist || ''}`);
   return wanted.some((marker) => carried.includes(marker));
+}
+
+/** Анонимный ключ веб-плеера, который встраиваемая страница носит с собой. */
+export function spotifyEmbedToken(html: string): string | null {
+  const m = /<script\s+id=["']__NEXT_DATA__["']\s+type=["']application\/json["']>([\s\S]*?)<\/script>/i.exec(html);
+  if (!m) return null;
+  try {
+    const token = JSON.parse(m[1])?.props?.pageProps?.state?.settings?.session?.accessToken;
+    return typeof token === 'string' && token ? token : null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Запрос `fetchPlaylist` внутреннего API веб-плеера Spotify.
+ *
+ * Хэш — идентификатор сохранённого запроса на их стороне; проверен вживую
+ * 2026-09-16. Spotify его меняет при обновлениях плеера, и тогда запрос
+ * ответит ошибкой — это не беда: перенос останется с первой сотней треков со
+ * встраиваемой страницы, как было до этого.
+ */
+const SPOTIFY_FETCH_PLAYLIST_HASH = '91d4c2bc3e0cd1bc672281c4f1f59f43ff55ba726ca04a45810d99bd091f3f0e';
+const SPOTIFY_PAGE = 100;
+/** Больше этого не читаем: плейлист на десятки тысяч строк — уже не перенос. */
+const SPOTIFY_MAX_ITEMS = 10000;
+
+/**
+ * Весь плейлист Spotify, а не первая сотня.
+ *
+ * Встраиваемая страница отдаёт не больше ста строк — плейлист на 159 треков
+ * переносился обрезанным без единого слова. Официальный API с марта 2026
+ * читает содержимое только своих плейлистов человека. А внутренний API
+ * веб-плеера с анонимным ключом той же страницы отдаёт любой открытый
+ * плейлист постранично — проверено на плейлисте в 159 треков.
+ *
+ * Берутся только названия, исполнители, альбом и длительность — то же, что
+ * видно на открытой странице. Звук отсюда не берётся.
+ *
+ * @returns null, если этот путь не сработал — тогда остаётся страница.
+ */
+export async function fetchSpotifyPlaylistFull(
+  playlistId: string,
+  token: string | null
+): Promise<ParsedPlaylistItem[] | null> {
+  if (!token) return null;
+  const items: ParsedPlaylistItem[] = [];
+  try {
+    for (let offset = 0; offset < SPOTIFY_MAX_ITEMS; offset += SPOTIFY_PAGE) {
+      const variables = encodeURIComponent(
+        JSON.stringify({ uri: `spotify:playlist:${playlistId}`, offset, limit: SPOTIFY_PAGE })
+      );
+      const extensions = encodeURIComponent(
+        JSON.stringify({ persistedQuery: { version: 1, sha256Hash: SPOTIFY_FETCH_PLAYLIST_HASH } })
+      );
+      const res = await fetch(
+        `https://api-partner.spotify.com/pathfinder/v1/query?operationName=fetchPlaylist&variables=${variables}&extensions=${extensions}`,
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const content = (await res.json())?.data?.playlistV2?.content;
+      const page: any[] = Array.isArray(content?.items) ? content.items : [];
+
+      for (const entry of page) {
+        const track = entry?.itemV2?.data;
+        // Подкасты, локальные файлы и недоступное — искать нечего.
+        if (!track || track.__typename !== 'Track' || typeof track.name !== 'string') continue;
+        const artists = Array.isArray(track.artists?.items)
+          ? track.artists.items.map((a: any) => a?.profile?.name).filter(Boolean).join(', ')
+          : '';
+        const ms = Number(track.trackDuration?.totalMilliseconds);
+        items.push({
+          title: track.name.trim(),
+          artist: artists || UNKNOWN_ARTIST,
+          duration: Number.isFinite(ms) && ms > 0 ? Math.round(ms / 1000) : undefined,
+          album: typeof track.albumOfTrack?.name === 'string' ? track.albumOfTrack.name : undefined,
+          artworkUrl: track.albumOfTrack?.coverArt?.sources?.[0]?.url || undefined,
+          sourceId: typeof track.uri === 'string' ? track.uri.split(':').pop() : undefined,
+          sourcePlatform: 'spotify'
+        });
+      }
+
+      const total = Number(content?.totalCount);
+      if (page.length < SPOTIFY_PAGE || (Number.isFinite(total) && offset + SPOTIFY_PAGE >= total)) break;
+    }
+    return items.length > 0 ? items : null;
+  } catch (err) {
+    console.warn('[PlaylistImporter] полный список Spotify не получен, остаётся первая сотня:', err);
+    return null;
+  }
 }
 
 /**
@@ -360,8 +452,13 @@ export class PlaylistImporterService {
     }
 
     switch (platform) {
-      case 'spotify':
-        return this.parseSpotifyHtml(html, trimmedUrl);
+      case 'spotify': {
+        const parsed = this.parseSpotifyHtml(html, trimmedUrl);
+        const playlistId = /playlist[/:]([a-zA-Z0-9]+)/.exec(trimmedUrl)?.[1];
+        if (!playlistId) return parsed;
+        const full = await fetchSpotifyPlaylistFull(playlistId, spotifyEmbedToken(html));
+        return full && full.length > parsed.items.length ? { ...parsed, items: full } : parsed;
+      }
       case 'yandex': {
         const parsed = this.parseYandexHtml(html, trimmedUrl);
         if (parsed.items.length === 0 && yandexApiError) throw yandexApiError;
@@ -476,9 +573,20 @@ export class PlaylistImporterService {
               const tr = item.track || item;
               const trackTitle = tr.name || tr.title;
               if (trackTitle) {
+                /*
+                 * Встраиваемая страница кладёт исполнителей строкой в `subtitle`
+                 * («KAROL G, Judeline»), разделяя их неразрывным пробелом. Пока это
+                 * поле не читалось, все строки приходили как «Неизвестный
+                 * исполнитель», и подбор шёл по одному названию — отсюда «Pursuit»
+                 * чужого автора.
+                 */
+                const subtitle =
+                  typeof tr.subtitle === 'string'
+                    ? tr.subtitle.replace(/\u00a0/g, ' ').replace(/\s*,\s*/g, ', ').trim()
+                    : '';
                 const artistName = Array.isArray(tr.artists)
                   ? tr.artists.map((a: any) => a.name || a).join(', ')
-                  : tr.artist || tr.artists || UNKNOWN_ARTIST;
+                  : tr.artist || subtitle || UNKNOWN_ARTIST;
                 const duration = tr.duration_ms
                   ? Math.round(tr.duration_ms / 1000)
                   : tr.duration
