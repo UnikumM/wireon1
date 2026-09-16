@@ -53,6 +53,29 @@ describe('spotifyLibrary', () => {
     expect(fetchMock.mock.calls[1][0]).toBe('https://api.spotify.com/v1/next-page');
   });
 
+  it('читает новый адрес /items и новое имя поля item', async () => {
+    // С 9 марта 2026 Spotify отвечает 403 на /playlists/{id}/tracks для
+    // приложений в режиме разработки — на любой плейлист. Замена — /items, а в
+    // ответе track переименован в item.
+    const { track, ...rest } = trackEntry('Новый вид');
+    const fetchMock = vi.fn().mockResolvedValue(jsonResponse({ items: [{ ...rest, item: track }], next: null }));
+    vi.stubGlobal('fetch', fetchMock);
+
+    const items = await fetchPlaylistItems('token', 'playlist-1');
+
+    expect(String(fetchMock.mock.calls[0][0])).toContain('/playlists/playlist-1/items?');
+    expect(items.map((i) => i.title)).toEqual(['Новый вид']);
+  });
+
+  it('берёт число треков из нового поля items', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue(jsonResponse({ items: [{ id: 'p', name: 'Мой', items: { total: 80 } }], next: null }))
+    );
+    const [playlist] = await fetchPlaylists('token');
+    expect(playlist.trackCount).toBe(80);
+  });
+
   it('переносит длительность, исполнителя и альбом', async () => {
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue(jsonResponse({ items: [trackEntry('One')], next: null })));
 

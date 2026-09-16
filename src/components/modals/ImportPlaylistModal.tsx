@@ -113,6 +113,30 @@ function titleFromFilename(filename: string): string {
  * треков и ничего не знает про «Любимые» и приватные списки. Отсюда же
  * приезжает всё целиком.
  */
+/**
+ * Треки плейлиста Spotify: через API, а если он отказал — с публичной страницы.
+ *
+ * После миграции Spotify (март 2026) API отдаёт содержимое только своих и
+ * совместных плейлистов. Чужой плейлист, на который человек подписан, отвечает
+ * отказом — и раньше этот отказ показывался красной надписью вместо переноса.
+ * Публичная страница читает любой открытый плейлист, но только первую сотню.
+ */
+async function readSpotifyPlaylist(
+  playlistId: string
+): Promise<{ title?: string; items: ParsedPlaylistItem[]; complete: boolean }> {
+  const token = await getFreshAccessToken().catch(() => null);
+  if (token) {
+    try {
+      const items = await fetchPlaylistItems(token, playlistId);
+      if (items.length > 0) return { items, complete: true };
+    } catch (err) {
+      console.warn('[ImportPlaylistModal] Spotify API не отдал плейлист, читаю страницу:', err);
+    }
+  }
+  const parsed = await playlistImporter.parsePlaylistUrl(`https://open.spotify.com/playlist/${playlistId}`);
+  return { title: parsed.title, items: parsed.items ?? [], complete: false };
+}
+
 const SpotifyLibraryBlock: React.FC<{ onPicked: (title: string, items: ParsedPlaylistItem[]) => void }> = ({
   onPicked
 }) => {
@@ -144,10 +168,14 @@ const SpotifyLibraryBlock: React.FC<{ onPicked: (title: string, items: ParsedPla
     setBusy(true);
     setError(null);
     try {
-      const token = await getFreshAccessToken();
-      if (!token) throw new Error('Вход в Spotify устарел — войдите заново');
-      const items =
-        kind === 'liked' ? await fetchLikedSongs(token) : await fetchPlaylistItems(token, playlist!.id);
+      let items: ParsedPlaylistItem[];
+      if (kind === 'liked') {
+        const token = await getFreshAccessToken();
+        if (!token) throw new Error('Вход в Spotify устарел — войдите заново');
+        items = await fetchLikedSongs(token);
+      } else {
+        items = (await readSpotifyPlaylist(playlist!.id)).items;
+      }
       if (items.length === 0) {
         setError('В этом списке нет треков.');
         return;
@@ -163,7 +191,8 @@ const SpotifyLibraryBlock: React.FC<{ onPicked: (title: string, items: ParsedPla
   return (
     <div style={{ marginTop: 'var(--space-5)', paddingTop: 'var(--space-4)', borderTop: '1px solid var(--border-subtle)' }}>
       <p style={{ margin: '0 0 var(--space-3)', fontSize: 'var(--text-sm)', color: 'var(--text-secondary)' }}>
-        Или войдите в Spotify — тогда приедут все плейлисты и «Любимые» целиком, а не первая сотня треков.
+        Или войдите в Spotify — тогда «Любимые» и ваши собственные плейлисты приедут целиком. Чужие
+        плейлисты Spotify отдаёт только первой сотней треков.
       </p>
 
       {error && (
@@ -316,20 +345,26 @@ export const ImportPlaylistModal: React.FC<ImportPlaylistModalProps> = ({
       // остальных — именно отсюда бралось «перенеслось не всё».
       if (playlistImporter.detectPlatform(trimmed) === 'spotify') {
         const spotifyId = /playlist[/:]([a-zA-Z0-9]+)/.exec(trimmed)?.[1];
-        const token = spotifyId ? await getFreshAccessToken() : null;
-        if (spotifyId && token) {
-          const items = await fetchPlaylistItems(token, spotifyId);
-          if (items.length > 0) {
-            setPreview({
-              title: 'Плейлист из Spotify',
-              items,
-              readyTracks: [],
-              origin: { kind: 'platform', platform: 'spotify' }
-            });
-            setStep('preview');
-            setIsLoading(false);
-            return;
-          }
+        const token = spotifyId ? await getFreshAccessToken().catch(() => null) : null;
+        // Отказ API (чужой плейлист, режим разработки) — не ошибка переноса:
+        // ниже та же ссылка читается публичной страницей.
+        const items =
+          spotifyId && token
+            ? await fetchPlaylistItems(token, spotifyId).catch((err) => {
+                console.warn('[ImportPlaylistModal] Spotify API не отдал плейлист, читаю страницу:', err);
+                return [] as ParsedPlaylistItem[];
+              })
+            : [];
+        if (items.length > 0) {
+          setPreview({
+            title: 'Плейлист из Spotify',
+            items,
+            readyTracks: [],
+            origin: { kind: 'platform', platform: 'spotify' }
+          });
+          setStep('preview');
+          setIsLoading(false);
+          return;
         }
       }
 

@@ -90,7 +90,8 @@ export async function fetchPlaylists(token: string): Promise<SpotifyPlaylistSumm
     .map((item) => ({
       id: String(item.id),
       name: typeof item.name === 'string' && item.name ? item.name : 'Плейлист без названия',
-      trackCount: Number(item?.tracks?.total) || 0,
+      // С марта 2026 поле называется `items`; `tracks` — прежнее имя.
+      trackCount: Number(item?.items?.total ?? item?.tracks?.total) || 0,
       owner: typeof item?.owner?.display_name === 'string' ? item.owner.display_name : '',
       coverUrl: Array.isArray(item.images) && item.images[0]?.url ? String(item.images[0].url) : undefined
     }));
@@ -122,13 +123,28 @@ function toItem(track: any): ParsedPlaylistItem | null {
   };
 }
 
-/** Все треки плейлиста — без ограничения на сотню. */
+/**
+ * Все треки плейлиста — без ограничения на сотню.
+ *
+ * Адрес `/playlists/{id}/items`, а не `/tracks`. Spotify убрал прежний адрес
+ * для приложений в режиме разработки 9 марта 2026 (миграция февраля 2026), и
+ * с тех пор он отвечает 403 на любой плейлист — это и было «Spotify отказал
+ * (403)» при каждой ссылке. В ответе `track` переименован в `item`; прежнее
+ * имя читается тоже, на случай если ответ ещё старого вида.
+ *
+ * Фильтра `fields` нет нарочно: имена полей в нём поменялись вместе с
+ * ответом, и ошибка в фильтре дала бы не отказ, а молча пустой список.
+ *
+ * И ещё одно ограничение той же миграции: содержимое отдаётся только для
+ * плейлистов, которые человек создал сам или редактирует совместно. Чужой
+ * плейлист отсюда не прочитать — вызывающий обязан уметь обойтись публичной
+ * страницей.
+ */
 export async function fetchPlaylistItems(token: string, playlistId: string): Promise<ParsedPlaylistItem[]> {
-  const raw = await collect<any>(
-    token,
-    `/playlists/${encodeURIComponent(playlistId)}/tracks?limit=${PAGE_SIZE}&fields=next,items(track(id,name,type,duration_ms,artists(name),album(name,images)))`
-  );
-  return raw.map((entry) => toItem(entry?.track)).filter((item): item is ParsedPlaylistItem => item !== null);
+  const raw = await collect<any>(token, `/playlists/${encodeURIComponent(playlistId)}/items?limit=${PAGE_SIZE}`);
+  return raw
+    .map((entry) => toItem(entry?.item ?? entry?.track))
+    .filter((item): item is ParsedPlaylistItem => item !== null);
 }
 
 /** «Любимые треки» — то, что через публичную страницу не достать вовсе. */
