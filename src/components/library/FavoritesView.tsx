@@ -1,5 +1,5 @@
 import React from 'react';
-import { Heart, Play, Shuffle, Music2 } from 'lucide-react';
+import { Heart, Play, Shuffle, Music2, CheckSquare } from 'lucide-react';
 import { usePlayerStore } from '../../store/usePlayerStore';
 import { Button } from '../common/Button';
 import { EmptyState } from '../common/EmptyState';
@@ -11,6 +11,10 @@ import { SaveOfflineButton } from './SaveOfflineButton';
 import { useVirtualRows, TRACK_ROW_PITCH } from '../../hooks/useVirtualRows';
 import { useMediaQuery } from '../../hooks/useMediaQuery';
 import { ICON } from '../../styles/icons';
+import { useLibraryStore } from '../../store/useLibraryStore';
+import { useUIStore } from '../../store/useUIStore';
+import { useTrackSelection } from './useTrackSelection';
+import { pluralize } from '../../utils/plural';
 
 export interface FavoritesViewProps {
   /** The list to display — already filtered and sorted by the owner. */
@@ -38,6 +42,31 @@ export const FavoritesView: React.FC<FavoritesViewProps> = ({
   className = ''
 }) => {
   const playTrack = usePlayerStore((s) => s.playTrack);
+  const toggleFavorite = useLibraryStore((s) => s.toggleFavorite);
+  const showToast = useUIStore((s) => s.showToast);
+
+  /*
+   * Выбор пачки — тот же, что на телефоне: перенести в плейлист, скачать,
+   * убрать сердечко. Раньше на компьютере выбор включался только из меню трека
+   * и ничего не предлагал: кнопок над списком не было вовсе.
+   */
+  const selection = useTrackSelection({
+    tracks,
+    testId: 'favorites-selection',
+    removeLabel: 'Убрать',
+    onRemove: async (chosen) => {
+      let removed = 0;
+      for (const track of chosen) {
+        if (await toggleFavorite(track)) removed += 1;
+      }
+      showToast(
+        removed > 0
+          ? `${pluralize(removed, 'трек', 'трека', 'треков')} убрано из избранного`
+          : 'Не удалось убрать из избранного',
+        removed > 0 ? 'success' : 'error'
+      );
+    }
+  });
 
   /*
    * Подписка здесь недорога: шапка одна на весь список, в отличие от `TrackCard`,
@@ -180,11 +209,28 @@ export const FavoritesView: React.FC<FavoritesViewProps> = ({
               size={isNarrow ? 'sm' : 'md'}
               data-testid="favorites-save-offline-btn"
             />
+            {/*
+              * Вход в режим выбора — кнопкой, а не только из меню трека: в меню
+              * его никто не искал, и выбор на компьютере считался несделанным.
+              */}
+            <Button
+              variant={selection.active ? 'secondary' : 'ghost'}
+              size={isNarrow ? 'sm' : 'md'}
+              icon={<CheckSquare size={ICON.md} aria-hidden="true" />}
+              onClick={selection.active ? selection.clear : selection.start}
+              isActive={selection.active}
+              data-testid="favorites-select-btn"
+            >
+              {selection.active ? 'Готово' : 'Выбрать'}
+            </Button>
           </div>
         )}
       </div>
 
       {toolbar}
+
+      {selection.bar}
+      {selection.modal}
 
       {isLoading ? (
         <Skeleton count={5} height={54} radius="var(--radius-sm)" />

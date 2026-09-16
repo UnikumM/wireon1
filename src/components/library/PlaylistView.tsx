@@ -12,7 +12,9 @@ import {
   ArrowUp,
   ArrowDown,
   Sparkles,
-  Download
+  Download,
+  ListPlus,
+  CheckSquare
 } from 'lucide-react';
 import { useLibraryStore } from '../../store/useLibraryStore';
 import { usePlayerStore } from '../../store/usePlayerStore';
@@ -24,6 +26,7 @@ import { TrackCard } from '../search/TrackCard';
 import { PlaylistCover } from './PlaylistCover';
 import { PlaylistExportMenu } from './PlaylistExportMenu';
 import { SelectionBar } from '../common/SelectionBar';
+import { useAddToPlaylist } from './AddToPlaylistModal';
 import { offlineMode } from '../../services/offlineMode';
 import { SaveOfflineButton } from './SaveOfflineButton';
 import { describeTrackTotals } from './trackSummary';
@@ -59,6 +62,8 @@ export const PlaylistView: React.FC<PlaylistViewProps> = ({ playlistId: propPlay
   const renamePlaylist = useLibraryStore((s) => s.renamePlaylist);
   const setPlaylistCover = useLibraryStore((s) => s.setPlaylistCover);
   const selectedTrackIds = useUIStore((s) => s.selectedTrackIds);
+  const startSelection = useUIStore((s) => s.startSelection);
+  const picker = useAddToPlaylist();
   const clearSelection = useUIStore((s) => s.clearSelection);
   const removeTrackFromPlaylist = useLibraryStore((s) => s.removeTrackFromPlaylist);
   const reorderPlaylistTracks = useLibraryStore((s) => s.reorderPlaylistTracks);
@@ -479,6 +484,17 @@ export const PlaylistView: React.FC<PlaylistViewProps> = ({ playlistId: propPlay
                   label="плейлист"
                   data-testid="playlist-save-offline-btn"
                 />
+                {/* Вход в режим выбора: в меню трека его не искали. */}
+                <Button
+                  variant={selectedTrackIds !== null ? 'secondary' : 'ghost'}
+                  size="md"
+                  icon={<CheckSquare size={ICON.md} />}
+                  isActive={selectedTrackIds !== null}
+                  onClick={() => (selectedTrackIds !== null ? clearSelection() : startSelection())}
+                  data-testid="playlist-select-btn"
+                >
+                  {selectedTrackIds !== null ? 'Готово' : 'Выбрать'}
+                </Button>
               </>
             )}
             <PlaylistExportMenu playlist={playlist} />
@@ -495,11 +511,20 @@ export const PlaylistView: React.FC<PlaylistViewProps> = ({ playlistId: propPlay
           </div>
         </header>
 
+        {picker.element}
+
         <SelectionBar
           total={tracks.length}
           allIds={tracks.map((track) => track.id)}
           testId="playlist-selection"
           actions={[
+            {
+              // Перенос выбранного: на телефоне это было, на компьютере — нет.
+              icon: <ListPlus size={ICON.sm} />,
+              label: 'В плейлист',
+              onClick: () => picker.openMany(selectedTracks),
+              testId: 'playlist-selection-move'
+            },
             {
               icon: <Download size={ICON.sm} />,
               label: 'Скачать',

@@ -3,6 +3,7 @@ import { UnifiedTrack, RepeatMode, EqSettings } from '../types/music';
 import { VisualizerPreset } from '../types/visualizer';
 import { PlayerStore, PlayerStoreState, QueueMode, WaveMood, WaveConfig, WaveSeedKind } from '../types/store';
 import { setAudioProcessingEnabled } from '../services/audioProcessing';
+import { detectPlatform } from '../services/nativeBridge';
 import { audioEngine, MIN_PLAYBACK_RATE, MAX_PLAYBACK_RATE } from '../services/audioEngine';
 import { MediaSessionService } from '../services/mediaSession';
 import { streamResolver } from '../services/streamResolver';
@@ -1605,6 +1606,21 @@ export const usePlayerStore = create<PlayerStore>((set, get) => {
       audioEngine.setEqGains(next);
       set({ eq: next });
       persistSetting(PLAYER_SETTING_KEYS.eq, next);
+
+      /*
+       * Тронули полосы на телефоне — включаем обработку сами.
+       *
+       * Отдельный переключатель рядом человек не находил, и эквалайзер выглядел
+       * сломанным: ползунки двигаются, звук прежний. Просить включить его
+       * второй раз незачем — раз двигают полосы, обработка и нужна. О цене
+       * (трек начнётся чуть позже) говорим сразу.
+       */
+      const flat = next.bass === 0 && next.mid === 0 && next.treble === 0;
+      if (flat || get().mobileAudioFx || detectPlatform() !== 'mobile') return;
+      get().setMobileAudioFx(true);
+      useUIStore
+        .getState()
+        .showToast('Обработка звука включена — трек открывается заново, чтобы полосы работали', 'info');
     },
 
     setCrossfadeEnabled: (enabled: boolean) => {
@@ -1624,6 +1640,41 @@ export const usePlayerStore = create<PlayerStore>((set, get) => {
       set({ mobileAudioFx: enabled });
       setAudioProcessingEnabled(enabled);
       persistSetting(PLAYER_SETTING_KEYS.mobileAudioFx, enabled);
+
+      /*
+       * Включение меняет источник звука, а не только настройку.
+       *
+       * Играющий трек открыт по прямой ссылке — через обработку она не проходит
+       * (см. services/audioProcessing.ts). Без переоткрытия человек двигал бы
+       * полосы и не слышал ничего до следующей песни — ровно то, на что
+       * жаловались. Поэтому: забыть разрешённую ссылку и открыть трек заново с
+       * той же секунды.
+       */
+      if (!enabled || detectPlatform() !== 'mobile') return;
+      const track = get().currentTrack;
+      if (!track) return;
+
+      const at = get().currentTime;
+      const wasPlaying = get().isPlaying;
+      streamResolver.invalidate(track.id);
+      set({ playbackState: 'loading', isLoading: true });
+      void (async () => {
+        try {
+          await audioEngine.load(track, wasPlaying);
+          if (at > 1) {
+            audioEngine.seek(at);
+            set({ currentTime: at });
+          }
+          set({
+            isLoading: false,
+            playbackState: wasPlaying ? 'playing' : 'paused',
+            isPlaying: wasPlaying
+          });
+        } catch (err) {
+          console.warn('[usePlayerStore] не удалось переоткрыть трек с обработкой:', err);
+          set({ isLoading: false });
+        }
+      })();
     },
 
     setLoudnessNormalization: (enabled: boolean) => {

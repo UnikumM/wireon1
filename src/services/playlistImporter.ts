@@ -541,7 +541,10 @@ export class PlaylistImporterService {
     else if (albumMatch) {
       endpoint = `${API}/albums/${albumMatch[1]}/with-tracks`;
       album = true;
-    } else if (uuid) endpoint = `${API}/playlists/${encodeURIComponent(uuid[1])}`;
+    }
+    // Единственное число: множественное отдаёт 404, проверено на живой ссылке
+    // вида music.yandex.ru/playlists/<uuid> 2026-09-16.
+    else if (uuid) endpoint = `${API}/playlist/${encodeURIComponent(uuid[1])}`;
     if (!endpoint) return null;
 
     const res = await fetch(endpoint);

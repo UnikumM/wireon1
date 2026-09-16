@@ -7,12 +7,20 @@ import { useLibraryStore } from '../../store/useLibraryStore';
 import { useUIStore, refusedForAccount } from '../../store/useUIStore';
 import { UnifiedTrack } from '../../types/music';
 import { PlaylistCover } from './PlaylistCover';
-import { pluralize } from '../../utils/plural';
+import { plural, pluralize } from '../../utils/plural';
 import { ICON } from '../../styles/icons';
 
 export interface AddToPlaylistModalProps {
   /** The track being filed. `null` renders nothing. */
   track: UnifiedTrack | null;
+  /**
+   * Пачка треков — то же окно, что и для одного.
+   *
+   * Отдельного окна для выбранных треков нет нарочно: человек уже знает это
+   * место по меню трека, и второе такое же, но со своим списком плейлистов,
+   * пришлось бы держать в согласии с первым.
+   */
+  tracks?: ReadonlyArray<UnifiedTrack>;
   isOpen: boolean;
   onClose: () => void;
 }
@@ -33,6 +41,7 @@ const rowStyle: React.CSSProperties = {
  */
 export const AddToPlaylistModal: React.FC<AddToPlaylistModalProps> = ({
   track,
+  tracks,
   isOpen,
   onClose
 }) => {
@@ -41,19 +50,30 @@ export const AddToPlaylistModal: React.FC<AddToPlaylistModalProps> = ({
   const createPlaylist = useLibraryStore((s) => s.createPlaylist);
   const showToast = useUIStore((s) => s.showToast);
 
+  /** Один трек или пачка — дальше всё считается по этому списку. */
+  const list = useMemo<ReadonlyArray<UnifiedTrack>>(
+    () => (tracks && tracks.length > 0 ? tracks : track ? [track] : []),
+    [track, tracks]
+  );
+  const many = list.length > 1;
+
   const [isCreating, setIsCreating] = useState(false);
   const [newTitle, setNewTitle] = useState('');
   const [busyId, setBusyId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
+  /*
+   * Отметка «уже там» — только для одного трека: для пачки она означала бы
+   * «часть уже там», а это не ответ на вопрос «куда положить».
+   */
   const containsTrack = useMemo(() => {
     const map = new Map<string, boolean>();
-    if (!track) return map;
+    if (list.length !== 1) return map;
     for (const playlist of playlists) {
-      map.set(playlist.id, playlist.tracks.some((t) => t.id === track.id));
+      map.set(playlist.id, playlist.tracks.some((t) => t.id === list[0].id));
     }
     return map;
-  }, [playlists, track]);
+  }, [playlists, list]);
 
   const reset = useCallback(() => {
     setIsCreating(false);
@@ -68,15 +88,25 @@ export const AddToPlaylistModal: React.FC<AddToPlaylistModalProps> = ({
     onClose();
   };
 
+  /**
+   * Кладёт список в плейлист и считает удачи, а не длину списка.
+   *
+   * `addTrackToPlaylist` отвечает `false`, когда пополнять плейлисты нельзя —
+   * например, человек слушает без аккаунта. Отчёт по длине означал бы
+   * «перенесено пять треков» ровно там, где не перенёсся ни один.
+   */
   const fileInto = async (playlistId: string, playlistTitle: string) => {
-    if (!track) return;
+    if (list.length === 0) return;
     setBusyId(playlistId);
     setError(null);
 
-    const ok = await addTrackToPlaylist(playlistId, track);
+    let filed = 0;
+    for (const item of list) {
+      if (await addTrackToPlaylist(playlistId, item)) filed += 1;
+    }
     setBusyId(null);
 
-    if (!ok) {
+    if (filed === 0) {
       if (refusedForAccount()) return;
       const reason = useLibraryStore.getState().error ?? 'Не удалось добавить трек.';
       setError(reason);
@@ -84,14 +114,19 @@ export const AddToPlaylistModal: React.FC<AddToPlaylistModalProps> = ({
       return;
     }
 
-    showToast(`«${track.title}» добавлен в «${playlistTitle}»`, 'success');
+    showToast(
+      many
+        ? `${plural(filed, 'трек', 'трека', 'треков')} в «${playlistTitle}»`
+        : `«${list[0].title}» добавлен в «${playlistTitle}»`,
+      'success'
+    );
     reset();
     onClose();
   };
 
   const handleCreateAndAdd = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!track) return;
+    if (list.length === 0) return;
 
     const title = newTitle.trim();
     if (!title) {
@@ -111,7 +146,11 @@ export const AddToPlaylistModal: React.FC<AddToPlaylistModalProps> = ({
       return;
     }
 
-    const ok = await addTrackToPlaylist(created.id, track);
+    let filed = 0;
+    for (const item of list) {
+      if (await addTrackToPlaylist(created.id, item)) filed += 1;
+    }
+    const ok = filed > 0;
     setBusyId(null);
 
     if (!ok) {
@@ -121,19 +160,24 @@ export const AddToPlaylistModal: React.FC<AddToPlaylistModalProps> = ({
       return;
     }
 
-    showToast(`«${track.title}» добавлен в «${created.title}»`, 'success');
+    showToast(
+      many
+        ? `${plural(filed, 'трек', 'трека', 'треков')} в «${created.title}»`
+        : `«${list[0].title}» добавлен в «${created.title}»`,
+      'success'
+    );
     reset();
     onClose();
   };
 
-  if (!track) return null;
+  if (list.length === 0) return null;
 
   return (
     <Modal
       isOpen={isOpen}
       onClose={handleClose}
-      title="Добавить в плейлист"
-      description={`${track.title} — ${track.artist}`}
+      title={many ? 'Перенести в плейлист' : 'Добавить в плейлист'}
+      description={many ? `Выбрано ${pluralize(list.length, 'трек', 'трека', 'треков')}` : `${list[0].title} — ${list[0].artist}`}
       maxWidth="440px"
       data-testid="add-to-playlist-modal"
     >
@@ -300,6 +344,8 @@ export const AddToPlaylistModal: React.FC<AddToPlaylistModalProps> = ({
 export interface AddToPlaylistController {
   /** Opens the picker for one track. */
   open: (track: UnifiedTrack) => void;
+  /** Тем же окном — для пачки выбранных треков. */
+  openMany: (tracks: ReadonlyArray<UnifiedTrack>) => void;
   close: () => void;
   isOpen: boolean;
   /** Render this node inside your component — it is the modal itself. */
@@ -312,11 +358,23 @@ export interface AddToPlaylistController {
  */
 export function useAddToPlaylist(): AddToPlaylistController {
   const [track, setTrack] = useState<UnifiedTrack | null>(null);
+  const [many, setMany] = useState<ReadonlyArray<UnifiedTrack>>([]);
 
-  const open = useCallback((next: UnifiedTrack) => setTrack(next), []);
-  const close = useCallback(() => setTrack(null), []);
+  const open = useCallback((next: UnifiedTrack) => {
+    setMany([]);
+    setTrack(next);
+  }, []);
+  const openMany = useCallback((next: ReadonlyArray<UnifiedTrack>) => {
+    setTrack(null);
+    setMany(next);
+  }, []);
+  const close = useCallback(() => {
+    setTrack(null);
+    setMany([]);
+  }, []);
 
-  const element = <AddToPlaylistModal track={track} isOpen={track !== null} onClose={close} />;
+  const isOpen = track !== null || many.length > 0;
+  const element = <AddToPlaylistModal track={track} tracks={many} isOpen={isOpen} onClose={close} />;
 
-  return { open, close, isOpen: track !== null, element };
+  return { open, openMany, close, isOpen, element };
 }

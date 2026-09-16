@@ -21,6 +21,7 @@ import { youtubeService } from '../../src/services/youtube';
 import * as streamCache from '../../src/services/streamCache';
 import * as nativeBridge from '../../src/services/nativeBridge';
 import { UnifiedTrack } from '../../src/types/music';
+import { usePlayerStore } from '../../src/store/usePlayerStore';
 
 const track: UnifiedTrack = {
   id: 'yt_fx1',
@@ -33,6 +34,40 @@ const track: UnifiedTrack = {
 };
 
 describe('Обработка звука на телефоне', () => {
+  describe('Полосы эквалайзера', () => {
+    beforeEach(() => {
+      resetAudioProcessingForTests();
+      usePlayerStore.setState({ mobileAudioFx: false, eq: { bass: 0, mid: 0, treble: 0 }, currentTrack: null });
+    });
+
+    it('на телефоне первое же движение полосы включает обработку', () => {
+      // Отдельный переключатель рядом не находили, и эквалайзер выглядел
+      // сломанным: ползунки двигаются, звук прежний.
+      vi.spyOn(nativeBridge, 'detectPlatform').mockReturnValue('mobile');
+
+      usePlayerStore.getState().setEq({ bass: 6 });
+
+      expect(usePlayerStore.getState().mobileAudioFx).toBe(true);
+      expect(isAudioProcessingEnabled()).toBe(true);
+    });
+
+    it('возврат полос в ноль обработку сам не включает', () => {
+      vi.spyOn(nativeBridge, 'detectPlatform').mockReturnValue('mobile');
+
+      usePlayerStore.getState().setEq({ bass: 0, mid: 0, treble: 0 });
+
+      expect(usePlayerStore.getState().mobileAudioFx).toBe(false);
+    });
+
+    it('на компьютере ничего включать не надо — граф там и так работает', () => {
+      vi.spyOn(nativeBridge, 'detectPlatform').mockReturnValue('electron');
+
+      usePlayerStore.getState().setEq({ treble: -4 });
+
+      expect(usePlayerStore.getState().mobileAudioFx).toBe(false);
+    });
+  });
+
   beforeEach(() => {
     resetAudioProcessingForTests();
     vi.restoreAllMocks();

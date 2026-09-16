@@ -746,6 +746,28 @@ describe('Milestone 3 UI & Player Components Test Suite', () => {
       expect(usePlayerStore.getState().sourceQueue).toHaveLength(2);
     });
 
+    it('в избранном есть вход в выбор пачкой и кнопки над выбранным', async () => {
+      // На компьютере режим выбора включался только из меню трека, и кнопок над
+      // выбранным не было вовсе — перенести пачку в плейлист было нечем.
+      const tracks = [sampleTrackYT, sampleTrackSC];
+      render(<FavoritesView tracks={tracks} totalCount={tracks.length} />);
+
+      fireEvent.click(screen.getByTestId('favorites-select-btn'));
+      expect(screen.getByTestId('favorites-selection')).toBeInTheDocument();
+
+      fireEvent.click(screen.getByTestId('favorites-selection-all'));
+      expect(screen.getByTestId('favorites-selection-count')).toHaveTextContent('2');
+
+      // Три действия: перенести, скачать, убрать из избранного.
+      expect(screen.getByTestId('favorites-selection-move')).toBeEnabled();
+      expect(screen.getByTestId('favorites-selection-save')).toBeEnabled();
+      expect(screen.getByTestId('favorites-selection-remove')).toBeEnabled();
+
+      fireEvent.click(screen.getByTestId('favorites-selection-move'));
+      expect(await screen.findByTestId('add-to-playlist-modal')).toBeInTheDocument();
+      expect(screen.getByTestId('add-to-playlist-modal').textContent).toContain('Выбрано 2 трека');
+    });
+
     it('FavoritesView reports a filtered subset without inventing rows', () => {
       render(<FavoritesView tracks={[sampleTrackSC]} totalCount={2} query="Obsidian" />);
 
