@@ -550,6 +550,7 @@ export const MiniWindow: React.FC = () => {
   const requestedRef = useRef(false);
   const collapseTimer = useRef<number | null>(null);
   const draggingRef = useRef(false);
+  const shapeRef = useRef<HTMLDivElement | null>(null);
 
   /*
    * Облик и форма приходят из двух мест, и у каждого своя работа.
@@ -605,25 +606,52 @@ export const MiniWindow: React.FC = () => {
   const time = scrubTime ?? smooth;
   const progress = state.duration > 0 ? Math.min(100, (time / state.duration) * 100) : 0;
 
-  const setClickThrough = (ignore: boolean) => window.electronAPI?.setMiniIgnoreMouse?.(ignore);
-
-  const handleEnter = () => {
-    setClickThrough(false);
+  const handleEnter = useCallback(() => {
     if (collapseTimer.current !== null) {
       window.clearTimeout(collapseTimer.current);
       collapseTimer.current = null;
     }
     setExpanded(true);
-  };
+  }, []);
 
-  const handleLeave = () => {
+  const handleLeave = useCallback(() => {
     if (draggingRef.current) return;
-    setClickThrough(true);
     collapseTimer.current = window.setTimeout(() => {
       collapseTimer.current = null;
       setExpanded(false);
     }, ISLAND_COLLAPSE_DELAY_MS);
-  };
+  }, []);
+
+  /*
+   * Наведение приходит из главного процесса.
+   *
+   * Окно, пропускающее клики насквозь, не получает событий мыши вовсе —
+   * замерено на этой машине: ни одного `mousemove`, даже с `forward`. Поэтому
+   * главный процесс сам следит за курсором, зная, где лежит фигура, и включает
+   * перехват, когда курсор над ней (`electron/main.ts`).
+   */
+  useEffect(() => {
+    const api = window.electronAPI;
+    if (!api?.onMiniHover) return;
+    return api.onMiniHover((over) => (over ? handleEnter() : handleLeave()));
+  }, [handleEnter, handleLeave]);
+
+  // Прямоугольник фигуры — в главный процесс: без него ему не с чем сравнивать
+  // курсор. Форма меняет размер, поэтому следим за ним, а не шлём однажды.
+  useEffect(() => {
+    const node = shapeRef.current;
+    const api = window.electronAPI;
+    if (!node || !api?.setMiniShapeRect) return;
+    const report = () => {
+      const rect = node.getBoundingClientRect();
+      api.setMiniShapeRect?.({ x: rect.left, y: rect.top, width: rect.width, height: rect.height });
+    };
+    report();
+    if (typeof ResizeObserver === 'undefined') return;
+    const observer = new ResizeObserver(report);
+    observer.observe(node);
+    return () => observer.disconnect();
+  }, [formId, expanded]);
 
   const handlePointerDown = (event: React.PointerEvent<HTMLDivElement>) => {
     if (event.button !== 0) return;
@@ -679,8 +707,10 @@ export const MiniWindow: React.FC = () => {
       data-testid="mini-window"
     >
       <div
+        ref={shapeRef}
         className="mini-shape"
         data-expanded={expanded ? 'true' : 'false'}
+        data-hover={expanded ? 'true' : 'false'}
         onPointerEnter={handleEnter}
         onPointerLeave={handleLeave}
         onPointerDown={handlePointerDown}

@@ -172,8 +172,10 @@ export interface ElectronAPI {
   /** Main renderer → mini player. */
   /** Мини-окно: размер под форму. Только из самого мини-окна. */
   setMiniForm?: (form: string) => Promise<boolean>;
-  /** Мини-окно: пропускать ли клики сквозь прозрачное поле вокруг фигуры. */
-  setMiniIgnoreMouse?: (ignore: boolean) => void;
+  /** Мини-окно: где фигура внутри окна — по ней главный процесс ловит наведение. */
+  setMiniShapeRect?: (rect: { x: number; y: number; width: number; height: number }) => void;
+  /** Мини-окно: курсор вошёл в фигуру или вышел. */
+  onMiniHover?: (callback: (over: boolean) => void) => () => void;
   /** Мини-окно: окно идёт за курсором, пока не придёт miniDragEnd. */
   miniDragStart?: () => void;
   miniDragEnd?: () => void;
@@ -406,8 +408,15 @@ export const electronAPI: ElectronAPI = {
       return false;
     }
   },
-  setMiniIgnoreMouse: (ignore: boolean): void => {
-    ipcRenderer.send('mini-ignore-mouse', ignore);
+  setMiniShapeRect: (rect: { x: number; y: number; width: number; height: number }): void => {
+    ipcRenderer.send('mini-shape-rect', rect);
+  },
+  onMiniHover: (callback: (over: boolean) => void): (() => void) => {
+    const listener = (_event: any, over: boolean) => callback(over);
+    ipcRenderer.on('mini-hover', listener);
+    return () => {
+      ipcRenderer.removeListener('mini-hover', listener);
+    };
   },
   miniDragStart: (): void => {
     ipcRenderer.send('mini-drag-start');

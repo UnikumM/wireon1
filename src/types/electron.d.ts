@@ -194,8 +194,10 @@ export interface ElectronAPI {
   isMiniWindowOpen: () => Promise<boolean>;
   /** Мини-окно: размер под форму. Только из самого мини-окна. */
   setMiniForm?: (form: string) => Promise<boolean>;
-  /** Мини-окно: пропускать ли клики сквозь прозрачное поле вокруг фигуры. */
-  setMiniIgnoreMouse?: (ignore: boolean) => void;
+  /** Мини-окно: где фигура внутри окна — по ней главный процесс ловит наведение. */
+  setMiniShapeRect?: (rect: { x: number; y: number; width: number; height: number }) => void;
+  /** Мини-окно: курсор вошёл в фигуру или вышел. Прозрачное окно само этого не слышит. */
+  onMiniHover?: (callback: (over: boolean) => void) => () => void;
   /** Мини-окно: окно идёт за курсором, пока не придёт miniDragEnd. */
   miniDragStart?: () => void;
   miniDragEnd?: () => void;

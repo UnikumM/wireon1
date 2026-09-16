@@ -195,6 +195,7 @@ import {
   isExternallyOpenableUrl,
   isStreamingHost,
   boundsForMiniForm,
+  cursorOverShape,
   snapToArea,
   MINI_SNAP_DISTANCE,
   migrateLegacyUserData,
@@ -321,7 +322,8 @@ describe('Milestone 5: Desktop Packaging & Electron Integration Test Suite', () 
           'setGlobalHotkeys',
           'setMediaKeysEnabled',
           'setMiniForm',
-          'setMiniIgnoreMouse',
+          'onMiniHover',
+          'setMiniShapeRect',
           'setMiniPlayerMode',
           'setYouTubeCookiesBrowser',
           'transcodeAudio',
@@ -1202,6 +1204,21 @@ describe('Milestone 5: Desktop Packaging & Electron Integration Test Suite', () 
         '*://yt.drgnz.club/*',
         '*://*.invidious.io/*',
       ].forEach((pattern) => expect(targetUrls).toContain(pattern));
+    });
+
+    it('курсор над фигурой считается по её месту в окне, а не по всему окну', () => {
+      // Прозрачное окно больше фигуры: поле вокруг неё пропускает клики, и
+      // «над окном» там не значит «над плеером».
+      const bounds = { x: 100, y: 100, width: 412, height: 212 };
+      const shape = { x: 16, y: 8, width: 380, height: 180 };
+
+      expect(cursorOverShape({ x: 300, y: 150 }, bounds, shape)).toBe(true);
+      // В поле вокруг фигуры — мимо.
+      expect(cursorOverShape({ x: 105, y: 105 }, bounds, shape)).toBe(false);
+      expect(cursorOverShape({ x: 300, y: 300 }, bounds, shape)).toBe(false);
+      // Масштаб окна: фигура в css-пикселях, курсор — в системных.
+      expect(cursorOverShape({ x: 100 + 16 * 1.25 + 2, y: 100 + 8 * 1.25 + 2 }, bounds, shape, 1.25)).toBe(true);
+      expect(cursorOverShape({ x: 100 + 16 * 1.25 - 4, y: 150 }, bounds, shape, 1.25)).toBe(false);
     });
 
     it('смена формы мини-плеера держит середину и не выносит окно за экран', () => {

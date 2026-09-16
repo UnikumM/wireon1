@@ -1052,6 +1052,7 @@ export function setupIpcHandlers(
     if (!mini || event.sender !== mini.webContents) return false;
     const size = typeof form === 'string' ? MINI_FORM_WINDOW_SIZES[form] : undefined;
     if (!size) return false;
+    miniFormSize = size;
     mini.setBounds(boundsForMiniForm(mini.getBounds(), size, workAreaFor(mini)));
     return true;
   });
@@ -1059,10 +1060,24 @@ export function setupIpcHandlers(
   // Поле вокруг фигуры пропускает клики к окнам под ним. Окно слышит мышь и в
   // этом режиме (forward), поэтому само снимает запрет, когда курсор входит в
   // фигуру, и возвращает, когда выходит.
-  ipc.on('mini-ignore-mouse', (event, ignore: unknown) => {
+  /*
+   * Где фигура внутри окна. Отсюда главный процесс знает, накрыт ли курсор
+   * фигурой, — сам он о разметке ничего не знает.
+   */
+  ipc.on('mini-shape-rect', (event, rect: unknown) => {
     const mini = getMiniWindow();
     if (!mini || event.sender !== mini.webContents) return;
-    mini.setIgnoreMouseEvents(ignore === true, { forward: true });
+    const r = rect as { x?: unknown; y?: unknown; width?: unknown; height?: unknown } | null;
+    if (
+      !r ||
+      typeof r.x !== 'number' ||
+      typeof r.y !== 'number' ||
+      typeof r.width !== 'number' ||
+      typeof r.height !== 'number'
+    ) {
+      return;
+    }
+    setMiniShapeRect(mini, { x: r.x, y: r.y, width: r.width, height: r.height });
   });
 
   ipc.on('mini-drag-start', (event) => {
@@ -1751,6 +1766,7 @@ export function createMiniWindow(): BrowserWindow {
   });
 
   win.on('closed', () => {
+    stopMiniHoverWatch();
     miniWindow = null;
     const main = getMainWindow();
     if (main && !main.isDestroyed()) {
@@ -1828,6 +1844,84 @@ export function snapToArea(rect: Rect, area: Rect, distance: number = MINI_SNAP_
 }
 
 /*
+ * Курсор над фигурой: следит главный процесс, а не окно.
+ *
+ * Замерено на этой машине (Electron 43, Windows 11): окно, которому сказано
+ * пропускать клики (`setIgnoreMouseEvents(true, { forward: true })`), не
+ * получает **ни одного** события мыши — ни `mousemove`, ни наведения. То есть
+ * само окно никогда бы не узнало, что к нему потянулись, и осталось бы
+ * бесполезным: ни перетащить, ни нажать.
+ *
+ * Поэтому положение курсора десять раз в секунду спрашивается у системы и
+ * сравнивается с прямоугольником фигуры, который прислало окно. Вошёл —
+ * перехват включается, и дальше внутри работают обычные события и `:hover`;
+ * вышел — снова пропускаем клики насквозь.
+ */
+const MINI_HOVER_TICK_MS = 100;
+
+/**
+ * Размер окна текущей формы — источник правды для перетаскивания.
+ *
+ * Брать его из `getBounds()` нельзя: на экране с масштабом 125% каждый обход
+ * «прочитали границы → записали границы» округляет их вверх, и окно росло на
+ * пиксель-другой за каждое перетаскивание.
+ */
+let miniFormSize: { width: number; height: number } = MINI_FORM_WINDOW_SIZES.card;
+
+let miniShapeRect: Rect | null = null;
+let miniHoverTimer: ReturnType<typeof setInterval> | null = null;
+let miniHovered = false;
+
+/** Курсор внутри фигуры? Прямоугольник приходит в css-пикселях окна. */
+export function cursorOverShape(
+  cursor: { x: number; y: number },
+  bounds: Rect,
+  rect: Rect,
+  zoom: number = 1
+): boolean {
+  const left = bounds.x + rect.x * zoom;
+  const top = bounds.y + rect.y * zoom;
+  return (
+    cursor.x >= left &&
+    cursor.x <= left + rect.width * zoom &&
+    cursor.y >= top &&
+    cursor.y <= top + rect.height * zoom
+  );
+}
+
+function setMiniShapeRect(win: BrowserWindow, rect: Rect): void {
+  miniShapeRect = rect;
+  if (miniHoverTimer) return;
+  miniHoverTimer = setInterval(() => {
+    const mini = getMiniWindow();
+    if (!mini || mini.isDestroyed()) {
+      stopMiniHoverWatch();
+      return;
+    }
+    // Во время перетаскивания перехват не трогаем: курсор легко обгоняет окно,
+    // и на первом же рывке мы отобрали бы у окна кнопку мыши.
+    if (miniDragTimer) return;
+    if (!miniShapeRect) return;
+    const zoom = mini.webContents.getZoomFactor?.() || 1;
+    const inside = cursorOverShape(screen.getCursorScreenPoint(), mini.getBounds(), miniShapeRect, zoom);
+    if (inside === miniHovered) return;
+    miniHovered = inside;
+    mini.setIgnoreMouseEvents(!inside, { forward: true });
+    mini.webContents.send('mini-hover', inside);
+  }, MINI_HOVER_TICK_MS);
+  void win;
+}
+
+function stopMiniHoverWatch(): void {
+  if (miniHoverTimer) {
+    clearInterval(miniHoverTimer);
+    miniHoverTimer = null;
+  }
+  miniShapeRect = null;
+  miniHovered = false;
+}
+
+/*
  * Перетаскивание — вручную, а не -webkit-app-region: drag. Область
  * перетаскивания на Windows глотает события мыши: наведение в ней не работает,
  * а на наведении держатся раскрытие «Острова» и кнопки поверх «Обложки».
@@ -1851,7 +1945,17 @@ function startMiniDrag(win: BrowserWindow): void {
       return;
     }
     const cursor = screen.getCursorScreenPoint();
-    win.setPosition(cursor.x - offset.x, cursor.y - offset.y);
+    /*
+     * Размер задаётся явно на каждом шаге, а не остаётся «как есть».
+     * `setPosition` на экране с масштабом 125% пересчитывает границы туда и
+     * обратно с округлением вверх, и окно росло на десяток пикселей за каждое
+     * перетаскивание — замерено: 465 → 498 → 533 за три захода.
+     */
+    win.setBounds({
+      x: cursor.x - offset.x,
+      y: cursor.y - offset.y,
+      ...miniFormSize
+    });
   }, MINI_DRAG_TICK_MS);
 }
 
@@ -1860,7 +1964,15 @@ function stopMiniDrag(win: BrowserWindow): void {
     clearInterval(miniDragTimer);
     miniDragTimer = null;
   }
-  if (!win.isDestroyed()) win.setBounds(snapToArea(win.getBounds(), workAreaFor(win)));
+  if (win.isDestroyed()) return;
+  /*
+   * Только положение: `setBounds` своими же границами на экране с дробным
+   * масштабом (125%) возвращает их обратно с округлением, и окно подрастало на
+   * пиксель-другой за каждое перетаскивание — замерено, 372×188 превращалось в
+   * 412×228 за несколько заходов.
+   */
+  const snapped = snapToArea(win.getBounds(), workAreaFor(win));
+  win.setPosition(snapped.x, snapped.y);
 }
 
 export function getMiniWindow(): BrowserWindow | null {

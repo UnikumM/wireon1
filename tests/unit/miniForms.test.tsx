@@ -8,6 +8,7 @@ import { useMiniPlayerHost } from '../../src/hooks/useMiniPlayerHost';
 import { usePlayerLayoutStore, PLAYER_LAYOUT_SETTING_KEYS } from '../../src/store/usePlayerLayoutStore';
 import { DEFAULT_MINI_FORM_ID, MINI_FORM_IDS, MINI_FORMS, isMiniFormId } from '../../src/styles/miniForms';
 import * as dbService from '../../src/services/db';
+import { PlayerLayoutSettings } from '../../src/components/settings/PlayerLayoutSettings';
 import type { MiniPlayerCommand, MiniPlayerState } from '../../src/types/electron';
 
 /**
@@ -39,11 +40,16 @@ function installBridge() {
   const stateListeners = new Set<(state: MiniPlayerState) => void>();
   const commandListeners = new Set<(command: MiniPlayerCommand) => void>();
   const commands: MiniPlayerCommand[] = [];
+  const hoverListeners = new Set<(over: boolean) => void>();
   const api = {
     isMiniWindow: true,
     closeMiniWindow: vi.fn().mockResolvedValue(true),
     setMiniForm: vi.fn().mockResolvedValue(true),
-    setMiniIgnoreMouse: vi.fn(),
+    setMiniShapeRect: vi.fn(),
+    onMiniHover: (cb: (over: boolean) => void) => {
+      hoverListeners.add(cb);
+      return () => hoverListeners.delete(cb);
+    },
     miniDragStart: vi.fn(),
     miniDragEnd: vi.fn(),
     onMiniState: (cb: (state: MiniPlayerState) => void) => {
@@ -67,6 +73,8 @@ function installBridge() {
     api,
     commands,
     push: (state: MiniPlayerState) => act(() => api.sendMiniState(state)),
+    /** Главный процесс увидел курсор над фигурой (или уход с неё). */
+    hover: (over: boolean) => act(() => hoverListeners.forEach((cb) => cb(over))),
     restore: () => {
       (window as unknown as { electronAPI?: unknown }).electronAPI = previous;
     }
@@ -197,18 +205,34 @@ describe('Формы мини-плеера', () => {
       expect(bridge.commands.at(-1)).toEqual({ type: 'volume', value: 1 });
     });
 
-    it('курсор в фигуре снимает сквозные клики и раскрывает остров; уход возвращает', () => {
+    it('окно сообщает главному процессу, где лежит фигура', () => {
+      render(<MiniWindow />);
+      bridge.push(snapshot());
+      // Без этого прямоугольника главному процессу не с чем сравнивать курсор,
+      // а своих событий мыши у сквозного окна нет вовсе.
+      expect(bridge.api.setMiniShapeRect).toHaveBeenCalled();
+      const rect = (bridge.api.setMiniShapeRect as ReturnType<typeof vi.fn>).mock.calls.at(-1)?.[0];
+      expect(rect).toMatchObject({
+        x: expect.any(Number),
+        y: expect.any(Number),
+        width: expect.any(Number),
+        height: expect.any(Number)
+      });
+    });
+
+    it('курсор над фигурой раскрывает остров, уход сворачивает его с задержкой', () => {
       vi.useFakeTimers();
       render(<MiniWindow />);
       bridge.push(snapshot({ form: 'island' }));
       const shape = screen.getByTestId('mini-window').querySelector('.mini-shape') as HTMLElement;
 
-      fireEvent.pointerEnter(shape);
-      expect(bridge.api.setMiniIgnoreMouse).toHaveBeenLastCalledWith(false);
+      bridge.hover(true);
       expect(shape.getAttribute('data-expanded')).toBe('true');
+      // По этому признаку раскрываются и кнопки окна: `:hover` в сквозном окне
+      // не срабатывает, о курсоре сообщает главный процесс.
+      expect(shape.getAttribute('data-hover')).toBe('true');
 
-      fireEvent.pointerLeave(shape);
-      expect(bridge.api.setMiniIgnoreMouse).toHaveBeenLastCalledWith(true);
+      bridge.hover(false);
       // Схлопывается не сразу: соскочивший на пиксель курсор не должен дёргать остров.
       expect(shape.getAttribute('data-expanded')).toBe('true');
       act(() => {
@@ -239,6 +263,35 @@ describe('Формы мини-плеера', () => {
       bridge.push(snapshot({ isFavorite: false }));
       bridge.push(snapshot({ isFavorite: true }));
       expect(screen.getByTestId('mini-window-favorite').hasAttribute('data-pop')).toBe(true);
+    });
+  });
+
+  describe('Выбор в настройках', () => {
+    beforeEach(() => {
+      usePlayerLayoutStore.getState().resetLayout();
+      usePlayerLayoutStore.setState({ layoutHydrated: true });
+    });
+
+    afterEach(() => cleanup());
+
+    it('в настройках плеера видны все формы, и выбранная отмечена', () => {
+      render(<PlayerLayoutSettings />);
+      const grid = screen.getByTestId('settings-mini-form-skins');
+      expect(grid.querySelectorAll('[role="radio"]').length).toBe(MINI_FORM_IDS.length);
+      expect(
+        screen.getByTestId(`settings-mini-form-skin-${DEFAULT_MINI_FORM_ID}`).getAttribute('aria-checked')
+      ).toBe('true');
+      // Имя формы должно читаться глазами: по нему её и выбирают.
+      expect(grid.textContent).toContain(MINI_FORMS.island.name);
+    });
+
+    it('нажатие меняет форму, облик мини-плеера при этом не двигается', () => {
+      render(<PlayerLayoutSettings />);
+      const skinBefore = usePlayerLayoutStore.getState().miniSkinId;
+      fireEvent.click(screen.getByTestId('settings-mini-form-skin-island'));
+
+      expect(usePlayerLayoutStore.getState().miniFormId).toBe('island');
+      expect(usePlayerLayoutStore.getState().miniSkinId).toBe(skinBefore);
     });
   });
 

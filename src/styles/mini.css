@@ -602,7 +602,7 @@ html[data-mini-window] #root::after {
   height: 22px;
 }
 
-.mini-shape:hover .mini-actions,
+.mini-shape[data-hover='true'] .mini-actions,
 .mini-shape:focus-within .mini-actions {
   opacity: 1;
   transform: none;
@@ -877,7 +877,7 @@ html[data-mini-window] #root::after {
     filter var(--dur-normal) var(--ease-out);
 }
 
-.mini-shape:hover .mini-cover-art {
+.mini-shape[data-hover='true'] .mini-cover-art {
   transform: scale(1.06);
   filter: blur(2px) brightness(0.7);
 }
@@ -914,7 +914,7 @@ html[data-mini-window] #root::after {
   color: var(--on-media);
 }
 
-.mini-shape:hover .mini-cover-controls,
+.mini-shape[data-hover='true'] .mini-cover-controls,
 .mini-shape:focus-within .mini-cover-controls {
   opacity: 1;
   transform: none;
@@ -1038,7 +1038,7 @@ html[data-mini-window] #root::after {
 }
 
 
-.mini-shape:hover .mini-disc-controls,
+.mini-shape[data-hover='true'] .mini-disc-controls,
 .mini-shape:focus-within .mini-disc-controls {
   opacity: 1;
   transform: none;
