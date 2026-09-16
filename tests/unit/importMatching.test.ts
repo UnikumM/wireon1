@@ -316,4 +316,27 @@ describe('Оценка идёт до отбора, а не после', () => {
 
     expect(match.track).toBeNull();
   });
+
+  it('транслитерация — тот же исполнитель, и штраф его не трогает', async () => {
+    /*
+     * Пара к предыдущему случаю: два требования тянут в разные стороны, и тест
+     * держит оба. Spotify пишет «Sharlot», каталог — «Шарлот». Рядом лежит
+     * другая песня с полем «Sharlot», и если транслитерацию не узнать, она
+     * включает штраф и сбивает верную запись ниже порога. Замерено на
+     * реальном плейлисте владельца.
+     */
+    vi.spyOn(searchAggregator, 'search').mockImplementation(async () => {
+      const results = [
+        track({ id: 'yt_other', title: 'Другая песня', artist: 'Sharlot', duration: 190 }),
+        track({ id: 'yt_right', title: 'Я не один', artist: 'Шарлот', duration: 160 })
+      ];
+      return { results, sources: { youtube: results.length, soundcloud: 0 } };
+    });
+
+    const [match] = await service.matchImportedTracks([
+      { title: 'Я не один', artist: 'Sharlot', duration: 160 }
+    ]);
+
+    expect(match.track?.id).toBe('yt_right');
+  });
 });

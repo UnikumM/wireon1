@@ -1019,8 +1019,23 @@ export class PlaylistImporterService {
         const plan = this.queryFor(entry.item);
         const pool: UnifiedTrack[] = [...entry.alternatives];
 
-        for (const query of plan.retries) {
-          const found = await this.searchCandidates(query);
+        /*
+         * Во втором заходе SoundCloud спрашиваем всегда, а не только при
+         * молчании каталога. Ремиксы, «ultra slowed» и фонк часто лежат только
+         * там — на реальном плейлисте так терялись «MONTAGEM URANIUM» и
+         * «MATRIX». В первом проходе этого нет нарочно: там ищут оригиналы, и
+         * перезаливки только занимали бы места.
+         */
+        // SoundCloud — последним: сперва каталог по другим запросам. Иначе
+        // перезаливка ремастера со SoundCloud побеждала раньше, чем очередь
+        // доходила до записи каталога (так было с «Somebody To Love»).
+        const queries = [...plan.retries, plan.query];
+        for (let step = 0; step < queries.length; step++) {
+          const query = queries[step];
+          const found =
+            step === queries.length - 1
+              ? (await searchAggregator.search(query, { source: 'soundcloud', limit: 10 }))?.results ?? []
+              : await this.searchCandidates(query);
           for (const candidate of found) {
             if (!pool.some((existing) => existing.id === candidate.id)) pool.push(candidate);
           }

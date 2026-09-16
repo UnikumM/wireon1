@@ -664,8 +664,9 @@ describe('Unit: Playlist Importer Service (M5)', () => {
        * затем второй проход по одному названию. Второй проход платный, поэтому
        * идёт только по строкам, которым пары не нашлось.
        */
-      expect(searchSpy).toHaveBeenCalledTimes(3);
-      expect(searchSpy.mock.calls[2][0]).toBe('Звезда по имени Солнце');
+      // Порядок: каталог и SoundCloud с исполнителем, во втором заходе ещё раз
+      // SoundCloud (там лежит то, чего нет в каталоге), затем одно название.
+      expect(searchSpy.mock.calls.map((call) => call[0]).at(-1)).toBe('Звезда по имени Солнце');
       expect(matches[0].track?.id).toBe('yt_fallback');
     });
 

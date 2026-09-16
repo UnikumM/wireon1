@@ -236,6 +236,31 @@ function overlapRatio(a: string, b: string): number {
   return shared / Math.min(left.size, right.size);
 }
 
+const CYRILLIC_TO_LATIN: Record<string, string> = {
+  а: 'a', б: 'b', в: 'v', г: 'g', д: 'd', е: 'e', ж: 'zh', з: 'z', и: 'i', й: 'y',
+  к: 'k', л: 'l', м: 'm', н: 'n', о: 'o', п: 'p', р: 'r', с: 's', т: 't', у: 'u',
+  ф: 'f', х: 'kh', ц: 'ts', ч: 'ch', ш: 'sh', щ: 'shch', ъ: '', ы: 'y', ь: '',
+  э: 'e', ю: 'yu', я: 'ya'
+};
+
+/** Кириллица латиницей — грубо, но одинаково для обеих сторон сравнения. */
+function transliterate(value: string): string {
+  return normalizeForMatch(value).replace(/[а-я]/g, (ch) => CYRILLIC_TO_LATIN[ch] ?? ch);
+}
+
+/**
+ * Совпадение имён исполнителя с учётом транслитерации.
+ *
+ * Spotify пишет «Sharlot», «Valentin Strykalo», «Max Korzh», а каталог YouTube
+ * Music — «Шарлот», «Валентин Стрыкало», «Макс Корж». Общих слов ноль, и
+ * вердикт «исполнитель не совпадает» был ложным. Хуже того: если рядом лежала
+ * другая песня с полем «Sharlot», включался относительный штраф, и верная
+ * запись слетала ниже порога — так на реальном плейлисте терялась «Я не один».
+ */
+function artistOverlap(a: string, b: string): number {
+  return Math.max(overlapRatio(a, b), overlapRatio(transliterate(a), transliterate(b)));
+}
+
 /** Ниже этого совпадение имён считается несовпадением. */
 export const ARTIST_MATCH_FLOOR = 0.34;
 
@@ -316,8 +341,8 @@ export function scoreCandidate(target: MatchTarget, candidate: UnifiedTrack): Ma
   if (target.artist) {
     // Имя в отдельном поле — надёжное свидетельство.
     const byField = Math.max(
-      overlapRatio(target.artist, candidate.artist || ''),
-      overlapRatio(target.artist, candidateSplit.artist || '')
+      artistOverlap(target.artist, candidate.artist || ''),
+      artistOverlap(target.artist, candidateSplit.artist || '')
     );
     // Исполнитель часто сидит внутри названия загрузки («Артист — Песня»),
     // а в поле артиста стоит имя канала. Поэтому сверяем и с названием.
