@@ -5,6 +5,7 @@ import { useUIStore } from '../store/useUIStore';
 import { usePlayerLayoutStore } from '../store/usePlayerLayoutStore';
 import { useDominantColor } from './useDominantColor';
 import type { MiniPlayerCommand, MiniPlayerState } from '../types/electron';
+import { isMiniFormId } from '../styles/miniForms';
 
 /** How often the snapshot is compared and, if changed, pushed to the mini window. */
 const PUSH_INTERVAL_MS = 500;
@@ -29,7 +30,8 @@ function buildState(accent: string | null): MiniPlayerState {
     // Облик едет вместе с состоянием, а не отдельным каналом: снимок и так
     // сравнивается целиком перед отправкой, поэтому смена настройки в этом окне
     // сама доезжает до мини-окна ближайшим тиком, а нового провода не появляется.
-    skin: usePlayerLayoutStore.getState().miniSkinId
+    skin: usePlayerLayoutStore.getState().miniSkinId,
+    form: usePlayerLayoutStore.getState().miniFormId
   };
 }
 
@@ -61,6 +63,11 @@ async function applyCommand(command: MiniPlayerCommand): Promise<void> {
       break;
     case 'repeat':
       player.cycleRepeatMode();
+      break;
+    case 'set-form':
+      // Форму можно сменить из самого мини-окна, но настройка живёт здесь: у
+      // мини-окна своя копия стора, и записанное там не доехало бы до настроек.
+      if (isMiniFormId(command.form)) usePlayerLayoutStore.getState().setMiniForm(command.form);
       break;
     default:
       // `request-state` and `focus-main` need no store work; the push loop and the

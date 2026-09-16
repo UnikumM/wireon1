@@ -2,6 +2,7 @@ import { create } from 'zustand';
 import * as dbService from '../services/db';
 import { DEFAULT_PLAYER_SKIN_ID, PLAYER_SKIN_IDS, PlayerSkinId } from '../styles/playerSkins';
 import { DEFAULT_MINI_SKIN_ID, MINI_SKIN_IDS, MiniSkinId } from '../styles/miniSkins';
+import { DEFAULT_MINI_FORM_ID, MINI_FORM_IDS, MiniFormId } from '../styles/miniForms';
 
 /**
  * Разметка плеера: что показывать в полосе и в полноэкранном режиме, насколько
@@ -63,6 +64,7 @@ export const PLAYER_LAYOUT_SETTING_KEYS = {
   progressStyle: 'playerLayoutProgressStyle',
   skinId: 'playerLayoutSkin',
   miniSkinId: 'playerLayoutMiniSkin',
+  miniFormId: 'playerLayoutMiniForm',
   modules: 'playerLayoutModules',
   fullscreenModules: 'playerLayoutFullscreenModules'
 } as const;
@@ -181,6 +183,7 @@ export interface PlayerLayoutState {
    * что мини-окно гидратирует именно этот стор (`src/main.tsx`).
    */
   miniSkinId: MiniSkinId;
+  miniFormId: MiniFormId;
   modules: Record<PlayerBarModuleKey, boolean>;
   fullscreenModules: Record<FullscreenModuleKey, boolean>;
   /** Уже читали базу? Компоненты на это не подписываются, флаг для стора. */
@@ -194,6 +197,7 @@ export interface PlayerLayoutStore extends PlayerLayoutState {
   setProgressStyle: (style: ProgressStyle) => void;
   setPlayerSkin: (id: PlayerSkinId) => void;
   setMiniSkin: (id: MiniSkinId) => void;
+  setMiniForm: (id: MiniFormId) => void;
   toggleModule: (key: PlayerBarModuleKey) => void;
   toggleFullscreenModule: (key: FullscreenModuleKey) => void;
   resetLayout: () => void;
@@ -223,6 +227,7 @@ function createDefaults(): PlayerLayoutState {
     progressStyle: 'thin',
     skinId: DEFAULT_PLAYER_SKIN_ID,
     miniSkinId: DEFAULT_MINI_SKIN_ID,
+    miniFormId: DEFAULT_MINI_FORM_ID,
     modules: allEnabled(PLAYER_BAR_MODULE_KEYS),
     fullscreenModules: allEnabled(FULLSCREEN_MODULE_KEYS),
     layoutHydrated: false
@@ -318,6 +323,11 @@ export const usePlayerLayoutStore = create<PlayerLayoutStore>()((set, get) => ({
     persistSetting(PLAYER_LAYOUT_SETTING_KEYS.miniSkinId, id);
   },
 
+  setMiniForm: (id) => {
+    set({ miniFormId: id });
+    persistSetting(PLAYER_LAYOUT_SETTING_KEYS.miniFormId, id);
+  },
+
   toggleModule: (key) => {
     const next = { ...get().modules, [key]: !get().modules[key] };
     set({ modules: next });
@@ -341,6 +351,7 @@ export const usePlayerLayoutStore = create<PlayerLayoutStore>()((set, get) => ({
     persistSetting(PLAYER_LAYOUT_SETTING_KEYS.progressStyle, defaults.progressStyle);
     persistSetting(PLAYER_LAYOUT_SETTING_KEYS.skinId, defaults.skinId);
     persistSetting(PLAYER_LAYOUT_SETTING_KEYS.miniSkinId, defaults.miniSkinId);
+    persistSetting(PLAYER_LAYOUT_SETTING_KEYS.miniFormId, defaults.miniFormId);
     persistSetting(PLAYER_LAYOUT_SETTING_KEYS.modules, defaults.modules);
     persistSetting(PLAYER_LAYOUT_SETTING_KEYS.fullscreenModules, defaults.fullscreenModules);
   },
@@ -352,7 +363,7 @@ export const usePlayerLayoutStore = create<PlayerLayoutStore>()((set, get) => ({
     hydrationPromise = (async () => {
       const current = get();
       try {
-        const [density, artworkShape, artworkClickAction, progressStyle, skinId, miniSkinId, modules, fullscreenModules] =
+        const [density, artworkShape, artworkClickAction, progressStyle, skinId, miniSkinId, modules, fullscreenModules, miniFormId] =
           await Promise.all([
             dbService.getSetting<unknown>(PLAYER_LAYOUT_SETTING_KEYS.density, current.density),
             dbService.getSetting<unknown>(PLAYER_LAYOUT_SETTING_KEYS.artworkShape, current.artworkShape),
@@ -367,7 +378,8 @@ export const usePlayerLayoutStore = create<PlayerLayoutStore>()((set, get) => ({
             dbService.getSetting<unknown>(
               PLAYER_LAYOUT_SETTING_KEYS.fullscreenModules,
               current.fullscreenModules
-            )
+            ),
+            dbService.getSetting<unknown>(PLAYER_LAYOUT_SETTING_KEYS.miniFormId, current.miniFormId)
           ]);
 
         const patch: Partial<PlayerLayoutState> = {};
@@ -377,6 +389,7 @@ export const usePlayerLayoutStore = create<PlayerLayoutStore>()((set, get) => ({
         const nextProgress = pickEnum(progressStyle, PROGRESS_STYLES, current.progressStyle);
         const nextSkin = pickEnum(skinId, PLAYER_SKIN_IDS, current.skinId);
         const nextMiniSkin = pickEnum(miniSkinId, MINI_SKIN_IDS, current.miniSkinId);
+        const nextMiniForm = pickEnum(miniFormId, MINI_FORM_IDS, current.miniFormId);
         const nextModules = normalizeModules(modules, PLAYER_BAR_MODULE_KEYS, current.modules);
         const nextFullscreen = normalizeModules(
           fullscreenModules,
@@ -390,6 +403,7 @@ export const usePlayerLayoutStore = create<PlayerLayoutStore>()((set, get) => ({
         if (nextProgress !== current.progressStyle) patch.progressStyle = nextProgress;
         if (nextSkin !== current.skinId) patch.skinId = nextSkin;
         if (nextMiniSkin !== current.miniSkinId) patch.miniSkinId = nextMiniSkin;
+        if (nextMiniForm !== current.miniFormId) patch.miniFormId = nextMiniForm;
         // Карты сравниваются по значениям: `normalizeModules` всегда возвращает
         // новый объект, и запись «как было» иначе меняла бы ссылку — а плеер
         // подписан именно на неё и перерисовался бы на пустом месте.

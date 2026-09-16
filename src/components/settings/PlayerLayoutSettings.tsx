@@ -19,6 +19,7 @@ import {
 } from '../../store/usePlayerLayoutStore';
 import { PLAYER_SKIN_LIST } from '../../styles/playerSkins';
 import { MINI_SKIN_LIST } from '../../styles/miniSkins';
+import { MINI_FORM_LIST } from '../../styles/miniForms';
 import { ICON } from '../../styles/icons';
 
 /**
@@ -189,6 +190,7 @@ export const PlayerLayoutSettings: React.FC = () => {
   const progressStyle = usePlayerLayoutStore((s) => s.progressStyle);
   const skinId = usePlayerLayoutStore((s) => s.skinId);
   const miniSkinId = usePlayerLayoutStore((s) => s.miniSkinId);
+  const miniFormId = usePlayerLayoutStore((s) => s.miniFormId);
   const modules = usePlayerLayoutStore((s) => s.modules);
   const fullscreenModules = usePlayerLayoutStore((s) => s.fullscreenModules);
 
@@ -198,6 +200,7 @@ export const PlayerLayoutSettings: React.FC = () => {
   const setProgressStyle = usePlayerLayoutStore((s) => s.setProgressStyle);
   const setPlayerSkin = usePlayerLayoutStore((s) => s.setPlayerSkin);
   const setMiniSkin = usePlayerLayoutStore((s) => s.setMiniSkin);
+  const setMiniForm = usePlayerLayoutStore((s) => s.setMiniForm);
   const toggleModule = usePlayerLayoutStore((s) => s.toggleModule);
   const toggleFullscreenModule = usePlayerLayoutStore((s) => s.toggleFullscreenModule);
   const resetLayout = usePlayerLayoutStore((s) => s.resetLayout);
@@ -237,6 +240,23 @@ export const PlayerLayoutSettings: React.FC = () => {
       />
 
       <div className="divider" role="presentation" />
+
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-1)' }}>
+        <h3 style={HEADING_STYLE}>Форма мини-плеера</h3>
+        <p style={HINT_STYLE}>
+          У каждой формы свой размер, и на нём помещается всё, что она показывает. Громкость в
+          любой форме крутится колёсиком над плеером. Сменить форму можно и в самом мини-плеере —
+          значком фигур справа сверху.
+        </p>
+      </div>
+
+      <SkinGrid
+        ariaLabel="Форма мини-плеера"
+        options={MINI_FORM_LIST}
+        activeId={miniFormId}
+        onPick={setMiniForm}
+        testIdPrefix="settings-mini-form"
+      />
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-1)' }}>
         <h3 style={HEADING_STYLE}>Облик мини-плеера</h3>

@@ -115,7 +115,9 @@ describe('Облики мини-плеера', () => {
       // Смысл проверки: переменная, которую окно не читает, — не облик, а
       // мёртвая строка. Отличить её на глаз нельзя, вид получается прежний.
       for (const name of MINI_SKIN_VAR_NAMES) {
-        expect(MINI_WINDOW_TSX, `переменная ${name}`).toContain(`var(${name})`);
+        // Геометрию формы читает таблица стилей, цвет — окно инлайном.
+        expect(`${MINI_WINDOW_TSX}
+${MINI_CSS}`, `переменная ${name}`).toContain(`var(${name})`);
       }
     });
 
@@ -134,11 +136,11 @@ describe('Облики мини-плеера', () => {
   describe('Характер обликов в таблице стилей', () => {
     it('«Винил» вращается только вместе со звуком', () => {
       expect(MINI_CSS).toContain("[data-mini-skin='vinyl'] .mini-artwork");
-      expect(ruleBody(MINI_CSS, "[data-mini-skin='vinyl'] .mini-artwork")).toContain(
+      expect(ruleBody(MINI_CSS, "[data-mini-skin='vinyl'] .mini-artwork:not(.mini-cover-art):not(.mini-disc-art)")).toContain(
         'animation-play-state: paused'
       );
       expect(
-        ruleBody(MINI_CSS, "[data-mini-skin='vinyl'][data-playing='true'] .mini-artwork")
+        ruleBody(MINI_CSS, "[data-mini-skin='vinyl'][data-playing='true'] .mini-artwork:not(.mini-cover-art):not(.mini-disc-art)")
       ).toContain('animation-play-state: running');
     });
 

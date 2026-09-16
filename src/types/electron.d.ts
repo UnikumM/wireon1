@@ -1,4 +1,5 @@
 import type { MiniSkinId } from '../styles/miniSkins';
+import type { MiniFormId } from '../styles/miniForms';
 
 export type MediaKeyAction = 'play-pause' | 'next' | 'prev' | 'stop' | 'volume-up' | 'volume-down';
 
@@ -13,6 +14,7 @@ export type MiniPlayerCommand =
   | { type: 'shuffle' }
   | { type: 'repeat' }
   | { type: 'focus-main' }
+  | { type: 'set-form'; form: string }
   | { type: 'request-state' };
 
 /** Snapshot pushed to the mini player; it holds no playback state of its own. */
@@ -35,6 +37,8 @@ export interface MiniPlayerState {
    * without a second IPC channel.
    */
   skin?: MiniSkinId;
+  /** Форма мини-плеера — едет тем же снимком, что и облик, и по той же причине. */
+  form?: MiniFormId;
 }
 
 /** What the main process knows about the last stream resolutions. */
@@ -188,6 +192,13 @@ export interface ElectronAPI {
   openMiniWindow: () => Promise<boolean>;
   closeMiniWindow: () => Promise<boolean>;
   isMiniWindowOpen: () => Promise<boolean>;
+  /** Мини-окно: размер под форму. Только из самого мини-окна. */
+  setMiniForm?: (form: string) => Promise<boolean>;
+  /** Мини-окно: пропускать ли клики сквозь прозрачное поле вокруг фигуры. */
+  setMiniIgnoreMouse?: (ignore: boolean) => void;
+  /** Мини-окно: окно идёт за курсором, пока не придёт miniDragEnd. */
+  miniDragStart?: () => void;
+  miniDragEnd?: () => void;
   sendMiniState: (state: MiniPlayerState) => void;
   onMiniState: (callback: (state: MiniPlayerState) => void) => () => void;
   sendMiniCommand: (command: MiniPlayerCommand) => void;

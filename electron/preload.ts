@@ -13,6 +13,7 @@ export type MiniPlayerCommand =
   | { type: 'shuffle' }
   | { type: 'repeat' }
   | { type: 'focus-main' }
+  | { type: 'set-form'; form: string }
   | { type: 'request-state' };
 
 /** Snapshot pushed to the mini player; it renders this and owns no playback state. */
@@ -169,6 +170,13 @@ export interface ElectronAPI {
   closeMiniWindow: () => Promise<boolean>;
   isMiniWindowOpen: () => Promise<boolean>;
   /** Main renderer → mini player. */
+  /** Мини-окно: размер под форму. Только из самого мини-окна. */
+  setMiniForm?: (form: string) => Promise<boolean>;
+  /** Мини-окно: пропускать ли клики сквозь прозрачное поле вокруг фигуры. */
+  setMiniIgnoreMouse?: (ignore: boolean) => void;
+  /** Мини-окно: окно идёт за курсором, пока не придёт miniDragEnd. */
+  miniDragStart?: () => void;
+  miniDragEnd?: () => void;
   sendMiniState: (state: MiniPlayerState) => void;
   onMiniState: (callback: (state: MiniPlayerState) => void) => () => void;
   /** Mini player → main renderer. */
@@ -390,6 +398,22 @@ export const electronAPI: ElectronAPI = {
     } catch {
       return false;
     }
+  },
+  setMiniForm: async (form: string): Promise<boolean> => {
+    try {
+      return await ipcRenderer.invoke('mini-set-form', form);
+    } catch {
+      return false;
+    }
+  },
+  setMiniIgnoreMouse: (ignore: boolean): void => {
+    ipcRenderer.send('mini-ignore-mouse', ignore);
+  },
+  miniDragStart: (): void => {
+    ipcRenderer.send('mini-drag-start');
+  },
+  miniDragEnd: (): void => {
+    ipcRenderer.send('mini-drag-end');
   },
   sendMiniState: (state: MiniPlayerState): void => {
     ipcRenderer.send('mini-state', state);

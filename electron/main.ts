@@ -1,4 +1,4 @@
-import { app, BrowserWindow, ipcMain, globalShortcut, Menu, nativeImage, protocol, session, shell, Tray } from 'electron';
+import { app, BrowserWindow, ipcMain, globalShortcut, Menu, nativeImage, protocol, screen, session, shell, Tray } from 'electron';
 import type { Session } from 'electron';
 import { cpSync, existsSync, mkdirSync, readFileSync, writeFileSync } from 'fs';
 import { tmpdir } from 'os';
@@ -1044,6 +1044,39 @@ export function setupIpcHandlers(
 
   ipc.handle('is-mini-window-open', async () => getMiniWindow() !== null);
 
+  // Форма мини-плеера задаёт размер его окна. Принимается только от самого
+  // мини-окна и только известная форма: размер из чужих рук — это окно на весь
+  // экран поверх всего.
+  ipc.handle('mini-set-form', async (event, form: unknown) => {
+    const mini = getMiniWindow();
+    if (!mini || event.sender !== mini.webContents) return false;
+    const size = typeof form === 'string' ? MINI_FORM_WINDOW_SIZES[form] : undefined;
+    if (!size) return false;
+    mini.setBounds(boundsForMiniForm(mini.getBounds(), size, workAreaFor(mini)));
+    return true;
+  });
+
+  // Поле вокруг фигуры пропускает клики к окнам под ним. Окно слышит мышь и в
+  // этом режиме (forward), поэтому само снимает запрет, когда курсор входит в
+  // фигуру, и возвращает, когда выходит.
+  ipc.on('mini-ignore-mouse', (event, ignore: unknown) => {
+    const mini = getMiniWindow();
+    if (!mini || event.sender !== mini.webContents) return;
+    mini.setIgnoreMouseEvents(ignore === true, { forward: true });
+  });
+
+  ipc.on('mini-drag-start', (event) => {
+    const mini = getMiniWindow();
+    if (!mini || event.sender !== mini.webContents) return;
+    startMiniDrag(mini);
+  });
+
+  ipc.on('mini-drag-end', (event) => {
+    const mini = getMiniWindow();
+    if (!mini || event.sender !== mini.webContents) return;
+    stopMiniDrag(mini);
+  });
+
   // Main renderer → mini player. Dropped silently when nothing is listening,
   // which is the common case (the mini player is usually closed).
   ipc.on('mini-state', (_event, state: unknown) => {
@@ -1671,19 +1704,20 @@ export function createMiniWindow(): BrowserWindow {
   const preloadPath = getPreloadPath();
 
   const win = new BrowserWindow({
-    width: 340,
-    height: 132,
-    minWidth: 300,
-    minHeight: 120,
-    maxWidth: 520,
-    maxHeight: 420,
+    // Размер ставит форма (mini-set-form); здесь — «Карточка», пока окно не
+    // прочитало свою настройку.
+    ...MINI_FORM_WINDOW_SIZES.card,
     frame: false,
-    resizable: true,
+    // Прозрачное окно: форма мини-плеера — фигура внутри него, а не сам
+    // прямоугольник окна. Такое окно Electron тянуть за край не даёт, и это
+    // совпадает с замыслом — размер задаёт форма.
+    transparent: true,
+    backgroundColor: '#00000000',
+    hasShadow: false,
+    resizable: false,
     maximizable: false,
     fullscreenable: false,
     skipTaskbar: true,
-    // The mini window paints --surface-1, not --bg-base; keep the two in sync.
-    backgroundColor: '#141619',
     title: 'Wireon Sounds — мини-плеер',
     show: false,
     alwaysOnTop: true,
@@ -1701,6 +1735,8 @@ export function createMiniWindow(): BrowserWindow {
   // 'screen-saver' keeps it above full-screen apps, which 'floating' does not.
   win.setAlwaysOnTop(true, 'screen-saver');
   win.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true });
+  // Пока курсор не вошёл в фигуру, прозрачное поле не перехватывает клики.
+  win.setIgnoreMouseEvents(true, { forward: true });
 
   win.once('ready-to-show', () => {
     if (!win.isDestroyed()) win.show();
@@ -1726,6 +1762,105 @@ export function createMiniWindow(): BrowserWindow {
   guardWindowNavigation(win);
   miniWindow = win;
   return win;
+}
+
+/**
+ * Размеры окна мини-плеера по формам.
+ *
+ * Копия MINI_FORMS[*].window из src/styles/miniForms.ts: главный процесс
+ * собирается отдельно и из src не импортирует. Расхождение ловит тест.
+ */
+export const MINI_FORM_WINDOW_SIZES: Readonly<Record<string, { width: number; height: number }>> = {
+  card: { width: 372, height: 188 },
+  island: { width: 412, height: 212 },
+  bar: { width: 404, height: 100 },
+  cover: { width: 240, height: 240 },
+  disc: { width: 208, height: 208 }
+};
+
+interface Rect {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+}
+
+/** Ближе этого к краю рабочей области окно при отпускании прилипает к нему. */
+export const MINI_SNAP_DISTANCE = 24;
+
+function workAreaFor(win: BrowserWindow): Rect {
+  return screen.getDisplayMatching(win.getBounds()).workArea;
+}
+
+function clampToArea(rect: Rect, area: Rect): Rect {
+  return {
+    ...rect,
+    x: Math.min(Math.max(rect.x, area.x), area.x + area.width - rect.width),
+    y: Math.min(Math.max(rect.y, area.y), area.y + area.height - rect.height)
+  };
+}
+
+/**
+ * Новое место окна при смене формы: середина по горизонтали и верхний край
+ * остаются там, где были. Иначе узкий «Диск», сменённый на широкую «Полосу»,
+ * рос бы только вправо и уезжал за край экрана.
+ */
+export function boundsForMiniForm(current: Rect, size: { width: number; height: number }, area: Rect): Rect {
+  return clampToArea(
+    {
+      x: Math.round(current.x + current.width / 2 - size.width / 2),
+      y: current.y,
+      width: size.width,
+      height: size.height
+    },
+    area
+  );
+}
+
+/** Прилипание к краям рабочей области. */
+export function snapToArea(rect: Rect, area: Rect, distance: number = MINI_SNAP_DISTANCE): Rect {
+  let { x, y } = rect;
+  if (Math.abs(x - area.x) < distance) x = area.x;
+  if (Math.abs(area.x + area.width - (x + rect.width)) < distance) x = area.x + area.width - rect.width;
+  if (Math.abs(y - area.y) < distance) y = area.y;
+  if (Math.abs(area.y + area.height - (y + rect.height)) < distance) y = area.y + area.height - rect.height;
+  return clampToArea({ ...rect, x, y }, area);
+}
+
+/*
+ * Перетаскивание — вручную, а не -webkit-app-region: drag. Область
+ * перетаскивания на Windows глотает события мыши: наведение в ней не работает,
+ * а на наведении держатся раскрытие «Острова» и кнопки поверх «Обложки».
+ * Поэтому окно двигает главный процесс, следуя за курсором, пока мини-окно не
+ * скажет, что кнопку отпустили.
+ */
+let miniDragTimer: ReturnType<typeof setInterval> | null = null;
+const MINI_DRAG_TICK_MS = 16;
+/** Страховка: отпускание кнопки потерялось — окно не должно ходить за курсором вечно. */
+const MINI_DRAG_MAX_MS = 60_000;
+
+function startMiniDrag(win: BrowserWindow): void {
+  if (miniDragTimer) clearInterval(miniDragTimer);
+  const start = screen.getCursorScreenPoint();
+  const origin = win.getBounds();
+  const offset = { x: start.x - origin.x, y: start.y - origin.y };
+  const startedAt = Date.now();
+  miniDragTimer = setInterval(() => {
+    if (win.isDestroyed() || Date.now() - startedAt > MINI_DRAG_MAX_MS) {
+      stopMiniDrag(win);
+      return;
+    }
+    const cursor = screen.getCursorScreenPoint();
+    win.setPosition(cursor.x - offset.x, cursor.y - offset.y);
+  }, MINI_DRAG_TICK_MS);
+}
+
+function stopMiniDrag(win: BrowserWindow): void {
+  if (miniDragTimer) {
+    clearInterval(miniDragTimer);
+    miniDragTimer = null;
+  }
+  if (!win.isDestroyed()) win.setBounds(snapToArea(win.getBounds(), workAreaFor(win)));
 }
 
 export function getMiniWindow(): BrowserWindow | null {

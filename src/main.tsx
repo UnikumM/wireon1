@@ -38,6 +38,8 @@ function renderRoot(): void {
   void usePlayerLayoutStore.getState().hydratePlayerLayout();
 
   if (window.electronAPI?.isMiniWindow) {
+    // Прозрачный документ: форма мини-плеера рисуется фигурой, а не окном (mini.css).
+    document.documentElement.dataset.miniWindow = 'true';
     root.render(
       <React.StrictMode>
         <ErrorBoundary>

@@ -194,6 +194,9 @@ import {
   isAppContentUrl,
   isExternallyOpenableUrl,
   isStreamingHost,
+  boundsForMiniForm,
+  snapToArea,
+  MINI_SNAP_DISTANCE,
   migrateLegacyUserData,
   DEEP_LINK_SCHEMES,
   registerDeepLinkProtocol,
@@ -296,6 +299,8 @@ describe('Milestone 5: Desktop Packaging & Electron Integration Test Suite', () 
           'isMaximized',
           'isMiniWindow',
           'isMiniWindowOpen',
+          'miniDragEnd',
+          'miniDragStart',
           'maximize',
           'minimize',
           'onDeepLink',
@@ -315,6 +320,8 @@ describe('Milestone 5: Desktop Packaging & Electron Integration Test Suite', () 
           'setAlwaysOnTop',
           'setGlobalHotkeys',
           'setMediaKeysEnabled',
+          'setMiniForm',
+          'setMiniIgnoreMouse',
           'setMiniPlayerMode',
           'setYouTubeCookiesBrowser',
           'transcodeAudio',
@@ -1195,6 +1202,32 @@ describe('Milestone 5: Desktop Packaging & Electron Integration Test Suite', () 
         '*://yt.drgnz.club/*',
         '*://*.invidious.io/*',
       ].forEach((pattern) => expect(targetUrls).toContain(pattern));
+    });
+
+    it('смена формы мини-плеера держит середину и не выносит окно за экран', () => {
+      const area = { x: 0, y: 0, width: 1920, height: 1040 };
+      // Узкий «Диск» → широкая «Полоса»: окно растёт в обе стороны от середины.
+      expect(boundsForMiniForm({ x: 800, y: 300, width: 208, height: 208 }, { width: 404, height: 100 }, area)).toEqual({
+        x: 702,
+        y: 300,
+        width: 404,
+        height: 100
+      });
+      // У правого края окно упирается в него, а не уезжает за него.
+      expect(
+        boundsForMiniForm({ x: 1800, y: 900, width: 208, height: 208 }, { width: 404, height: 100 }, area)
+      ).toEqual({ x: 1516, y: 900, width: 404, height: 100 });
+    });
+
+    it('после перетаскивания окно прилипает к краю рабочей области', () => {
+      const area = { x: 0, y: 0, width: 1920, height: 1040 };
+      const size = { width: 400, height: 100 };
+      // Ближе порога — прилипает.
+      expect(snapToArea({ x: MINI_SNAP_DISTANCE - 4, y: 500, ...size }, area).x).toBe(0);
+      expect(snapToArea({ x: 1920 - 400 - 5, y: 500, ...size }, area).x).toBe(1520);
+      expect(snapToArea({ x: 500, y: 6, ...size }, area).y).toBe(0);
+      // Дальше порога — остаётся, где отпустили.
+      expect(snapToArea({ x: 500, y: 500, ...size }, area)).toEqual({ x: 500, y: 500, ...size });
     });
 
     it('isStreamingHost matches every fallback instance but nothing else', () => {
