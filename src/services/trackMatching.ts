@@ -70,7 +70,20 @@ const NOISE_PATTERNS: ReadonlyArray<RegExp> = [
  * carries a penalty and is only forgiven when the target asks for it too.
  */
 const VARIANT_MARKERS: ReadonlyArray<{ key: string; pattern: RegExp; penalty: number; label: string }> = [
-  { key: 'remix', pattern: /\bremix\b|\brmx\b|\bbootleg\b|\bflip\b|\bvip mix\b/i, penalty: 55, label: 'ремикс' },
+  /*
+   * Кроме слова «remix» — чужая переделка, подписанная именем: «(Seph Martin
+   * Vice City Mix)», «(Daun Lou Edit)», «- Jacques Lu Cont Mix». Без этого
+   * «Hot Together (Seph Martin Vice City Mix)» прошла как та же запись и
+   * заиграла вместо оригинала. «Original Mix» — это и есть оригинал, а «Radio
+   * Edit» ловит своя пометка ниже.
+   */
+  {
+    key: 'remix',
+    pattern:
+      /\bremix\b|\brmx\b|\bbootleg\b|\bflip\b|\bvip mix\b|[([][^)\]]*?\b(?!original\b|radio\b)[a-z0-9]+\s+(?:mix|edit)\b[^)\]]*[)\]]|\s-\s(?:[^-]*\s)?(?!original\b|radio\b)[a-z0-9]+\s+(?:mix|edit)\s*$/i,
+    penalty: 55,
+    label: 'ремикс'
+  },
   { key: 'live', pattern: /\blive\b|\bконцерт\b|\bat\s+(?:the\s+)?\w+\s+(?:arena|stadium|hall)\b|\bunplugged\b/i, penalty: 50, label: 'живое исполнение' },
   { key: 'cover', pattern: /\bcover\b|\bкавер\b|\btribute\b/i, penalty: 60, label: 'кавер' },
   { key: 'karaoke', pattern: /\bkaraoke\b|\bкараоке\b|\bminus\b|\bминус(?:овка)?\b/i, penalty: 80, label: 'караоке' },

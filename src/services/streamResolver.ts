@@ -39,8 +39,16 @@ const PREFETCH_MARGIN_MS = 60000;
 /** After a failed prefetch, wait this long before trying that track again. */
 const PREFETCH_COOLDOWN_MS = 30000;
 
-/** How far a substitute's length may differ from the original, in seconds. */
-const SUBSTITUTE_DURATION_TOLERANCE_S = 20;
+/**
+ * Насколько длительность замены может отличаться от оригинала, в секундах.
+ *
+ * Было 20 — и не проверялось вовсе: число стояло только в комментарии, а
+ * длительность влияла лишь на баллы. Поэтому «Hot Together» (254 с) заменялась
+ * переделкой на 270 с. Одна и та же запись у разных источников расходится на
+ * пару секунд (на переносе 180 строк: 176 совпали с точностью до 3 с), а
+ * другая редакция — на десятки. Восьми хватает с запасом на первое.
+ */
+const SUBSTITUTE_DURATION_TOLERANCE_S = 8;
 
 /**
  * Насколько уверенным должно быть совпадение, чтобы играть замену.
@@ -675,7 +683,12 @@ export class StreamResolver {
       const sameVariant = detectVariants(`${candidate.title || ''} ${candidate.artist || ''}`).every((marker) =>
         wantedVariants.has(marker)
       );
-      return titleCovered && sameVariant;
+      // Длительность — жёсткое условие, а не только баллы: замена случается сама,
+      // и другая редакция той же песни здесь хуже честной ошибки.
+      const sameLength =
+        !(track.duration > 0 && candidate.duration > 0) ||
+        Math.abs(candidate.duration - track.duration) <= SUBSTITUTE_DURATION_TOLERANCE_S;
+      return titleCovered && sameVariant && sameLength;
     };
 
     const ranked = rankCandidates(

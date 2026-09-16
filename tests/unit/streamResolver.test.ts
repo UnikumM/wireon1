@@ -826,6 +826,96 @@ describe('Подтверждённая замена вместо повторн�
     expect((await findLink(scTrack))?.originalId).toBe('chosen1');
   });
 
+  it('«Hot Together»: переделку с именем и другой длиной не подставляет', async () => {
+    /*
+     * Живой случай. YouTube не успел, и замена со SoundCloud взяла
+     * «The Pointer Sisters - Hot Together (Seph Martin Vice City Mix)» на 270 с
+     * вместо оригинала на 254 — ровно 85 баллов, порог. Пропустили две вещи:
+     * допуск длительности не проверялся вовсе, а «(… Mix)» не считался
+     * ремиксом. Оригинала на SoundCloud нет, поэтому правильный ответ — ничего.
+     */
+    const { StreamResolver } = await import('../../src/services/streamResolver');
+    const ytTrack = {
+      id: 'yt_hot',
+      source: 'youtube' as const,
+      originalId: 'hot1',
+      title: 'Hot Together',
+      artist: 'The Pointer Sisters',
+      duration: 254,
+      artworkUrl: ''
+    };
+    const candidate = (id: string, title: string, artist: string, duration: number) => ({
+      id: `sc_${id}`,
+      source: 'soundcloud',
+      originalId: id,
+      title,
+      artist,
+      duration,
+      artworkUrl: ''
+    });
+    const yt = {
+      resolveStreamUrl: vi.fn(async () => {
+        throw new Error('YT_ALL_ATTEMPTS_FAILED');
+      }),
+      search: vi.fn(async () => [])
+    };
+    const sc = {
+      search: vi.fn(async () => [
+        candidate('seph', 'The Pointer Sisters - Hot Together (Seph Martin Vice City Mix)', 'Seph Martin', 270),
+        candidate('kavaan', 'The Pointer Sisters - Hot Together (KAVAAN Remix)', 'KAVAAN', 255),
+        candidate('daun', 'The Pointer Sisters - Hot Together (Daun Lou Edit) FREE DL', 'Daun Lou', 326)
+      ]),
+      resolveStreamUrl: vi.fn()
+    };
+
+    const resolver = new StreamResolver(yt as never, sc as never);
+    await expect(resolver.resolve(ytTrack)).rejects.toThrow();
+    expect(sc.resolveStreamUrl).not.toHaveBeenCalled();
+  });
+
+  it('та же запись с разницей в пару секунд подставляется по-прежнему', async () => {
+    const { StreamResolver } = await import('../../src/services/streamResolver');
+    const ytTrack = {
+      id: 'yt_same',
+      source: 'youtube' as const,
+      originalId: 'same1',
+      title: 'Hot Together',
+      artist: 'The Pointer Sisters',
+      duration: 254,
+      artworkUrl: ''
+    };
+    const yt = {
+      resolveStreamUrl: vi.fn(async () => {
+        throw new Error('YT_ALL_ATTEMPTS_FAILED');
+      }),
+      search: vi.fn(async () => [])
+    };
+    const sc = {
+      search: vi.fn(async () => [
+        {
+          id: 'sc_orig',
+          source: 'soundcloud',
+          originalId: 'orig',
+          title: 'Hot Together',
+          artist: 'The Pointer Sisters',
+          duration: 256,
+          artworkUrl: ''
+        }
+      ]),
+      resolveStreamUrl: vi.fn(async () => ({
+        streamUrl: 'https://cf-media.sndcdn.com/stream/orig.mp3',
+        format: 'mp3',
+        bitrate: 128,
+        expiresAt: Date.now() + 3_600_000
+      }))
+    };
+
+    const resolver = new StreamResolver(yt as never, sc as never);
+    const result = await resolver.resolve(ytTrack);
+    expect(result.substitutedFrom).toBe('soundcloud');
+    expect(sc.resolveStreamUrl).toHaveBeenCalledWith('orig');
+  });
+
   it('чужую песню не запоминает: подбор её и не отдаёт', async () => {
     const { StreamResolver } = await import('../../src/services/streamResolver');
     const { findLink } = await import('../../src/services/matchLinks');

@@ -21,7 +21,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { PlaylistImporterService, type ParsedPlaylistItem } from '../../src/services/playlistImporter';
 import { searchAggregator } from '../../src/services/aggregator';
-import { splitCatalogTitle, scoreCandidate } from '../../src/services/trackMatching';
+import { detectVariants, splitCatalogTitle, scoreCandidate } from '../../src/services/trackMatching';
 import { db } from '../../src/services/db';
 import { findLink, forgetLink, linkKey, rememberLink } from '../../src/services/matchLinks';
 import { UnifiedTrack } from '../../src/types/music';
@@ -65,6 +65,15 @@ describe('Разбор названия из чужого каталога', () 
     expect(splitCatalogTitle('Sunday Bloody Sunday').version).toBeNull();
     expect(splitCatalogTitle('Кино - Пачка сигарет').version).toBeNull();
     expect(splitCatalogTitle('Mr. Brightside - Jacques Lu Cont Mix').base).toBe('Mr. Brightside');
+  });
+
+  it('переделка, подписанная именем, — это ремикс', () => {
+    expect(detectVariants('Hot Together (Seph Martin Vice City Mix)')).toContain('remix');
+    expect(detectVariants('Hot Together (Daun Lou Edit) FREE DL')).toContain('remix');
+    expect(detectVariants('Mr. Brightside - Jacques Lu Cont Mix')).toContain('remix');
+    // А вот это — оригинал и радиоверсия, у них свои пометки.
+    expect(detectVariants('Song (Original Mix)')).not.toContain('remix');
+    expect(detectVariants('Song (Radio Edit)')).not.toContain('remix');
   });
 
   it('не съедает название целиком, если после тире стоит вся песня', () => {

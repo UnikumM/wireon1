@@ -150,6 +150,22 @@ describe('Milestone 3 — In-App Desktop Offline Storage & Downloads', () => {
       expect(record?.track.title).toBe('Offline Song 1');
     });
 
+    it('подменённый звук в офлайн не сохраняет', async () => {
+      // Сохранённый файл играет потом без проверок и без пометки о замене —
+      // ошибка сопоставления стала бы вечной.
+      vi.spyOn(streamResolver, 'resolve').mockResolvedValue({
+        streamUrl: 'https://cf-media.sndcdn.com/stream/remix.mp3',
+        format: 'mp3',
+        bitrate: 128,
+        expiresAt: Date.now() + 3600000,
+        cached: false,
+        substitutedFrom: 'soundcloud'
+      });
+
+      await expect(downloadTrack(mockTrack1)).rejects.toThrow(/замену сохранять не будем/);
+      expect(await isDownloaded(mockTrack1.id)).toBe(false);
+    });
+
     it('checks isDownloaded correctly for missing and existing tracks', async () => {
       expect(await isDownloaded('yt_nonexistent')).toBe(false);
       expect(await isDownloaded('')).toBe(false);
