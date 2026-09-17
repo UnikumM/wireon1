@@ -28,10 +28,12 @@ import {
   DISCORD_RPC_SETTING_KEY,
   DEFAULT_PRESENCE_OPTIONS,
   WIREON_DOWNLOAD_URL,
-  WIREON_ICON_URL
+  WIREON_ICON_URL,
+  roomCodeFromJoinSecret
 } from '../../src/services/discordRpcService';
 import { setupIpcHandlers } from '../../electron/main';
 import { usePlayerStore } from '../../src/store/usePlayerStore';
+import { useGroupListenStore } from '../../src/store/useGroupListenStore';
 import * as dbService from '../../src/services/db';
 import { createMockTrack } from '../helpers/mockData';
 import { resetPlayerStore, flushAsync } from '../helpers/testUtils';
@@ -564,7 +566,7 @@ describe('Milestone 4: Discord Rich Presence (RPC) Unit Tests', () => {
       // себе сам. Проверено вживую 2026-09-17: в ответе SET_ACTIVITY значок есть.
       expect(payload?.smallImageKey).toBe(WIREON_ICON_URL);
       expect(payload?.assets?.small_image).toBe(WIREON_ICON_URL);
-      expect(payload?.smallImageText).toBe('Wireon · YouTube');
+      expect(payload?.smallImageText).toBe('Wireon Sounds · YouTube · скачать бесплатно');
       expect(payload?.startTimestamp).toBeDefined();
       expect(payload?.endTimestamp).toBeDefined();
     });
@@ -574,6 +576,68 @@ describe('Milestone 4: Discord Rich Presence (RPC) Unit Tests', () => {
       const payload = discordRpcService.buildPayloadFromTrack(track, false, 50);
 
       expect(payload?.endTimestamp).toBeUndefined();
+    });
+
+    describe('«Слушать вместе» через Discord', () => {
+      afterEach(() => {
+        useGroupListenStore.setState({ roomId: null, connectionStatus: 'offline', participants: [] });
+      });
+
+      const track = () =>
+        createMockTrack({ title: 'MONTAGEM DAUNTLESS', artist: 'MarJan', duration: 125, sourceUrl: 'https://music.youtube.com/watch?v=x' });
+
+      it('в комнате уходит приглашение, а скачивание остаётся на значке', () => {
+        useGroupListenStore.setState({
+          roomId: 'ABC123',
+          connectionStatus: 'online',
+          participants: [{ id: 'u1', username: 'Уникум', isHost: true, joinedAt: 0, lastSeen: 0 }]
+        });
+
+        const payload = discordRpcService.buildPayloadFromTrack(track(), true, 10);
+        expect(payload?.party).toEqual({ id: 'wireon-ABC123', size: [1, 16] });
+        expect(payload?.joinSecret).toBe('wireon-room:ABC123');
+        expect(payload?.smallUrl).toBe(WIREON_DOWNLOAD_URL);
+
+        // Кнопки и приглашение Discord вместе не принимает — уходит приглашение.
+        const formatted = formatActivityForDiscord(payload);
+        expect(formatted?.secrets).toEqual({ join: 'wireon-room:ABC123' });
+        expect('buttons' in (formatted ?? {})).toBe(false);
+        expect(formatted?.assets?.small_url).toBe(WIREON_DOWNLOAD_URL);
+      });
+
+      it('без комнаты и без связи с брокером приглашения нет — остаются кнопки', () => {
+        useGroupListenStore.setState({ roomId: 'ABC123', connectionStatus: 'local', participants: [] });
+        const payload = discordRpcService.buildPayloadFromTrack(track(), true, 10);
+        expect(payload?.joinSecret).toBeUndefined();
+        expect(formatActivityForDiscord(payload)?.buttons).toHaveLength(2);
+      });
+
+      it('выключается в настройках', async () => {
+        useGroupListenStore.setState({ roomId: 'ABC123', connectionStatus: 'online', participants: [] });
+        await discordRpcService.setOptions({ listenTogether: false });
+        expect(discordRpcService.buildPayloadFromTrack(track(), true, 10)?.joinSecret).toBeUndefined();
+        await discordRpcService.setOptions({ ...DEFAULT_PRESENCE_OPTIONS });
+      });
+
+      it('код комнаты берётся только из нашего секрета', () => {
+        expect(roomCodeFromJoinSecret('wireon-room:abc123')).toBe('ABC123');
+        expect(roomCodeFromJoinSecret('ABC123')).toBeNull();
+        expect(roomCodeFromJoinSecret('wireon-room:x')).toBeNull();
+      });
+
+      it('событие присоединения от Discord доходит до обработчика', () => {
+        const client = new DiscordRpcClient();
+        const handler = vi.fn();
+        client.setJoinHandler(handler);
+        (client as any).handleMessage(1, { cmd: 'DISPATCH', evt: 'ACTIVITY_JOIN', data: { secret: 'wireon-room:ABC123' } });
+        expect(handler).toHaveBeenCalledWith('wireon-room:ABC123');
+        client.destroy();
+      });
+
+      it('маленький значок без картинки ссылку не получает', () => {
+        const formatted = formatActivityForDiscord({ details: 'Track', state: 'Artist', smallUrl: WIREON_DOWNLOAD_URL });
+        expect(formatted?.assets?.small_url).toBeUndefined();
+      });
     });
 
     describe('подробная активность, как у Spotify', () => {

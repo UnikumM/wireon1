@@ -239,7 +239,29 @@ export function pickTimestampRun(runs: string[]): string {
  * and the duration string.
  */
 export function splitMetadataRuns(runs: string[]): { meta: string[]; duration: string } {
-  const cleaned = runs.map(run => (run || '').trim()).filter(run => run.length > 0 && run !== '•');
+  /*
+   * Поля разделяет только «•». Внутри поля кусков бывает несколько: у трека с
+   * соавторами это «MarJan», « & », «второй исполнитель». Пока каждый кусок
+   * считался отдельным полем, альбомом становился «&» (его Discord и показывал
+   * под исполнителем), а второй исполнитель терялся.
+   */
+  const groups: string[] = [];
+  let current = '';
+  for (const run of runs) {
+    const trimmed = (run || '').trim();
+    if (trimmed === '•') {
+      groups.push(current);
+      current = '';
+    } else if (TIMESTAMP_PATTERN.test(trimmed) || COUNT_RUN_PATTERN.test(trimmed)) {
+      // Длительность и счётчики — всегда отдельное поле, даже без разделителя.
+      groups.push(current, trimmed);
+      current = '';
+    } else {
+      current += run || '';
+    }
+  }
+  groups.push(current);
+  const cleaned = groups.map(group => group.replace(/\s+/g, ' ').trim()).filter(group => group.length > 0);
   const duration = pickTimestampRun(cleaned);
 
   const meta = cleaned.filter(

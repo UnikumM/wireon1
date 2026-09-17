@@ -135,6 +135,13 @@ describe('YouTube Service & Utilities', () => {
         duration: '5:21'
       });
 
+      // Соавторы — один кусок поля, а не отдельные поля: иначе альбомом
+      // становился «&», а второй исполнитель терялся.
+      expect(splitMetadataRuns(['MarJan', ' & ', 'Ksenia', ' • ', 'DAUNTLESS', ' • ', '2:05'])).toEqual({
+        meta: ['MarJan & Ksenia', 'DAUNTLESS'],
+        duration: '2:05'
+      });
+
       expect(splitMetadataRuns(['Queen', '1.2M plays'])).toEqual({
         meta: ['Queen'],
         duration: ''

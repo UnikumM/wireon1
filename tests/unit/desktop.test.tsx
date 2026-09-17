@@ -305,6 +305,7 @@ describe('Milestone 5: Desktop Packaging & Electron Integration Test Suite', () 
           'maximize',
           'minimize',
           'onDeepLink',
+          'onDiscordJoin',
           'onMediaKey',
           'onMiniCommand',
           'onMiniState',

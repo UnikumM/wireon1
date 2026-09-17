@@ -2066,9 +2066,32 @@ export function deliverDeepLink(url: string, win: BrowserWindow | null = getMain
   win.webContents.send('deep-link', url);
 }
 
+let pendingDiscordJoin: string | null = null;
+
+/**
+ * Друг нажал «Присоединиться» в Discord. Если Wireon у него был закрыт, Discord
+ * сам запустит его по адресу `discord-<id>://`, и событие придёт раньше, чем
+ * окно готово слушать, — тогда оно ждёт, как и ответ входа.
+ */
+export function deliverDiscordJoin(secret: string, win: BrowserWindow | null = getMainWindow()): void {
+  if (!win || win.isDestroyed() || !rendererReady) {
+    pendingDiscordJoin = secret;
+    return;
+  }
+  if (win.isMinimized()) win.restore();
+  win.show();
+  win.focus();
+  win.webContents.send('discord-activity-join', secret);
+}
+
 /** Replays a queued deep link once the renderer has loaded. */
 export function flushPendingDeepLink(win: BrowserWindow): void {
   rendererReady = true;
+  if (pendingDiscordJoin && !win.isDestroyed()) {
+    const secret = pendingDiscordJoin;
+    pendingDiscordJoin = null;
+    win.webContents.send('discord-activity-join', secret);
+  }
   if (!pendingDeepLink || win.isDestroyed()) {
     return;
   }
@@ -2249,6 +2272,7 @@ if (app) {
       registerGlobalHotkeys(globalShortcut, getMainWindow);
       createTray(getMainWindow);
       ensureLinuxDesktopEntry();
+      discordRpc.setJoinHandler((secret) => deliverDiscordJoin(secret));
       void discordRpc.connect();
 
       app.on('activate', () => {

@@ -13,6 +13,8 @@
  */
 
 import { usePlayerStore } from '../store/usePlayerStore';
+import { useGroupListenStore } from '../store/useGroupListenStore';
+import { GroupListenService } from './groupListenService';
 import { UnifiedTrack } from '../types/music';
 import * as dbService from './db';
 import { UNKNOWN_ARTIST, UNKNOWN_TITLE } from '../utils/placeholders';
@@ -33,6 +35,9 @@ export interface DiscordActivityPayload {
   detailsUrl?: string;
   stateUrl?: string;
   largeUrl?: string;
+  smallUrl?: string;
+  party?: { id: string; size?: [number, number] };
+  joinSecret?: string;
   timestamps?: {
     start?: number;
     end?: number;
@@ -64,14 +69,36 @@ export interface DiscordPresenceOptions {
   /** Полоса «сколько отыграно из скольких». */
   showProgress: boolean;
   statusDisplay: DiscordStatusDisplay;
+  /**
+   * В комнате совместного прослушивания — приглашение вместо кнопок: друзья
+   * видят «Присоединиться», а в чате Discord можно позвать послушать вместе.
+   */
+  listenTogether: boolean;
 }
 
 export const DEFAULT_PRESENCE_OPTIONS: DiscordPresenceOptions = {
   listenButton: true,
   downloadButton: true,
   showProgress: true,
-  statusDisplay: 'track'
+  statusDisplay: 'track',
+  listenTogether: true
 };
+
+/** Приставка секрета присоединения — чтобы не принять чужой секрет за код. */
+const JOIN_SECRET_PREFIX = 'wireon-room:';
+
+/** Сколько мест показывать в комнате. Discord требует число, больше него не пустит. */
+const ROOM_CAPACITY = 16;
+
+/** Код комнаты из секрета, или null, если секрет не наш. */
+export function roomCodeFromJoinSecret(secret: string): string | null {
+  if (typeof secret !== 'string' || !secret.startsWith(JOIN_SECRET_PREFIX)) return null;
+  try {
+    return GroupListenService.sanitizeRoomCode(secret.slice(JOIN_SECRET_PREFIX.length)) || null;
+  } catch {
+    return null;
+  }
+}
 
 /** Куда ведёт «Скачать Wireon». */
 export const WIREON_DOWNLOAD_URL = 'https://github.com/UnikumM/wireon1/releases/latest';
@@ -102,6 +129,8 @@ export class DiscordRpcService {
   private options: DiscordPresenceOptions = { ...DEFAULT_PRESENCE_OPTIONS };
   private isInitialized = false;
   private unsubscribeStore: (() => void) | null = null;
+  private unsubscribeGroup: (() => void) | null = null;
+  private unsubscribeJoin: (() => void) | null = null;
   private debounceTimer: ReturnType<typeof setTimeout> | null = null;
   private lastTrackId: string | null = null;
   private lastIsPlaying: boolean | null = null;
@@ -143,6 +172,33 @@ export class DiscordRpcService {
     this.unsubscribeStore = usePlayerStore.subscribe((state) => {
       this.handleStoreUpdate(state.currentTrack, state.isPlaying, state.currentTime, state.duration);
     });
+
+    // Вошли в комнату или вышли из неё — приглашение в статусе меняется.
+    this.unsubscribeGroup = useGroupListenStore.subscribe((group, previous) => {
+      if (
+        group.roomId === previous.roomId &&
+        group.connectionStatus === previous.connectionStatus &&
+        group.participants.length === previous.participants.length
+      ) {
+        return;
+      }
+      const player = usePlayerStore.getState();
+      if (player.currentTrack && player.isPlaying) {
+        this.syncActivity(player.currentTrack, true, player.currentTime, player.duration, true);
+      }
+    });
+
+    // Друг нажал «Присоединиться» у вас в статусе — входим в вашу комнату.
+    this.unsubscribeJoin =
+      window.electronAPI?.onDiscordJoin?.((secret) => {
+        const code = roomCodeFromJoinSecret(secret);
+        if (!code) return;
+        const group = useGroupListenStore.getState();
+        group.setModalOpen(true);
+        if (group.roomId === code) return;
+        if (group.roomId) group.leaveRoom();
+        void group.joinRoom(code);
+      }) ?? null;
 
     // Initial sync
     const currentState = usePlayerStore.getState();
@@ -258,6 +314,9 @@ export class DiscordRpcService {
       largeImageKey: track.artworkUrl || 'wireon_logo',
       largeImageText: (track.album || 'Wireon').slice(0, 128),
       smallImageKey: WIREON_ICON_URL,
+      // Значок Wireon ведёт на скачивание — его, в отличие от кнопок, видит
+      // и сам владелец статуса.
+      smallUrl: WIREON_DOWNLOAD_URL,
       // Значка «играет/пауза» здесь нет намеренно. В маленький слот идёт не
       // картинка, а **ключ** заранее загруженной в заявку картинки, и ключей
       // `play_icon`/`pause_icon` там никогда не было: Discord молча выбрасывал
@@ -265,15 +324,29 @@ export class DiscordRpcService {
       // маленького значка нет, только подпись. Большая обложка проходит
       // потому, что это ссылка: её Discord перекладывает к себе сам
       // (`mp:external/…`).
-      smallImageText: `Wireon · ${sourceName}`,
+      smallImageText: `Wireon Sounds · ${sourceName} · скачать бесплатно`,
       instance: false,
       assets: {
         large_image: track.artworkUrl || 'wireon_logo',
         large_text: (track.album || 'Wireon').slice(0, 128),
         small_image: WIREON_ICON_URL,
-        small_text: `Wireon · ${sourceName}`
+        small_text: `Wireon Sounds · ${sourceName} · скачать бесплатно`
       }
     };
+
+    /*
+     * В комнате — приглашение. Discord не принимает его вместе с кнопками,
+     * поэтому кнопки на это время уходят (форматирование в главном процессе
+     * отбрасывает их само), а «Скачать» остаётся на значке.
+     */
+    const group = useGroupListenStore.getState();
+    if (options.listenTogether && group.roomId && group.connectionStatus === 'online') {
+      payload.party = {
+        id: `wireon-${group.roomId}`,
+        size: [Math.max(1, group.participants.length), Math.max(ROOM_CAPACITY, group.participants.length)]
+      };
+      payload.joinSecret = `${JOIN_SECRET_PREFIX}${group.roomId}`;
+    }
 
     if (!options.showProgress) return payload;
 
@@ -441,6 +514,10 @@ export class DiscordRpcService {
       this.unsubscribeStore();
       this.unsubscribeStore = null;
     }
+    this.unsubscribeGroup?.();
+    this.unsubscribeGroup = null;
+    this.unsubscribeJoin?.();
+    this.unsubscribeJoin = null;
     this.isInitialized = false;
   }
 }

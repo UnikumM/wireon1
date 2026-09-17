@@ -138,7 +138,7 @@ export const DesktopSettings: React.FC = () => {
           <ToggleSetting
             id="setting-discord-listen-button"
             label="Кнопка «Слушать»"
-            description="Друзья откроют этот же трек на YouTube или SoundCloud. Свою кнопку Discord вам не показывает — её видят только другие."
+            description="Друзья откроют этот же трек на YouTube или SoundCloud. Кнопки видят только другие: в вашей собственной карточке Discord их не рисует."
             checked={presence.listenButton}
             onChange={(value) => updatePresence({ listenButton: value })}
           />
@@ -146,9 +146,17 @@ export const DesktopSettings: React.FC = () => {
           <ToggleSetting
             id="setting-discord-download-button"
             label="Кнопка «Скачать Wireon»"
-            description="Ведёт на страницу последней версии, чтобы друзья могли поставить приложение."
+            description="Ведёт на страницу последней версии. Та же ссылка висит на значке Wireon у обложки — его видите и вы."
             checked={presence.downloadButton}
             onChange={(value) => updatePresence({ downloadButton: value })}
+          />
+
+          <ToggleSetting
+            id="setting-discord-listen-together"
+            label="«Слушать вместе» через Discord"
+            description="Пока вы в комнате совместного прослушивания, друзья видят у вас в статусе «Присоединиться», а в чате Discord можно позвать послушать вместе. Кнопки на это время заменяются приглашением — так устроен Discord."
+            checked={presence.listenTogether}
+            onChange={(value) => updatePresence({ listenTogether: value })}
           />
 
           <ToggleSetting

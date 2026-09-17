@@ -131,6 +131,8 @@ export interface ElectronAPI {
   setGlobalHotkeys: (payload: { enabled: boolean; bindings: Record<string, string> }) => void;
   openExternal: (url: string) => Promise<void>;
   onDeepLink: (callback: (url: string) => void) => () => void;
+  /** Друг нажал «Присоединиться» в Discord: приходит секрет из активности. */
+  onDiscordJoin: (callback: (secret: string) => void) => () => void;
   /** Runs the Discord consent screen in a window owned by the app. */
   discordLogin: (authUrl: string) => Promise<DiscordLoginResult>;
   /** Доведёт ли система ответ Discord из системного браузера обратно к нам. */
@@ -241,6 +243,15 @@ export const electronAPI: ElectronAPI = {
   },
   openExternal: (url: string): Promise<void> => {
     return ipcRenderer.invoke('open-external', url);
+  },
+  onDiscordJoin: (callback: (secret: string) => void): (() => void) => {
+    const listener = (_event: any, secret: string) => {
+      if (typeof secret === 'string') callback(secret);
+    };
+    ipcRenderer.on('discord-activity-join', listener);
+    return () => {
+      ipcRenderer.removeListener('discord-activity-join', listener);
+    };
   },
   onDeepLink: (callback: (url: string) => void): (() => void) => {
     const listener = (_event: any, url: string) => {

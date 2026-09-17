@@ -182,6 +182,8 @@ export interface ElectronAPI {
   setAlwaysOnTop: (alwaysOnTop: boolean) => Promise<boolean>;
   isAlwaysOnTop: () => Promise<boolean>;
   discordRpcSetActivity: (activity: any) => Promise<boolean>;
+  /** Друг нажал «Присоединиться» в Discord: приходит секрет из активности. */
+  onDiscordJoin?: (callback: (secret: string) => void) => () => void;
   discordRpcSetEnabled: (enabled: boolean) => Promise<void>;
   /** `null` — в этом главном процессе ручки ещё нет. */
   discordRpcStatus?: () => Promise<DiscordRpcStatusView | null>;

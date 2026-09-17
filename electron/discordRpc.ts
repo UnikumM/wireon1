@@ -105,6 +105,15 @@ export interface DiscordActivityPayload {
   detailsUrl?: string;
   stateUrl?: string;
   largeUrl?: string;
+  /** Щелчок по маленькому значку. Его видит и сам владелец статуса. */
+  smallUrl?: string;
+  /**
+   * Комната совместного прослушивания — тогда Discord показывает друзьям
+   * «Присоединиться» и даёт позвать в чате. `size` — [сейчас, максимум].
+   */
+  party?: { id: string; size?: [number, number] };
+  /** Секрет присоединения: его Discord вернёт другу в событии ACTIVITY_JOIN. */
+  joinSecret?: string;
   timestamps?: {
     start?: number;
     end?: number;
@@ -249,6 +258,8 @@ export function formatActivityForDiscord(payload: DiscordActivityPayload | null)
   // Кривая ссылка отказала бы всю активность — отбрасываем молча, как кнопки.
   const largeUrl = activityUrl(payload.largeUrl);
   if (largeUrl) assets.large_url = largeUrl;
+  const smallUrl = activityUrl(payload.smallUrl);
+  if (smallUrl && assets.small_image) assets.small_url = smallUrl;
 
   const result: Record<string, any> = {
     type: payload.type ?? ACTIVITY_TYPE_LISTENING,
@@ -285,7 +296,22 @@ export function formatActivityForDiscord(payload: DiscordActivityPayload | null)
     .slice(0, 2)
     .map((button) => ({ label: button.label.trim(), url: button.url.trim() }));
 
-  if (buttons.length > 0) result.buttons = buttons;
+  /*
+   * Присоединение и кнопки вместе Discord не принимает — отказывает во всей
+   * активности. Поэтому в комнате вместо кнопок уходит приглашение: друзья
+   * видят «Присоединиться», а «Скачать Wireon» остаётся на маленьком значке.
+   */
+  const partyId = (payload.party?.id ?? '').trim();
+  const joinSecret = (payload.joinSecret ?? '').trim();
+  if (partyId && joinSecret && partyId.length <= 128 && joinSecret.length <= 128) {
+    const party: Record<string, unknown> = { id: partyId };
+    const size = payload.party?.size;
+    if (size && size[0] >= 1 && size[1] >= size[0]) party.size = [Math.floor(size[0]), Math.floor(size[1])];
+    result.party = party;
+    result.secrets = { join: joinSecret };
+  } else if (buttons.length > 0) {
+    result.buttons = buttons;
+  }
 
   if (payload.startTimestamp) {
     result.timestamps = {
@@ -324,6 +350,8 @@ export class DiscordRpcClient {
   private retryTimer: NodeJS.Timeout | null = null;
   private activityRetries = 0;
   private currentActivity: DiscordActivityPayload | null = null;
+  /** Кому отдать секрет, когда друг нажал «Присоединиться». */
+  private joinHandler: ((secret: string) => void) | null = null;
   private incomingBuffer: Buffer = Buffer.alloc(0);
   private connectionPromise: Promise<boolean> | null = null;
 
@@ -456,9 +484,15 @@ export class DiscordRpcClient {
    */
   private handleMessage(opcode: number, payload: any): void {
     if (opcode === OPCODES.HANDSHAKE || opcode === OPCODES.FRAME) {
-      if (payload.cmd === 'DISPATCH' && payload.evt === 'READY') {
+      if (payload.cmd === 'DISPATCH' && payload.evt === 'ACTIVITY_JOIN') {
+        const secret = typeof payload.data?.secret === 'string' ? payload.data.secret : '';
+        if (secret && this.joinHandler) this.joinHandler(secret);
+      } else if (payload.cmd === 'DISPATCH' && payload.evt === 'READY') {
         this.isReady = true;
         this.lastError = null;
+        // Друг нажал «Присоединиться» в Discord — событие придёт сюда. Без
+        // подписки Discord его не присылает вовсе.
+        this.sendPacket(OPCODES.FRAME, { cmd: 'SUBSCRIBE', evt: 'ACTIVITY_JOIN', args: {}, nonce: `join-${Date.now()}` });
         // If we have a queued activity, broadcast it now
         if (this.currentActivity && this.isEnabled) {
           this.sendActivityPacket(this.currentActivity);
@@ -724,6 +758,11 @@ export class DiscordRpcClient {
   /**
    * Returns current status snapshot
    */
+  /** Обработчик приглашения: секрет из активности того, к кому присоединились. */
+  public setJoinHandler(handler: ((secret: string) => void) | null): void {
+    this.joinHandler = handler;
+  }
+
   public getStatus(): DiscordRpcStatus {
     return {
       connected: this.isConnected,
