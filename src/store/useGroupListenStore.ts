@@ -17,6 +17,7 @@ import {
 } from '../services/groupSync';
 import { usePlayerStore } from './usePlayerStore';
 import { useAuthStore } from './useAuthStore';
+import { useUIStore } from './useUIStore';
 
 export interface ChatMessage {
   id: string;
@@ -400,6 +401,39 @@ function publishHostSnapshot(
 // Подписки на сервис
 // ---------------------------------------------------------------------------
 
+/**
+ * Сообщение в чате комнаты, которого человек не видит.
+ *
+ * Окно свёрнуто или не в фокусе — системное уведомление (по щелчку окно комнаты
+ * открывается). Приложение перед глазами, но окно комнаты закрыто — подсказка
+ * внутри приложения. Окно комнаты открыто — ничего: сообщение и так видно.
+ */
+function notifyChatMessage(sender: string, text: string, modalOpen: boolean, openModal: () => void): void {
+  if (typeof document === 'undefined') return;
+  const away = document.hidden || (typeof document.hasFocus === 'function' && !document.hasFocus());
+  if (!away && modalOpen) return;
+
+  const body = text.length > 140 ? `${text.slice(0, 139)}…` : text;
+  if (away && typeof Notification !== 'undefined' && Notification.permission !== 'denied') {
+    const show = () => {
+      try {
+        const note = new Notification(`${sender} · Слушать вместе`, { body, silent: false });
+        note.onclick = () => {
+          window.focus();
+          openModal();
+        };
+      } catch (err) {
+        console.warn('[GroupListen] уведомление не показалось:', err);
+      }
+    };
+    if (Notification.permission === 'granted') show();
+    else void Notification.requestPermission().then((result) => result === 'granted' && show());
+    return;
+  }
+
+  useUIStore.getState().showToast(`${sender}: ${body}`, 'info');
+}
+
 function setupServiceListeners(set: SetState, get: () => GroupListenStore) {
   if (!unsubscribeMessage) {
     unsubscribeMessage = groupListenService.onMessage((msg: GroupListenMessage) => {
@@ -407,6 +441,11 @@ function setupServiceListeners(set: SetState, get: () => GroupListenStore) {
       if (!state.isConnected || msg.roomId !== state.roomId) return;
 
       if (msg.type === 'chat' && msg.chatText) {
+        if (msg.senderId !== useAuthStore.getState().user?.id) {
+          notifyChatMessage(msg.senderName || 'Участник', msg.chatText, state.isModalOpen, () =>
+            set({ isModalOpen: true })
+          );
+        }
         set((s) => ({
           chatMessages: [
             ...s.chatMessages,

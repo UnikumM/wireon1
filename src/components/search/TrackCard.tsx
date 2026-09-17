@@ -22,6 +22,7 @@ import { offlineStorage } from '../../services/offlineStorage';
 import { formatDuration } from '../../utils/time';
 import { ICON } from '../../styles/icons';
 import { useMobileShell } from '../../hooks/useMobileShell';
+import { useIntentPrefetch, warmTrack } from '../../hooks/useIntentPrefetch';
 import { useAddToPlaylist } from '../library/AddToPlaylistModal';
 
 export interface TrackCardProps {
@@ -157,6 +158,13 @@ export const TrackCard: React.FC<TrackCardProps> = ({
    * всегда открывался вниз и висел у правого края.
    */
   const isMobileShell = useMobileShell();
+  // Навёл курсор — ссылка начинает готовиться, к щелчку трек почти готов.
+  const { onIntentStart, onIntentEnd } = useIntentPrefetch(track, !isMobileShell);
+
+  // «Лучшее совпадение» — самый вероятный щелчок: его готовим сразу.
+  useEffect(() => {
+    if (layout === 'hero' && !isMobileShell) warmTrack(track);
+  }, [layout, isMobileShell, track]);
   const openTrackActions = useUIStore((s) => s.openTrackActions);
   const showToast = useUIStore((s) => s.showToast);
   const openArtist = useUIStore((s) => s.openArtist);
@@ -558,6 +566,8 @@ export const TrackCard: React.FC<TrackCardProps> = ({
         }}
         data-testid={`track-hero-${track.id}`}
         data-stacked={heroStacked ? 'true' : undefined}
+        onMouseEnter={onIntentStart}
+        onMouseLeave={onIntentEnd}
       >
         <TrackArtwork
           track={track}
@@ -713,6 +723,8 @@ export const TrackCard: React.FC<TrackCardProps> = ({
           cursor: 'default',
         }}
         data-testid={`track-card-${track.id}`}
+        onMouseEnter={onIntentStart}
+        onMouseLeave={onIntentEnd}
       >
         <TrackArtwork
           track={track}
@@ -805,8 +817,14 @@ export const TrackCard: React.FC<TrackCardProps> = ({
       aria-pressed={selectedTrackIds !== null ? isSelected : undefined}
       onClick={activate}
       onKeyDown={handleRowKeyDown}
-      onMouseEnter={() => setIsHovered(true)}
-      onMouseLeave={() => setIsHovered(false)}
+      onMouseEnter={() => {
+        setIsHovered(true);
+        onIntentStart();
+      }}
+      onMouseLeave={() => {
+        setIsHovered(false);
+        onIntentEnd();
+      }}
       style={{
         display: 'flex',
         alignItems: 'center',

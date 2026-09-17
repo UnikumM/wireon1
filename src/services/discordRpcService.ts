@@ -169,7 +169,12 @@ export class DiscordRpcService {
     }
 
     // Subscribe to Player Store changes
-    this.unsubscribeStore = usePlayerStore.subscribe((state) => {
+    this.unsubscribeStore = usePlayerStore.subscribe((state, previous) => {
+      // Сменили скорость — отметки времени в статусе пересчитываются сразу.
+      if (state.playbackRate !== previous?.playbackRate && state.currentTrack && state.isPlaying) {
+        this.syncActivity(state.currentTrack, true, state.currentTime, state.duration, true);
+        return;
+      }
       this.handleStoreUpdate(state.currentTrack, state.isPlaying, state.currentTime, state.duration);
     });
 
@@ -288,9 +293,20 @@ export class DiscordRpcService {
     const rawArtist = track.artist || UNKNOWN_ARTIST;
     const state = rawArtist.slice(0, 128);
 
+    /*
+     * Отметки времени — в настоящих секундах, а не в секундах трека.
+     *
+     * Discord отсчитывает их по часам и замедлить не умеет. При скорости 0,8
+     * («slowed» кнопкой темпа) секунды в статусе бежали быстрее песни, и полоса
+     * доходила до конца раньше неё. Поэтому позиция и длина делятся на
+     * скорость: трек на 3:12 при 0,8 показывается как 4:00 и заканчивается
+     * вместе с музыкой.
+     */
+    const rawRate = Number(usePlayerStore.getState().playbackRate);
+    const rate = Number.isFinite(rawRate) && rawRate > 0 ? rawRate : 1;
     const nowSec = Math.floor(Date.now() / 1000);
-    const currentSec = Math.max(0, Math.floor(currentTime));
-    const durationSec = Math.max(0, Math.floor(durationOverride ?? track.duration ?? 0));
+    const currentSec = Math.max(0, Math.floor(currentTime / rate));
+    const durationSec = Math.max(0, Math.floor((durationOverride ?? track.duration ?? 0) / rate));
 
     /*
      * Кнопки — то, чем статус Spotify отличается от простой подписи: с них
@@ -431,7 +447,11 @@ export class DiscordRpcService {
 
     // Check for manual seek jump (> 2.5 seconds difference from expected linear progression)
     const elapsedSinceLast = (Date.now() - this.lastSentTime) / 1000;
-    const expectedPosition = isPlaying ? this.lastEstimatedPosition + elapsedSinceLast : this.lastEstimatedPosition;
+    // Позиция трека идёт со скоростью воспроизведения, а не секунда в секунду.
+    const rate = Number(usePlayerStore.getState().playbackRate) || 1;
+    const expectedPosition = isPlaying
+      ? this.lastEstimatedPosition + elapsedSinceLast * rate
+      : this.lastEstimatedPosition;
     const isSignificantSeek = Math.abs(currentTime - expectedPosition) > 2.5;
 
     if (trackChanged || isPlayingChanged) {

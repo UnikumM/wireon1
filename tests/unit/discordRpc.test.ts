@@ -578,6 +578,23 @@ describe('Milestone 4: Discord Rich Presence (RPC) Unit Tests', () => {
       expect(payload?.endTimestamp).toBeUndefined();
     });
 
+    it('при замедлении секунды в статусе идут в настоящем времени', () => {
+      // «Slowed» кнопкой темпа: 0,8 — трек на 200 с звучит 250 с.
+      usePlayerStore.setState({ playbackRate: 0.8 });
+      try {
+        const payload = discordRpcService.buildPayloadFromTrack(
+          createMockTrack({ title: 'Song', artist: 'Artist', duration: 200 }),
+          true,
+          40
+        );
+        expect((payload!.endTimestamp as number) - (payload!.startTimestamp as number)).toBe(250);
+        // Сорок секунд трека — это пятьдесят настоящих.
+        expect(Math.floor(Date.now() / 1000) - (payload!.startTimestamp as number)).toBe(50);
+      } finally {
+        usePlayerStore.setState({ playbackRate: 1 });
+      }
+    });
+
     describe('«Слушать вместе» через Discord', () => {
       afterEach(() => {
         useGroupListenStore.setState({ roomId: null, connectionStatus: 'offline', participants: [] });

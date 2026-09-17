@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   Users,
   Radio,
@@ -85,6 +85,16 @@ export const GroupListenModal: React.FC<GroupListenModalProps> = ({ isOpen, onCl
   const isSyncing = useGroupListenStore((s) => s.isSyncing);
   const storeError = useGroupListenStore((s) => s.error);
   const chatMessages = useGroupListenStore((s) => s.chatMessages);
+  const chatListRef = useRef<HTMLDivElement | null>(null);
+
+  /*
+   * Новое сообщение — список сам уезжает вниз. Без этого, чтобы увидеть ответ,
+   * приходилось каждый раз прокручивать вручную.
+   */
+  useEffect(() => {
+    const list = chatListRef.current;
+    if (list) list.scrollTop = list.scrollHeight;
+  }, [chatMessages.length]);
 
   const createRoom = useGroupListenStore((s) => s.createRoom);
   const joinRoom = useGroupListenStore((s) => s.joinRoom);
@@ -559,7 +569,9 @@ export const GroupListenModal: React.FC<GroupListenModalProps> = ({ isOpen, onCl
                 }}
               >
                 <div
+                  ref={chatListRef}
                   className="scrollbar-thin"
+                  data-testid="group-listen-chat-list"
                   style={{
                     maxHeight: '120px',
                     overflowY: 'auto',
