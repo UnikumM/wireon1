@@ -1,7 +1,12 @@
 import React, { useEffect, useState } from 'react';
 import { SettingsSection, SettingRow, ToggleSetting } from './SettingsPrimitives';
 import { usePlayerStore } from '../../store/usePlayerStore';
-import { discordRpcService, DISCORD_RPC_SETTING_KEY } from '../../services/discordRpcService';
+import {
+  discordRpcService,
+  DISCORD_RPC_SETTING_KEY,
+  type DiscordPresenceOptions,
+  type DiscordStatusDisplay
+} from '../../services/discordRpcService';
 import * as dbService from '../../services/db';
 import type { DiscordRpcStatusView } from '../../types/electron';
 
@@ -46,6 +51,12 @@ export const DesktopSettings: React.FC = () => {
   const [platform, setPlatform] = useState<string | null>(() => readPlatform());
   const [discordRpcEnabled, setDiscordRpcEnabled] = useState<boolean>(() => discordRpcService.isEnabled());
   const [rpcStatus, setRpcStatus] = useState<DiscordRpcStatusView | null>(null);
+  const [presence, setPresence] = useState<DiscordPresenceOptions>(() => discordRpcService.getOptions());
+
+  const updatePresence = (partial: Partial<DiscordPresenceOptions>): void => {
+    setPresence((prev) => ({ ...prev, ...partial }));
+    void discordRpcService.setOptions(partial);
+  };
 
   const isDesktop =
     typeof window !== 'undefined' &&
@@ -100,10 +111,55 @@ export const DesktopSettings: React.FC = () => {
       <ToggleSetting
         id="setting-discord-rpc"
         label="Показывать трек в Discord"
-        description="В вашем статусе Discord будет видно название, исполнителя, обложку и то, сколько уже отыграно."
+        description="В вашем статусе Discord будет видно название, исполнителя и обложку. Название, исполнитель и обложка кликабельны."
         checked={discordRpcEnabled}
         onChange={handleDiscordRpcToggle}
       />
+
+      {discordRpcEnabled && (
+        <>
+          <SettingRow
+            label="Что видно в списке участников"
+            controlId="setting-discord-status-display"
+            description="Рядом с вашим именем на сервере: название приложения, исполнитель или название трека."
+          >
+            <select
+              id="setting-discord-status-display"
+              value={presence.statusDisplay}
+              onChange={(e) => updatePresence({ statusDisplay: e.target.value as DiscordStatusDisplay })}
+              data-testid="settings-discord-status-display"
+            >
+              <option value="track">Название трека</option>
+              <option value="artist">Исполнитель</option>
+              <option value="app">Wireon</option>
+            </select>
+          </SettingRow>
+
+          <ToggleSetting
+            id="setting-discord-listen-button"
+            label="Кнопка «Слушать»"
+            description="Друзья откроют этот же трек на YouTube или SoundCloud. Свою кнопку Discord вам не показывает — её видят только другие."
+            checked={presence.listenButton}
+            onChange={(value) => updatePresence({ listenButton: value })}
+          />
+
+          <ToggleSetting
+            id="setting-discord-download-button"
+            label="Кнопка «Скачать Wireon»"
+            description="Ведёт на страницу последней версии, чтобы друзья могли поставить приложение."
+            checked={presence.downloadButton}
+            onChange={(value) => updatePresence({ downloadButton: value })}
+          />
+
+          <ToggleSetting
+            id="setting-discord-progress"
+            label="Полоса времени"
+            description="Сколько отыграно и сколько осталось, как у Spotify."
+            checked={presence.showProgress}
+            onChange={(value) => updatePresence({ showProgress: value })}
+          />
+        </>
+      )}
 
       {discordRpcEnabled && rpcStatus && (
         <SettingRow

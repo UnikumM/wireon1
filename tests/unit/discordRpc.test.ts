@@ -22,7 +22,14 @@ import {
   DiscordActivityPayload
 } from '../../electron/discordRpc';
 import { DISCORD_CLIENT_ID } from '../../electron/authWindow';
-import { DiscordRpcService, discordRpcService, DISCORD_RPC_SETTING_KEY } from '../../src/services/discordRpcService';
+import {
+  DiscordRpcService,
+  discordRpcService,
+  DISCORD_RPC_SETTING_KEY,
+  DEFAULT_PRESENCE_OPTIONS,
+  WIREON_DOWNLOAD_URL,
+  WIREON_ICON_URL
+} from '../../src/services/discordRpcService';
 import { setupIpcHandlers } from '../../electron/main';
 import { usePlayerStore } from '../../src/store/usePlayerStore';
 import * as dbService from '../../src/services/db';
@@ -552,12 +559,12 @@ describe('Milestone 4: Discord Rich Presence (RPC) Unit Tests', () => {
       expect(payload?.state).toBe('Daft Punk');
       expect(payload?.largeImageKey).toBe('https://cdn.art/ram.jpg');
       expect(payload?.largeImageText).toBe('RAM');
-      // Ключа маленького значка нет и не должно быть: в этот слот идёт имя
-      // картинки, заранее загруженной в заявку Discord, а `play_icon` там
-      // никогда не лежал. Discord выбрасывал его из каждой активности молча.
-      expect(payload?.smallImageKey).toBeUndefined();
-      expect(payload?.assets?.small_image).toBeUndefined();
-      expect(payload?.smallImageText).toBe('Играет');
+      // Маленький значок — ссылкой, а не ключом: ключ `play_icon` Discord
+      // выбрасывал молча (такой картинки в заявке не было), а ссылку забирает к
+      // себе сам. Проверено вживую 2026-09-17: в ответе SET_ACTIVITY значок есть.
+      expect(payload?.smallImageKey).toBe(WIREON_ICON_URL);
+      expect(payload?.assets?.small_image).toBe(WIREON_ICON_URL);
+      expect(payload?.smallImageText).toBe('Wireon · YouTube');
       expect(payload?.startTimestamp).toBeDefined();
       expect(payload?.endTimestamp).toBeDefined();
     });
@@ -566,9 +573,67 @@ describe('Milestone 4: Discord Rich Presence (RPC) Unit Tests', () => {
       const track = createMockTrack({ title: 'Song', artist: 'Artist', duration: 200 });
       const payload = discordRpcService.buildPayloadFromTrack(track, false, 50);
 
-      expect(payload?.smallImageKey).toBeUndefined();
-      expect(payload?.smallImageText).toBe('Пауза');
       expect(payload?.endTimestamp).toBeUndefined();
+    });
+
+    describe('подробная активность, как у Spotify', () => {
+      afterEach(async () => {
+        await discordRpcService.setOptions({ ...DEFAULT_PRESENCE_OPTIONS });
+      });
+
+      const track = () =>
+        createMockTrack({
+          title: 'Hot Together',
+          artist: 'The Pointer Sisters',
+          duration: 254,
+          sourceUrl: 'https://music.youtube.com/watch?v=-NnMl7NUmS8'
+        });
+
+      it('две кнопки: «Слушать» на трек и «Скачать Wireon» на выпуск', () => {
+        const payload = discordRpcService.buildPayloadFromTrack(track(), true, 10);
+        expect(payload?.buttons).toEqual([
+          { label: 'Слушать', url: 'https://music.youtube.com/watch?v=-NnMl7NUmS8' },
+          { label: 'Скачать Wireon', url: WIREON_DOWNLOAD_URL }
+        ]);
+      });
+
+      it('название, обложка и исполнитель ведут по ссылкам', () => {
+        const payload = discordRpcService.buildPayloadFromTrack(track(), true, 10);
+        expect(payload?.detailsUrl).toBe('https://music.youtube.com/watch?v=-NnMl7NUmS8');
+        expect(payload?.largeUrl).toBe('https://music.youtube.com/watch?v=-NnMl7NUmS8');
+        expect(payload?.stateUrl).toContain('music.youtube.com/search?q=The%20Pointer%20Sisters');
+      });
+
+      it('кнопки и полоса времени выключаются в настройках', async () => {
+        await discordRpcService.setOptions({ listenButton: false, downloadButton: false, showProgress: false });
+        const payload = discordRpcService.buildPayloadFromTrack(track(), true, 10);
+        expect(payload?.buttons).toBeUndefined();
+        expect(payload?.startTimestamp).toBeUndefined();
+        expect(payload?.endTimestamp).toBeUndefined();
+      });
+
+      it('в списке участников — то, что выбрано', async () => {
+        expect(discordRpcService.buildPayloadFromTrack(track(), true)?.statusDisplayType).toBe(2);
+        await discordRpcService.setOptions({ statusDisplay: 'artist' });
+        expect(discordRpcService.buildPayloadFromTrack(track(), true)?.statusDisplayType).toBe(1);
+        await discordRpcService.setOptions({ statusDisplay: 'app' });
+        expect(discordRpcService.buildPayloadFromTrack(track(), true)?.statusDisplayType).toBe(0);
+      });
+
+      it('в Discord уходят новые поля — и кривые ссылки отбрасываются, а не роняют статус', () => {
+        const formatted = formatActivityForDiscord({
+          details: 'Hot Together',
+          state: 'The Pointer Sisters',
+          statusDisplayType: 1,
+          detailsUrl: 'https://music.youtube.com/watch?v=x',
+          stateUrl: 'javascript:alert(1)',
+          largeUrl: `https://example.com/${'a'.repeat(300)}`
+        });
+        expect(formatted?.status_display_type).toBe(1);
+        expect(formatted?.details_url).toBe('https://music.youtube.com/watch?v=x');
+        expect('state_url' in (formatted ?? {})).toBe(false);
+        expect(formatted?.assets?.large_url).toBeUndefined();
+      });
     });
 
     it('returns null payload when track is null or service is disabled', () => {

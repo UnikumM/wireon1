@@ -19,6 +19,7 @@ import { AppearanceSettings } from '../../src/components/settings/AppearanceSett
 import { LibrarySettings } from '../../src/components/settings/LibrarySettings';
 import { AccountSettings } from '../../src/components/settings/AccountSettings';
 import { DesktopSettings } from '../../src/components/settings/DesktopSettings';
+import { discordRpcService } from '../../src/services/discordRpcService';
 import { DiagnosticsSettings } from '../../src/components/settings/DiagnosticsSettings';
 import { ShortcutsSettings } from '../../src/components/settings/ShortcutsSettings';
 import { AboutSettings } from '../../src/components/settings/AboutSettings';
@@ -663,6 +664,30 @@ describe('Settings (src/components/settings)', () => {
       await waitFor(async () =>
         expect(await dbService.getSetting('discordRpcEnabled', null)).toBe(false)
       );
+    });
+
+    it('подробная активность Discord настраивается: кнопки, полоса времени, строка в списке', async () => {
+      installDesktopBridge({ discordRpcSetEnabled: async () => {} });
+      // Соседний тест выключает активность, а без неё этих настроек не видно.
+      await discordRpcService.setEnabled(true);
+      render(<DesktopSettings />);
+
+      const listen = screen.getByTestId('setting-discord-listen-button');
+      const download = screen.getByTestId('setting-discord-download-button');
+      expect(listen).toBeChecked();
+      expect(download).toBeChecked();
+      expect(screen.getByTestId('setting-discord-progress')).toBeChecked();
+
+      fireEvent.click(download);
+      fireEvent.change(screen.getByTestId('settings-discord-status-display'), { target: { value: 'artist' } });
+
+      await waitFor(async () =>
+        expect(await dbService.getSetting('discordPresenceOptions', null)).toMatchObject({
+          downloadButton: false,
+          statusDisplay: 'artist'
+        })
+      );
+      await discordRpcService.setOptions({ downloadButton: true, statusDisplay: 'track' });
     });
 
     it('survives a bridge whose getPlatform throws', () => {

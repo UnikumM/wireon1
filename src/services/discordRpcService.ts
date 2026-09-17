@@ -29,6 +29,10 @@ export interface DiscordActivityPayload {
   instance?: boolean;
   /** Кнопки под активностью. Их видят друзья, а не сам владелец статуса. */
   buttons?: { label: string; url: string }[];
+  statusDisplayType?: 0 | 1 | 2;
+  detailsUrl?: string;
+  stateUrl?: string;
+  largeUrl?: string;
   timestamps?: {
     start?: number;
     end?: number;
@@ -42,9 +46,60 @@ export interface DiscordActivityPayload {
 }
 
 export const DISCORD_RPC_SETTING_KEY = 'discordRpcEnabled';
+export const DISCORD_PRESENCE_OPTIONS_KEY = 'discordPresenceOptions';
+
+/** Что видно в списке участников сервера рядом с вашим именем. */
+export type DiscordStatusDisplay = 'app' | 'artist' | 'track';
+
+/**
+ * Настройки подробной активности — как у Spotify.
+ *
+ * Кнопок Discord разрешает две, и обе здесь: «Слушать» ведёт на сам трек,
+ * «Скачать Wireon» — на страницу последнего выпуска, чтобы друг мог поставить
+ * себе то же приложение.
+ */
+export interface DiscordPresenceOptions {
+  listenButton: boolean;
+  downloadButton: boolean;
+  /** Полоса «сколько отыграно из скольких». */
+  showProgress: boolean;
+  statusDisplay: DiscordStatusDisplay;
+}
+
+export const DEFAULT_PRESENCE_OPTIONS: DiscordPresenceOptions = {
+  listenButton: true,
+  downloadButton: true,
+  showProgress: true,
+  statusDisplay: 'track'
+};
+
+/** Куда ведёт «Скачать Wireon». */
+export const WIREON_DOWNLOAD_URL = 'https://github.com/UnikumM/wireon1/releases/latest';
+
+/**
+ * Маленький значок у обложки — значок Wireon по прямой ссылке.
+ *
+ * Ссылкой, а не ключом: ключ работает только для картинок, заранее
+ * загруженных в заявку Discord, а ссылку Discord забирает к себе сам — так же,
+ * как обложку.
+ */
+export const WIREON_ICON_URL = 'https://raw.githubusercontent.com/UnikumM/wireon1/main/public/icon.png';
+
+const STATUS_DISPLAY_CODE: Record<DiscordStatusDisplay, 0 | 1 | 2> = { app: 0, artist: 1, track: 2 };
+
+/** Страница поиска исполнителя у того же источника — для щелчка по имени. */
+function artistSearchUrl(track: UnifiedTrack): string | undefined {
+  const artist = (track.artist || '').trim();
+  if (!artist || artist === UNKNOWN_ARTIST) return undefined;
+  const q = encodeURIComponent(artist);
+  return track.source === 'soundcloud'
+    ? `https://soundcloud.com/search/people?q=${q}`
+    : `https://music.youtube.com/search?q=${q}`;
+}
 
 export class DiscordRpcService {
   private enabled = true;
+  private options: DiscordPresenceOptions = { ...DEFAULT_PRESENCE_OPTIONS };
   private isInitialized = false;
   private unsubscribeStore: (() => void) | null = null;
   private debounceTimer: ReturnType<typeof setTimeout> | null = null;
@@ -73,6 +128,13 @@ export class DiscordRpcService {
       this.enabled = true;
     }
 
+    try {
+      const saved = await dbService.getSetting<Partial<DiscordPresenceOptions>>(DISCORD_PRESENCE_OPTIONS_KEY, {});
+      this.options = { ...DEFAULT_PRESENCE_OPTIONS, ...(saved || {}) };
+    } catch {
+      this.options = { ...DEFAULT_PRESENCE_OPTIONS };
+    }
+
     if (this.isDesktop()) {
       void window.electronAPI?.discordRpcSetEnabled(this.enabled);
     }
@@ -99,6 +161,24 @@ export class DiscordRpcService {
 
   public isEnabled(): boolean {
     return this.enabled;
+  }
+
+  public getOptions(): DiscordPresenceOptions {
+    return { ...this.options };
+  }
+
+  /** Меняет вид активности и сразу показывает его в Discord. */
+  public async setOptions(partial: Partial<DiscordPresenceOptions>): Promise<void> {
+    this.options = { ...this.options, ...partial };
+    try {
+      await dbService.setSetting(DISCORD_PRESENCE_OPTIONS_KEY, this.options);
+    } catch (err) {
+      console.warn('[DiscordRpcService] Failed to persist presence options:', err);
+    }
+    const state = usePlayerStore.getState();
+    if (this.enabled && state.currentTrack && state.isPlaying) {
+      this.syncActivity(state.currentTrack, state.isPlaying, state.currentTime, state.duration, true);
+    }
   }
 
   public getLastSentPayload(): DiscordActivityPayload | null {
@@ -157,21 +237,27 @@ export class DiscordRpcService {
     const durationSec = Math.max(0, Math.floor(durationOverride ?? track.duration ?? 0));
 
     /*
-     * Кнопка со ссылкой на трек — то, чем статус Spotify отличается от простой
-     * подписи: с неё можно послушать то же самое. Ссылка берётся у источника и
-     * ведёт на YouTube или SoundCloud; если её нет, кнопки просто не будет.
+     * Кнопки — то, чем статус Spotify отличается от простой подписи: с них
+     * можно послушать то же самое. «Слушать» ведёт на трек у источника (если
+     * ссылки нет, кнопки не будет), «Скачать Wireon» — на последний выпуск.
      */
-    const sourceUrl = (track.sourceUrl || '').trim();
-    const sourceLabel = track.source === 'soundcloud' ? 'Открыть в SoundCloud' : 'Открыть на YouTube';
+    const options = this.options;
+    const sourceUrl = /^https?:\/\//i.test((track.sourceUrl || '').trim()) ? track.sourceUrl!.trim() : undefined;
+    const buttons: { label: string; url: string }[] = [];
+    if (options.listenButton && sourceUrl) buttons.push({ label: 'Слушать', url: sourceUrl });
+    if (options.downloadButton) buttons.push({ label: 'Скачать Wireon', url: WIREON_DOWNLOAD_URL });
+    const sourceName = track.source === 'soundcloud' ? 'SoundCloud' : 'YouTube';
 
     const payload: DiscordActivityPayload = {
       details: title,
       state,
-      ...(/^https?:\/\//i.test(sourceUrl)
-        ? { buttons: [{ label: sourceLabel, url: sourceUrl }] }
-        : {}),
+      ...(buttons.length > 0 ? { buttons } : {}),
+      statusDisplayType: STATUS_DISPLAY_CODE[options.statusDisplay] ?? 2,
+      ...(sourceUrl ? { detailsUrl: sourceUrl, largeUrl: sourceUrl } : {}),
+      ...(artistSearchUrl(track) ? { stateUrl: artistSearchUrl(track) } : {}),
       largeImageKey: track.artworkUrl || 'wireon_logo',
       largeImageText: (track.album || 'Wireon').slice(0, 128),
+      smallImageKey: WIREON_ICON_URL,
       // Значка «играет/пауза» здесь нет намеренно. В маленький слот идёт не
       // картинка, а **ключ** заранее загруженной в заявку картинки, и ключей
       // `play_icon`/`pause_icon` там никогда не было: Discord молча выбрасывал
@@ -179,14 +265,17 @@ export class DiscordRpcService {
       // маленького значка нет, только подпись. Большая обложка проходит
       // потому, что это ссылка: её Discord перекладывает к себе сам
       // (`mp:external/…`).
-      smallImageText: isPlaying ? 'Играет' : 'Пауза',
+      smallImageText: `Wireon · ${sourceName}`,
       instance: false,
       assets: {
         large_image: track.artworkUrl || 'wireon_logo',
         large_text: (track.album || 'Wireon').slice(0, 128),
-        small_text: isPlaying ? 'Играет' : 'Пауза'
+        small_image: WIREON_ICON_URL,
+        small_text: `Wireon · ${sourceName}`
       }
     };
+
+    if (!options.showProgress) return payload;
 
     if (isPlaying && durationSec > 0) {
       payload.startTimestamp = nowSec - currentSec;

@@ -95,6 +95,16 @@ export interface DiscordActivityPayload {
    * так «Слушать в Spotify» и выглядит со стороны.
    */
   buttons?: { label: string; url: string }[];
+  /**
+   * Что Discord пишет в списке участников: 0 — имя приложения, 1 — `state`
+   * (исполнитель), 2 — `details` (название). Поле появилось у Discord в 2025
+   * году; без него там всегда стоит имя приложения.
+   */
+  statusDisplayType?: 0 | 1 | 2;
+  /** Ссылки, которые открываются по щелчку на названии, исполнителе и обложке. */
+  detailsUrl?: string;
+  stateUrl?: string;
+  largeUrl?: string;
   timestamps?: {
     start?: number;
     end?: number;
@@ -105,6 +115,12 @@ export interface DiscordActivityPayload {
     small_image?: string;
     small_text?: string;
   };
+}
+
+/** Ссылка, которую Discord примет: http(s) и не длиннее 256 знаков. */
+function activityUrl(value: string | undefined): string | null {
+  const url = (value ?? '').trim();
+  return /^https?:\/\//i.test(url) && url.length <= 256 ? url : null;
 }
 
 export interface DiscordRpcStatus {
@@ -230,6 +246,10 @@ export function formatActivityForDiscord(payload: DiscordActivityPayload | null)
     assets.small_text = requiredActivityText(smallText, 'Wireon');
   }
 
+  // Кривая ссылка отказала бы всю активность — отбрасываем молча, как кнопки.
+  const largeUrl = activityUrl(payload.largeUrl);
+  if (largeUrl) assets.large_url = largeUrl;
+
   const result: Record<string, any> = {
     type: payload.type ?? ACTIVITY_TYPE_LISTENING,
     details,
@@ -237,6 +257,14 @@ export function formatActivityForDiscord(payload: DiscordActivityPayload | null)
     assets,
     instance: false
   };
+
+  const detailsUrl = activityUrl(payload.detailsUrl);
+  if (detailsUrl) result.details_url = detailsUrl;
+  const stateUrl = activityUrl(payload.stateUrl);
+  if (stateUrl) result.state_url = stateUrl;
+  if (payload.statusDisplayType === 0 || payload.statusDisplayType === 1 || payload.statusDisplayType === 2) {
+    result.status_display_type = payload.statusDisplayType;
+  }
 
   /*
    * Кнопки проходят проверку здесь, а не у отправителя.
