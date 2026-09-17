@@ -7,8 +7,8 @@ android {
         applicationId "pro.wireon.music"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
-        versionCode 2204
-        versionName "2.2.4"
+        versionCode 2205
+        versionName "2.2.5"
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         ndk {
             /*
