@@ -2292,6 +2292,8 @@ if (app) {
       destroyTray();
       globalShortcut.unregisterAll();
       discordRpc.destroy();
+      // «Позже» на Linux: скачанная AppImage встаёт на место старой при выходе.
+      updateService?.installOnQuit();
       updateService?.dispose();
       ytDlpManager?.dispose();
     });

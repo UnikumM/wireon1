@@ -466,3 +466,109 @@ describe('Автообновление: сборка сервиса под те�
     expect(service.getState().message).toMatch(/не загрузился/i);
   });
 });
+
+describe('AppImage: обновление встаёт на место старого файла', () => {
+  /*
+   * Встроенная установка electron-updater удаляла старую AppImage и клала
+   * новую рядом под именем с новой версией — ярлык вёл в пустоту. И запускала
+   * новую копию, пока старая открыта: у приложения одна копия на систему, и
+   * новая сразу выходила. Флавот: «при перезапуске ошибку пишет и не обновляет».
+   */
+  let dir: string;
+
+  beforeEach(async () => {
+    const os = await import('node:os');
+    const fsp = await import('node:fs/promises');
+    const nodePath = await import('node:path');
+    dir = await fsp.mkdtemp(nodePath.join(os.tmpdir(), 'wireon-appimage-'));
+  });
+
+  afterEach(async () => {
+    const fsp = await import('node:fs/promises');
+    await fsp.rm(dir, { recursive: true, force: true });
+  });
+
+  it('новый файл ложится под старым именем, скачанный убирается', async () => {
+    const { replaceAppImage } = await import('../../electron/updater');
+    const fsp = await import('node:fs/promises');
+    const nodePath = await import('node:path');
+    const target = nodePath.join(dir, 'Wireon-2.2.3.AppImage');
+    const downloaded = nodePath.join(dir, 'cache-Wireon-2.2.4.AppImage');
+    await fsp.writeFile(target, 'old');
+    await fsp.writeFile(downloaded, 'new');
+
+    replaceAppImage(downloaded, target);
+
+    expect(await fsp.readFile(target, 'utf8')).toBe('new');
+    expect((await fsp.readdir(dir)).sort()).toEqual(['Wireon-2.2.3.AppImage']);
+  });
+
+  it('без скачанного файла старая AppImage остаётся на месте', async () => {
+    const { replaceAppImage } = await import('../../electron/updater');
+    const fsp = await import('node:fs/promises');
+    const nodePath = await import('node:path');
+    const target = nodePath.join(dir, 'Wireon.AppImage');
+    await fsp.writeFile(target, 'old');
+
+    expect(() => replaceAppImage(nodePath.join(dir, 'нет.AppImage'), target)).toThrow();
+    expect(await fsp.readFile(target, 'utf8')).toBe('old');
+  });
+
+  function appImageService(updater: FakeUpdater) {
+    const files = {
+      copyFile: vi.fn(),
+      rename: vi.fn(),
+      chmod: vi.fn(),
+      unlink: vi.fn(),
+      exists: vi.fn(() => true)
+    };
+    const relaunch = vi.fn();
+    const service = new UpdateService({
+      updater,
+      currentVersion: '2.2.3',
+      support: { supported: true },
+      broadcast: () => {},
+      appImagePath: '/home/u/Apps/Wireon-2.2.3.AppImage',
+      appImageOps: { files, relaunch }
+    });
+    return { service, files, relaunch };
+  }
+
+  it('перезапуск идёт нашим путём, а встроенная установка не вызывается', () => {
+    const updater = makeUpdater();
+    const { service, files, relaunch } = appImageService(updater);
+    // Встроенная установка при выходе на AppImage удалила бы уже заменённый файл.
+    expect(updater.autoInstallOnAppQuit).toBe(false);
+
+    updater.emit('update-downloaded', { version: '2.2.4', downloadedFile: '/home/u/.cache/wireon/Wireon-2.2.4.AppImage' });
+    expect(service.install()).toBe(true);
+
+    expect(files.rename).toHaveBeenCalledWith(
+      '/home/u/Apps/Wireon-2.2.3.AppImage.update',
+      '/home/u/Apps/Wireon-2.2.3.AppImage'
+    );
+    expect(relaunch).toHaveBeenCalledWith('/home/u/Apps/Wireon-2.2.3.AppImage');
+    expect(updater.quitAndInstall).not.toHaveBeenCalled();
+  });
+
+  it('«Позже»: файл заменяется при выходе, без перезапуска и один раз', () => {
+    const updater = makeUpdater();
+    const { service, files, relaunch } = appImageService(updater);
+    updater.emit('update-downloaded', { version: '2.2.4', downloadedFile: '/tmp/Wireon-2.2.4.AppImage' });
+
+    service.installOnQuit();
+    service.installOnQuit();
+
+    expect(files.rename).toHaveBeenCalledTimes(1);
+    expect(relaunch).not.toHaveBeenCalled();
+  });
+
+  it('не на AppImage всё как раньше', () => {
+    const updater = makeUpdater();
+    const { service } = makeService(updater);
+    expect(updater.autoInstallOnAppQuit).toBe(true);
+    updater.emit('update-downloaded', { version: '2.0.0' });
+    service.install();
+    expect(updater.quitAndInstall).toHaveBeenCalledWith(true, true);
+  });
+});

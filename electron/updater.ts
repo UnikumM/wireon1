@@ -1,5 +1,5 @@
 import { app } from 'electron';
-import { existsSync } from 'fs';
+import { chmodSync, copyFileSync, existsSync, renameSync, unlinkSync } from 'fs';
 import { createRequire } from 'module';
 import path from 'path';
 
@@ -169,6 +169,64 @@ export interface UpdateServiceOptions {
   support: UpdateSupport;
   broadcast: (state: UpdateState) => void;
   now?: () => number;
+  /**
+   * Путь к запущенной AppImage (`APPIMAGE`) — тогда обновление ставится нашим
+   * способом, а не встроенным. `null` — не AppImage.
+   */
+  appImagePath?: string | null;
+  /** Подменяется в тестах: заменить файл и перезапуститься. */
+  appImageOps?: AppImageOps;
+}
+
+export interface FileOps {
+  copyFile(from: string, to: string): void;
+  rename(from: string, to: string): void;
+  chmod(file: string, mode: number): void;
+  unlink(file: string): void;
+  exists(file: string): boolean;
+}
+
+export interface AppImageOps {
+  files: FileOps;
+  /** Запустить приложение заново после выхода и выйти. */
+  relaunch(execPath: string): void;
+}
+
+const realFileOps: FileOps = {
+  copyFile: (from, to) => copyFileSync(from, to),
+  rename: (from, to) => renameSync(from, to),
+  chmod: (file, mode) => chmodSync(file, mode),
+  unlink: (file) => unlinkSync(file),
+  exists: (file) => existsSync(file)
+};
+
+/**
+ * Кладёт скачанную AppImage на место запущенной — под тем же именем.
+ *
+ * Встроенная установка `electron-updater` для AppImage делала две вещи не так.
+ * Удаляла старый файл и клала новый рядом под именем с новой версией
+ * (`Wireon-2.2.3.AppImage` → `Wireon-2.2.4.AppImage`), и ярлык, указывающий
+ * на старое имя, после этого вёл в пустоту — «при перезапуске пишет ошибку».
+ * И запускала новую копию, пока старая ещё открыта: у приложения одна копия на
+ * систему, новая сразу выходила, и приложение просто закрывалось.
+ *
+ * Здесь файл сначала копируется рядом (скачанное лежит в кэше, часто на другом
+ * разделе, где переименование невозможно), потом одним `rename` встаёт на
+ * место. Запущенному процессу это не мешает: у него открыт прежний файл.
+ */
+export function replaceAppImage(downloaded: string, target: string, files: FileOps = realFileOps): void {
+  if (!files.exists(downloaded)) {
+    throw new Error(`Скачанное обновление не найдено: ${downloaded}`);
+  }
+  const staging = `${target}.update`;
+  files.copyFile(downloaded, staging);
+  files.chmod(staging, 0o755);
+  files.rename(staging, target);
+  try {
+    files.unlink(downloaded);
+  } catch {
+    // Кэш почистится и без нас.
+  }
 }
 
 /**
@@ -185,11 +243,25 @@ export class UpdateService {
   private firstCheck: ReturnType<typeof setTimeout> | null = null;
   private interval: ReturnType<typeof setInterval> | null = null;
   private pending: Promise<UpdateState> | null = null;
+  private readonly appImagePath: string | null;
+  private readonly appImageOps: AppImageOps;
+  /** Где лежит скачанная AppImage — из события `update-downloaded`. */
+  private downloadedFile: string | null = null;
+  private appImageInstalled = false;
 
   constructor(options: UpdateServiceOptions) {
     this.updater = options.support.supported ? options.updater : null;
     this.broadcast = options.broadcast;
     this.now = options.now ?? (() => Date.now());
+    this.appImagePath = options.appImagePath ?? null;
+    this.appImageOps = options.appImageOps ?? {
+      files: realFileOps,
+      relaunch: (execPath) => {
+        // relaunch срабатывает после выхода — единственная копия успевает закрыться.
+        app.relaunch({ execPath, args: [] });
+        app.exit(0);
+      }
+    };
     this.state = {
       status: options.support.supported ? 'idle' : 'unsupported',
       currentVersion: options.currentVersion,
@@ -247,6 +319,16 @@ export class UpdateService {
   /** Ставит скачанное обновление и поднимает приложение заново. */
   public install(): boolean {
     if (!this.updater || this.state.status !== 'ready') return false;
+    if (this.appImagePath) {
+      try {
+        this.installAppImage();
+        this.appImageOps.relaunch(this.appImagePath);
+        return true;
+      } catch (err) {
+        this.set({ status: 'error', message: humanizeUpdateError(err) });
+        return false;
+      }
+    }
     try {
       // isSilent: мастер установки не нужен, человек уже согласился кнопкой.
       // isForceRunAfter: приложение должно вернуться само, а не остаться закрытым.
@@ -256,6 +338,28 @@ export class UpdateService {
       this.set({ status: 'error', message: humanizeUpdateError(err) });
       return false;
     }
+  }
+
+  /**
+   * Ставит скачанную AppImage при выходе из приложения — «Позже» на Linux.
+   * Вызывается из главного процесса перед выходом; без перезапуска.
+   */
+  public installOnQuit(): void {
+    if (!this.appImagePath || this.state.status !== 'ready' || this.appImageInstalled) return;
+    try {
+      this.installAppImage();
+    } catch (err) {
+      console.warn('[Updater] AppImage при выходе не заменилась:', err);
+    }
+  }
+
+  private installAppImage(): void {
+    if (this.appImageInstalled) return;
+    if (!this.appImagePath || !this.downloadedFile) {
+      throw new Error('Скачанное обновление не найдено');
+    }
+    replaceAppImage(this.downloadedFile, this.appImagePath, this.appImageOps.files);
+    this.appImageInstalled = true;
   }
 
   /** Первая проверка с задержкой, дальше — по расписанию. */
@@ -293,7 +397,9 @@ export class UpdateService {
 
   private attach(updater: UpdaterLike): void {
     updater.autoDownload = true;
-    updater.autoInstallOnAppQuit = true;
+    // На AppImage встроенная установка при выходе удалила бы уже заменённый
+    // нами файл — там обновление ставит `installOnQuit`.
+    updater.autoInstallOnAppQuit = !this.appImagePath;
     updater.logger = {
       info: (...args: unknown[]) => console.log('[Updater]', ...args),
       warn: (...args: unknown[]) => console.warn('[Updater]', ...args),
@@ -334,6 +440,8 @@ export class UpdateService {
     updater.on('update-downloaded', (info: unknown) => {
       // Дальше качать нечего, расписание больше не нужно: ждём перезапуска.
       this.stopSchedule();
+      const file = (info as { downloadedFile?: unknown } | null)?.downloadedFile;
+      if (typeof file === 'string' && file) this.downloadedFile = file;
       this.set({
         status: 'ready',
         newVersion: readVersion(info) ?? this.state.newVersion,
@@ -455,7 +563,12 @@ export function createUpdateService(options: CreateUpdateServiceOptions): Update
     }
   }
 
-  return new UpdateService({ updater, currentVersion, support, broadcast: options.broadcast });
+  const appImagePath =
+    process.platform === 'linux' && process.env.APPIMAGE && path.isAbsolute(process.env.APPIMAGE)
+      ? process.env.APPIMAGE
+      : null;
+
+  return new UpdateService({ updater, currentVersion, support, broadcast: options.broadcast, appImagePath });
 }
 
 export interface UpdaterIpcLike {
