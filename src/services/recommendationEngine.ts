@@ -258,6 +258,30 @@ const MOOD_DEFAULT_SEEDS: Record<WaveMood, string[]> = {
   focus: ['lofi hip hop focus study beats', 'deep focus instrumental concentration', 'ambient coding beats']
 };
 
+/** Ниже этого положения регулятора Поток играет только знакомое. */
+export const FAMILIAR_ONLY_BELOW = 0.2;
+/** Ниже этого — «в основном знакомое»: незнакомых не больше четверти. */
+export const MOSTLY_FAMILIAR_BELOW = 0.4;
+
+/**
+ * Знакомо ли это человеку: трек в избранном или в истории, или исполнителя он
+ * уже слушал. Та же мерка, что у подписи «Новое имя для вас».
+ */
+export function isFamiliarTrack(track: UnifiedTrack, profile: UserProfile): boolean {
+  if (profile.favoriteTrackIds.has(track.id) || profile.recentTrackIds.has(track.id)) return true;
+  const artist = normalizeArtist(track.artist);
+  return Boolean(artist) && (profile.artistAffinities.get(artist) || 0) > 0;
+}
+
+function shuffleCopy<T>(items: T[]): T[] {
+  const copy = [...items];
+  for (let i = copy.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [copy[i], copy[j]] = [copy[j], copy[i]];
+  }
+  return copy;
+}
+
 /** Scoring weights per mood (alpha = affinity, beta = mood, gamma = novelty) */
 const MOOD_WEIGHTS: Record<WaveMood, { alpha: number; beta: number; gamma: number }> = {
   favorite: { alpha: 0.55, beta: 0.30, gamma: 0.15 },
@@ -999,9 +1023,45 @@ export class RecommendationEngineService implements RecommendationEngine {
     }
 
     // Score all filtered candidates with scoring matrix
-    const scoredCandidates = filtered.map((track) =>
+    let scoredCandidates = filtered.map((track) =>
       this.scoreCandidate(track, config, profile)
     );
+
+    /*
+     * «Только знакомое» — обещание, а не пожелание.
+     *
+     * Регулятор раньше лишь сдвигал баллы. Если радио приносило одних новых
+     * исполнителей, в очередь всё равно шли они: сравнивать было не с чем. Так
+     * при «только знакомое» Поток состоял из «Новое имя для вас» целиком.
+     * Теперь незнакомые отсеиваются, а нехватка добирается из того, что человек
+     * уже слушал сам. При «в основном знакомое» незнакомых не больше четверти.
+     */
+    if (hasAxes(config) && !config.seedKind) {
+      const novelty = clampAxis(config.novelty, 0.35);
+      if (novelty < FAMILIAR_ONLY_BELOW) {
+        scoredCandidates = scoredCandidates.filter((entry) => isFamiliarTrack(entry.track, profile));
+        if (scoredCandidates.length < limit) {
+          const library = await this.collectLibraryTracks(limit * 2);
+          const taken = new Set(scoredCandidates.map((entry) => entry.track.id));
+          for (const track of library) {
+            if (scoredCandidates.length >= limit * 2) break;
+            if (taken.has(track.id) || effectiveExclude.has(track.id)) continue;
+            taken.add(track.id);
+            scoredCandidates.push(this.scoreCandidate(track, config, profile));
+          }
+        }
+      } else if (novelty < MOSTLY_FAMILIAR_BELOW) {
+        const cap = Math.floor(limit * 0.25);
+        let unfamiliar = 0;
+        scoredCandidates = [...scoredCandidates]
+          .sort((a, b) => b.score - a.score)
+          .filter((entry) => {
+            if (isFamiliarTrack(entry.track, profile)) return true;
+            unfamiliar += 1;
+            return unfamiliar <= cap;
+          });
+      }
+    }
 
     // Поток «от артиста» на то и заведён, чтобы его было слышно, поэтому лимит
     // на артиста там мягче, чем в обычном Потоке. То же и «от этой песни»: радио
@@ -1017,6 +1077,26 @@ export class RecommendationEngineService implements RecommendationEngine {
     );
     this.rememberServedTracks(arranged);
     return arranged;
+  }
+
+  /** Избранное и история — то, что человек уже знает, для «только знакомого». */
+  private async collectLibraryTracks(limit: number): Promise<UnifiedTrack[]> {
+    const [favorites, history] = await Promise.all([
+      getFavorites().catch(() => [] as UnifiedTrack[]),
+      getHistory(Math.max(limit, 60))
+        .then((rows) => rows.map((row) => row.track))
+        .catch(() => [] as UnifiedTrack[])
+    ]);
+    const seen = new Set<string>();
+    const out: UnifiedTrack[] = [];
+    // Перемешиваем, иначе «только знакомое» каждый раз начиналось бы одинаково.
+    for (const track of shuffleCopy([...favorites, ...history])) {
+      if (!track?.id || seen.has(track.id)) continue;
+      seen.add(track.id);
+      out.push(track);
+      if (out.length >= limit) break;
+    }
+    return out;
   }
 
   /**

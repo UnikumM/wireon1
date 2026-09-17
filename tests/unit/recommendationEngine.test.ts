@@ -127,6 +127,27 @@ describe('RecommendationEngineService', () => {
     engine.resetSessionBoosts();
   });
 
+  it('«только знакомое» не пускает незнакомых исполнителей и добирает из своей истории', async () => {
+    /*
+     * Живой случай: регулятор на «только знакомое», а в очереди у всех треков
+     * «Новое имя для вас». Радио принесло одних новых исполнителей, и сравнивать
+     * было не с чем — баллы лишь сдвигались.
+     */
+    const known: UnifiedTrack = { ...mockYtTrack1, id: 'yt_known', originalId: 'known', artist: 'Кино', title: 'Кукушка' };
+    await addToHistory(known);
+
+    const recs = await engine.getRecommendationsForWave({ mood: 'favorite', novelty: 0, energy: 0.5 }, 5);
+
+    expect(recs.length).toBeGreaterThan(0);
+    // Радио отдало только «Synth Master», «Chill Cat» и другие незнакомые имена.
+    expect(recs.every((track) => track.artist === 'Кино')).toBe(true);
+  });
+
+  it('«больше нового» незнакомых не отсеивает', async () => {
+    const recs = await engine.getRecommendationsForWave({ mood: 'favorite', novelty: 0.9, energy: 0.5 }, 5);
+    expect(recs.some((track) => track.artist !== 'Кино')).toBe(true);
+  });
+
   afterEach(async () => {
     await clearAllData();
   });
