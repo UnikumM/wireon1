@@ -916,6 +916,68 @@ describe('Подтверждённая замена вместо повторн�
     expect(sc.resolveStreamUrl).toHaveBeenCalledWith('orig');
   });
 
+  it('сохранённая замена, не проходящая нынешние правила, забывается', async () => {
+    /*
+     * Так «Hot Together» продолжала играть переделкой после ужесточения правил:
+     * связь запомнилась, когда правила были мягче, и ремикс исправно играл —
+     * значит сам по себе не снимался никогда.
+     */
+    const { StreamResolver } = await import('../../src/services/streamResolver');
+    const { findLink, rememberLink } = await import('../../src/services/matchLinks');
+
+    await rememberLink(scTrack, {
+      id: 'yt_remix',
+      source: 'youtube',
+      originalId: 'remix1',
+      title: 'Blinding Lights (Seph Martin Vice City Mix)',
+      artist: 'The Weeknd',
+      duration: 216,
+      artworkUrl: ''
+    });
+
+    const yt = { resolveStreamUrl: vi.fn(), search: vi.fn(async () => []) };
+    const sc = {
+      resolveStreamUrl: vi.fn(async () => {
+        throw new Error('SoundCloud refused');
+      }),
+      search: vi.fn(async () => [])
+    };
+
+    const resolver = new StreamResolver(yt as never, sc as never);
+    await expect(resolver.resolve(scTrack)).rejects.toThrow();
+
+    expect(yt.resolveStreamUrl).not.toHaveBeenCalled();
+    expect(await findLink(scTrack)).toBeNull();
+  });
+
+  it('связь без длительности — из прежних версий — не используется', async () => {
+    const { StreamResolver } = await import('../../src/services/streamResolver');
+    const { findLink, linkKey } = await import('../../src/services/matchLinks');
+
+    await db.matchLinks.put({
+      key: linkKey(scTrack),
+      source: 'youtube',
+      originalId: 'old1',
+      title: 'Blinding Lights',
+      artist: 'The Weeknd',
+      confirmedAt: Date.now()
+    });
+
+    const yt = { resolveStreamUrl: vi.fn(), search: vi.fn(async () => []) };
+    const sc = {
+      resolveStreamUrl: vi.fn(async () => {
+        throw new Error('SoundCloud refused');
+      }),
+      search: vi.fn(async () => [])
+    };
+
+    const resolver = new StreamResolver(yt as never, sc as never);
+    await expect(resolver.resolve(scTrack)).rejects.toThrow();
+
+    expect(yt.resolveStreamUrl).not.toHaveBeenCalled();
+    expect(await findLink(scTrack)).toBeNull();
+  });
+
   it('чужую песню не запоминает: подбор её и не отдаёт', async () => {
     const { StreamResolver } = await import('../../src/services/streamResolver');
     const { findLink } = await import('../../src/services/matchLinks');
@@ -949,17 +1011,14 @@ describe('Подтверждённая замена вместо повторн�
   });
 });
 
-describe('Медленный YouTube уступает SoundCloud', () => {
+describe('Свой источник первым, без гонки', () => {
   /*
-   * Ради чего. Разбор ссылки YouTube на телефоне идёт секундами — замерено 35 с
-   * на эмуляторе и 9,5 с на настольной машине. Ускорить его нечем: клиенты
-   * YouTube, отвечающие быстрее, отдают форматы, которые `<audio>` не играет.
-   * SoundCloud отвечает почти сразу — там ссылка отдаётся как есть.
-   *
-   * Поэтому YouTube получает фору, а потом за ту же песню берётся SoundCloud, и
-   * играет то, что готово первым. Проверяется здесь именно то, чем такой приём
-   * опасен: что фора соблюдается, что быстрый YouTube не подменяется, что
-   * подмена проходит строгую сверку и что фоновые прогревы в гонку не идут.
+   * Раньше YouTube получал три секунды форы, а потом за ту же песню брался
+   * SoundCloud, и играло то, что готово первым. Разбор с нуля дольше трёх
+   * секунд почти всегда, поэтому замена побеждала и там, где оригинал был:
+   * «Hot Together» и «Sometimes» играли чужими загрузками. Владелец прямо
+   * сказал: подождать лучше, чем слушать не то. Замена теперь — только ответ
+   * на отказ или истёкший срок.
    */
 
   // База одна на весь файл: подтверждённые связи из соседних случаев сюда не
@@ -979,9 +1038,7 @@ describe('Медленный YouTube уступает SoundCloud', () => {
   };
 
   it('быстрый YouTube играет сам: подмены не происходит', async () => {
-    const { StreamResolver, SUBSTITUTE_HEAD_START_MS } = await import(
-      '../../src/services/streamResolver'
-    );
+    const { StreamResolver } = await import('../../src/services/streamResolver');
     const yt = {
       resolveStreamUrl: vi.fn(async () => ({
         streamUrl: 'https://yt.test/a.m4a',
@@ -996,12 +1053,57 @@ describe('Медленный YouTube уступает SoundCloud', () => {
     const out = await resolver.resolve(ytTrack);
 
     expect(out.streamUrl).toContain('yt.test');
-    // Поиск на SoundCloud даже не начинался: фора не истекла.
     expect(sc.search).not.toHaveBeenCalled();
-    expect(SUBSTITUTE_HEAD_START_MS).toBeGreaterThan(0);
   });
 
-  it('молчащий YouTube уступает: играет строго та же песня с SoundCloud', async () => {
+  it('медленный, но рабочий YouTube побеждает, даже когда замена наготове', async () => {
+    vi.useFakeTimers();
+    try {
+      const { StreamResolver } = await import('../../src/services/streamResolver');
+      const yt = {
+        resolveStreamUrl: vi.fn(
+          () =>
+            new Promise((resolve) =>
+              setTimeout(
+                () =>
+                  resolve({
+                    streamUrl: 'https://yt.test/original.m4a',
+                    format: 'm4a',
+                    bitrate: 128,
+                    expiresAt: Date.now() + 3_600_000
+                  }),
+                9000
+              )
+            )
+        )
+      };
+      const sc = {
+        search: vi.fn(async () => [
+          { id: 'sc_1', source: 'soundcloud', originalId: 'sc1', title: 'Кукушка', artist: 'Кино', duration: 241, artworkUrl: '' }
+        ]),
+        resolveStreamUrl: vi.fn(async () => ({
+          streamUrl: 'https://sc.test/copy.mp3',
+          format: 'mp3',
+          bitrate: 128,
+          expiresAt: Date.now() + 3_600_000
+        }))
+      };
+
+      const resolver = new StreamResolver(yt as never, sc as never);
+      const pending = resolver.resolve(ytTrack);
+      await vi.advanceTimersByTimeAsync(9500);
+      const out = await pending;
+
+      expect(out.streamUrl).toContain('original');
+      expect(out.substitutedFrom).toBeUndefined();
+      expect(sc.search).not.toHaveBeenCalled();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('молчащий YouTube уступает только по истечении срока: и то строго той же песне', async () => {
+    vi.useFakeTimers();
     const { StreamResolver } = await import('../../src/services/streamResolver');
     const yt = {
       // Никогда не отвечает — ровно то, на что жалуются.
@@ -1019,11 +1121,21 @@ describe('Медленный YouTube уступает SoundCloud', () => {
       }))
     };
 
-    const resolver = new StreamResolver(yt as never, sc as never);
-    const out = await resolver.resolve(ytTrack);
+    try {
+      const resolver = new StreamResolver(yt as never, sc as never);
+      const pending = resolver.resolve(ytTrack);
 
-    expect(out.streamUrl).toContain('sc.test');
-  }, 20000);
+      await vi.advanceTimersByTimeAsync(10_000);
+      // Десять секунд ожидания — ещё не отказ: замену даже не ищем.
+      expect(sc.search).not.toHaveBeenCalled();
+
+      await vi.advanceTimersByTimeAsync(SOURCE_TIMEOUT_MS);
+      const out = await pending;
+      expect(out.streamUrl).toContain('sc.test');
+    } finally {
+      vi.useRealTimers();
+    }
+  });
 
   it('чужая песня не подставляется, даже если YouTube молчит', async () => {
     // Иначе вместо заблокированного трека молча заиграл бы кавер или часовой
@@ -1103,7 +1215,7 @@ describe('Сроки на телефоне', () => {
     (window as unknown as { electronAPI?: unknown }).electronAPI = realElectron;
   });
 
-  it('фора YouTube длится дольше трёх секунд, иначе он не выигрывает никогда', async () => {
+  it('пока YouTube в пути, замена не ищется — даже долго', async () => {
     const yt = { resolveStreamUrl: vi.fn(() => new Promise(() => {})) };
     const sc = { search: vi.fn(async () => []), resolveStreamUrl: vi.fn() };
     const resolver = new StreamResolver(yt as never, sc as never);
@@ -1111,12 +1223,10 @@ describe('Сроки на телефоне', () => {
     const pending = resolver.resolve(ytTrack);
     pending.catch(() => {});
 
-    await vi.advanceTimersByTimeAsync(4000);
-    // На десктопе поиск подмены здесь уже идёт. На телефоне за это время
-    // обычный разбор ещё даже не закончился.
+    await vi.advanceTimersByTimeAsync(SOURCE_TIMEOUT_MS + 5000);
     expect(sc.search).not.toHaveBeenCalled();
 
-    await vi.advanceTimersByTimeAsync(9000);
+    await vi.advanceTimersByTimeAsync(SOURCE_TIMEOUT_MOBILE_MS);
     expect(sc.search).toHaveBeenCalled();
   });
 

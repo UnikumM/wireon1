@@ -167,6 +167,8 @@ export interface MatchLinkRecord {
   /** Как называется найденное: для отчёта и для отладки. */
   title: string;
   artist: string;
+  /** Длительность найденной записи, секунды. По ней связь перепроверяется. */
+  duration?: number;
   confirmedAt: number;
   /** Выбрал человек руками — такую связь не перебивает ничто. */
   manual?: boolean;

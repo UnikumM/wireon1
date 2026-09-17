@@ -111,6 +111,8 @@ export async function rememberLink(
       originalId: track.originalId,
       title: track.title,
       artist: track.artist,
+      // Длительность найденной записи: без неё связь нельзя перепроверить.
+      duration: track.duration > 0 ? track.duration : undefined,
       confirmedAt: Date.now(),
       manual: manual || existing?.manual === true,
       // Идентификатор чужого каталога кладём рядом, когда он есть: сам ключ

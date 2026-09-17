@@ -1,7 +1,7 @@
 import { UnifiedTrack } from '../types/music';
 import { youtubeService, YouTubeService } from './youtube';
 import { soundCloudService, SoundCloudService } from './soundcloud';
-import { detectVariants, normalizeForMatch, rankCandidates } from './trackMatching';
+import { detectVariants, normalizeForMatch, rankCandidates, scoreCandidate } from './trackMatching';
 import { db, getSetting, setSetting } from './db';
 import { findLink, forgetLink, rememberLink } from './matchLinks';
 import { detectPlatform } from './nativeBridge';
@@ -91,37 +91,11 @@ export const SUBSTITUTE_TIMEOUT_MS = 15000;
 /** Срок годности записи о файле в кэше: сам файл не протухает, но вытесняется. */
 export const LOCAL_SOURCE_TTL_MS = 6 * 60 * 60 * 1000;
 
-/**
- * Фора YouTube перед тем, как за ту же песню возьмётся SoundCloud.
- *
- * Три секунды — это чуть больше, чем разбор из кэша (там доли секунды) и
- * заметно меньше, чем разбор с нуля (девять и выше). То есть привычный случай
- * «включил то, что уже слушал» до гонки не доходит вовсе, а долгое ожидание
- * прерывается.
- */
-export const SUBSTITUTE_HEAD_START_MS = 3000;
-
-/**
- * На телефоне фора длиннее, иначе YouTube не выигрывает никогда.
- *
- * Там разбор идёт на самом устройстве и занимает секунды даже в лучшем случае,
- * а поиск по SoundCloud — один обычный запрос. При форе в три секунды подмена
- * побеждала почти на каждом треке: человек выбирал запись на YouTube, а слушал
- * чужую загрузку с SoundCloud — иногда обрезанную, иногда вовсе не ту. Двенадцать
- * секунд покрывают обычный разбор целиком, и подмена снова становится тем, чем
- * задумана: спасением, а не правилом.
- */
-export const SUBSTITUTE_HEAD_START_MOBILE_MS = 12000;
-
 /** Предел ожидания источника здесь и сейчас: телефон и десктоп ждут по-разному. */
 function sourceTimeoutMs(): number {
   return detectPlatform() === 'mobile' ? SOURCE_TIMEOUT_MOBILE_MS : SOURCE_TIMEOUT_MS;
 }
 
-/** Фора YouTube здесь и сейчас. См. {@link SUBSTITUTE_HEAD_START_MOBILE_MS}. */
-function substituteHeadStartMs(): number {
-  return detectPlatform() === 'mobile' ? SUBSTITUTE_HEAD_START_MOBILE_MS : SUBSTITUTE_HEAD_START_MS;
-}
 
 /** По этому тексту выше видно, что источник промолчал, а не отказал. */
 export const RESOLVE_TIMEOUT_MESSAGE = 'Source did not answer in time';
@@ -369,8 +343,19 @@ export class StreamResolver {
         `youtube ${track.originalId}`
       );
 
+      /*
+       * Свой источник — первым и без гонки.
+       *
+       * Раньше YouTube получал три секунды форы, а потом за ту же песню
+       * параллельно брался SoundCloud, и играло то, что готово первым. Разбор
+       * ссылки с нуля занимает дольше трёх секунд почти всегда, поэтому замена
+       * выигрывала и тогда, когда оригинал был и отдавался: «Hot Together» на
+       * YouTube разбирается за 4 с, а играла чужая переделка с SoundCloud.
+       * Скорость не повод слушать не то, что выбрал. Замена теперь — только
+       * ответ на настоящий отказ или истёкший срок.
+       */
       try {
-        result = await this.raceWithSoundCloud(track, youtube, priority);
+        result = await youtube;
       } catch (err) {
         // YouTube blocks individual videos far more often than SoundCloud blocks
         // whole songs, so a refusal here is worth one lookup elsewhere before the
@@ -466,63 +451,6 @@ export class StreamResolver {
   }
 
   /**
-   * Даёт YouTube фору, а потом пускает SoundCloud наперегонки.
-   *
-   * Зачем. Разбор ссылки YouTube на телефоне идёт секундами: замерено 35 с на
-   * эмуляторе и 9,5 с на настольной машине даже с быстрым интернетом. Ускорить
-   * его нечем — быстрые клиенты YouTube отдают форматы, которые `<audio>` не
-   * играет, это проверено на четырёх. SoundCloud при этом отвечает почти сразу:
-   * там ссылка отдаётся как есть, без расшифровки подписи и без запуска Python.
-   *
-   * Отсюда приём: сперва фора, чтобы YouTube успел ответить сам — тогда играет
-   * ровно та запись, которую человек выбрал. Не успел за {@link SUBSTITUTE_HEAD_START_MS} —
-   * параллельно ищется та же песня на SoundCloud, и играет то, что готово первым.
-   * YouTube при этом не отменяется: если он ответит раньше подмены, победит он.
-   *
-   * Подмена проходит только строгую сверку (артист, название, длительность) —
-   * ту же, что и при отказе YouTube. Лучше подождать, чем без спроса включить
-   * кавер или часовой микс.
-   *
-   * Фоновые прогревы очереди в гонку не идут: там никто не ждёт, а лишний поиск
-   * на каждый трек очереди — это трафик впустую.
-   */
-  private async raceWithSoundCloud(
-    track: UnifiedTrack,
-    youtube: Promise<CachedStream>,
-    priority: ResolvePriority
-  ): Promise<CachedStream> {
-    if (priority !== 'user') return youtube;
-
-    /*
-     * Отказ YouTube не заглушается.
-     *
-     * Первая попытка глушила его в вечное ожидание, чтобы «дать подмене
-     * договорить» — и получалось, что при неудаче обеих сторон не завершалось
-     * ничего вовсе. Пусть отказ проходит: внешний `catch` его поймает и всё
-     * равно сходит на SoundCloud, только уже без спешки.
-     */
-    const substitute = new Promise<CachedStream>((resolve) => {
-      setTimeout(() => {
-        this.resolveViaSoundCloud(track)
-          .then((found) => {
-            // Подмены нет — эта ветка молчит: объявлять проигрыш там, где
-            // YouTube ещё в пути, значит отменить живую попытку.
-            if (found) resolve(found);
-          })
-          .catch(() => {});
-      }, substituteHeadStartMs());
-    });
-
-    const winner = await Promise.race([youtube, substitute]);
-    if (winner.substitutedFrom === 'soundcloud') {
-      console.info(
-        `[StreamResolver] YouTube не ответил за ${SUBSTITUTE_HEAD_START_MS} мс — играет версия с SoundCloud: "${track.title}"`
-      );
-    }
-    return winner;
-  }
-
-  /**
    * Подтверждённая замена, если она уже известна.
    *
    * Смысл: подбор по названию — догадка, и повторять её при каждом отказе
@@ -543,6 +471,35 @@ export class StreamResolver {
     try {
       const known = await findLink(track);
       if (!known || known.source !== want || !known.originalId) return null;
+
+      /*
+       * Найденную нами связь проверяем заново при каждом использовании — теми
+       * же условиями, что и свежую замену. Выбор человека не проверяем: он и
+       * есть ответ. Связь без длительности появилась до этой проверки, сверить
+       * её не с чем — снимаем и ищем заново.
+       */
+      if (!known.manual) {
+        const linked: UnifiedTrack = {
+          id: `link_${known.originalId}`,
+          source: known.source,
+          originalId: known.originalId,
+          title: known.title,
+          artist: known.artist,
+          duration: known.duration ?? 0,
+          artworkUrl: ''
+        };
+        const valid =
+          typeof known.duration === 'number' &&
+          known.duration > 0 &&
+          this.fitsSameRecording(track, linked) &&
+          scoreCandidate({ title: track.title, artist: track.artist, duration: track.duration }, linked).score >=
+            SUBSTITUTE_MIN_SCORE;
+        if (!valid) {
+          console.info(`[StreamResolver] Сохранённая замена не прошла проверку и забыта: "${known.title}"`);
+          await forgetLink(track);
+          return null;
+        }
+      }
 
       const resolved =
         want === 'youtube'
@@ -664,12 +621,6 @@ export class StreamResolver {
   ): UnifiedTrack | null {
     if (!Array.isArray(candidates) || candidates.length === 0) return null;
 
-    const wantedVariants = new Set(detectVariants(`${track.title} ${track.artist || ''}`));
-    const wantedWords = normalizeForMatch(track.title)
-      .split(' ')
-      // От двух букв — как при переносе: «VAI DO TRAIR» не «VAI VAI TRAIR».
-      .filter((word) => word.length >= 2);
-
     /*
      * Оцениваем всех, отбираем после — по той же причине, что и при переносе.
      *
@@ -678,28 +629,40 @@ export class StreamResolver {
      * правильной записи заодно снимает штраф со всех остальных — и чужая песня
      * с похожим названием получает проходной балл.
      */
-    const fits = (candidate: UnifiedTrack): boolean => {
-      const haystack = normalizeForMatch(`${candidate.title || ''} ${candidate.artist || ''}`);
-      const titleCovered = wantedWords.every((word) => haystack.includes(word));
-      const sameVariant = detectVariants(`${candidate.title || ''} ${candidate.artist || ''}`).every((marker) =>
-        wantedVariants.has(marker)
-      );
-      // Длительность — жёсткое условие, а не только баллы: замена случается сама,
-      // и другая редакция той же песни здесь хуже честной ошибки.
-      const sameLength =
-        !(track.duration > 0 && candidate.duration > 0) ||
-        Math.abs(candidate.duration - track.duration) <= SUBSTITUTE_DURATION_TOLERANCE_S;
-      return titleCovered && sameVariant && sameLength;
-    };
-
     const ranked = rankCandidates(
       { title: track.title, artist: track.artist, duration: track.duration },
       candidates
     );
     const best = ranked.find(
-      (entry) => entry.score >= SUBSTITUTE_MIN_SCORE && fits(entry.candidate)
+      (entry) => entry.score >= SUBSTITUTE_MIN_SCORE && this.fitsSameRecording(track, entry.candidate)
     );
     return best ? best.candidate : null;
+  }
+
+  /**
+   * Жёсткие условия «это та же запись», без баллов.
+   *
+   * Общие для свежей замены и для сохранённой связи: связь, подтверждённая по
+   * прежним, более мягким правилам, иначе жила бы вечно — так «Hot Together»
+   * продолжала играть переделкой после того, как правила ужесточили.
+   */
+  private fitsSameRecording(track: UnifiedTrack, candidate: UnifiedTrack): boolean {
+    const wantedVariants = new Set(detectVariants(`${track.title} ${track.artist || ''}`));
+    // От двух букв — как при переносе: «VAI DO TRAIR» не «VAI VAI TRAIR».
+    const wantedWords = normalizeForMatch(track.title)
+      .split(' ')
+      .filter((word) => word.length >= 2);
+    const haystack = normalizeForMatch(`${candidate.title || ''} ${candidate.artist || ''}`);
+    const titleCovered = wantedWords.every((word) => haystack.includes(word));
+    const sameVariant = detectVariants(`${candidate.title || ''} ${candidate.artist || ''}`).every((marker) =>
+      wantedVariants.has(marker)
+    );
+    // Длительность — жёсткое условие, а не только баллы: замена случается сама,
+    // и другая редакция той же песни здесь хуже честной ошибки.
+    const sameLength =
+      !(track.duration > 0 && candidate.duration > 0) ||
+      Math.abs(candidate.duration - track.duration) <= SUBSTITUTE_DURATION_TOLERANCE_S;
+    return titleCovered && sameVariant && sameLength;
   }
 
   /**
