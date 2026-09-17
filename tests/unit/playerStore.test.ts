@@ -131,6 +131,24 @@ describe('Player Store (usePlayerStore & 2-Tier Queue)', () => {
       expect(updatedState.history[0].id).toBe('yt_track_1');
     });
 
+    it('«Убрать трек» оставляет плеер пустым и забывает сессию', async () => {
+      // Просили: трек вечно висит в плеере и возвращается после перезапуска.
+      vi.spyOn(audioEngine, 'load').mockResolvedValue();
+      const pauseSpy = vi.spyOn(audioEngine, 'pause');
+      await usePlayerStore.getState().playTrack(mockTracks[0], mockTracks, 0);
+
+      usePlayerStore.getState().clearPlayback();
+
+      const state = usePlayerStore.getState();
+      expect(pauseSpy).toHaveBeenCalled();
+      expect(state.currentTrack).toBeNull();
+      expect(state.sourceQueue).toEqual([]);
+      expect(state.isPlaying).toBe(false);
+      await vi.waitFor(async () =>
+        expect(await dbService.getSetting('lastSession', 'не стёрто')).toBeNull()
+      );
+    });
+
     it('toggles play/pause, pauses, and resumes', async () => {
       vi.spyOn(audioEngine, 'load').mockResolvedValue();
       const playSpy = vi.spyOn(audioEngine, 'play').mockResolvedValue();

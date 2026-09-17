@@ -199,6 +199,23 @@ describe('Разметка плеера: настройки и полоса', ()
       expect(screen.getByTestId('player-track-title')).toBeTruthy();
     });
 
+    it('щелчок по пункту меню работает, щелчок мимо — закрывает', () => {
+      /*
+       * Ловец кликов мимо меню лежал в корне страницы поверх всего приложения,
+       * включая само меню: любой щелчок мышью по пункту только закрывал меню.
+       * Теперь щелчок мимо слушается на документе.
+       */
+      renderBarWithTrack();
+      fireEvent.click(screen.getByTestId('player-overflow-btn'));
+
+      const toggle = screen.getByTestId('visualizer-toggle');
+      fireEvent.pointerDown(toggle);
+      expect(screen.getByTestId('player-overflow-menu')).toBeTruthy();
+
+      fireEvent.pointerDown(document.body);
+      expect(screen.queryByTestId('player-overflow-menu')).toBeNull();
+    });
+
     it('drops the sleep countdown and its picker together', () => {
       act(() => {
         usePlayerStore.setState({ sleepTimerEndsAt: Date.now() + 60_000 });

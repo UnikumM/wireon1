@@ -1033,6 +1033,43 @@ export const usePlayerStore = create<PlayerStore>((set, get) => {
 
     clearQueue: emptyUserQueue,
 
+    /*
+     * «Убрать трек»: плеер без трека, как при первом запуске.
+     *
+     * Просили прямо: трек вечно висит в плеере, и даже «пересобрать Поток»
+     * отталкивается от него. Поколение включения сдвигается, чтобы уже идущая
+     * загрузка не вернула трек обратно, а сохранённая сессия стирается — иначе
+     * он появился бы снова при следующем запуске.
+     */
+    clearPlayback: () => {
+      commitGeneration += 1;
+      audioEngine.pause();
+      set({
+        currentTrack: null,
+        playbackState: 'idle',
+        isPlaying: false,
+        isLoading: false,
+        currentTime: 0,
+        duration: 0,
+        buffered: 0,
+        error: null,
+        errorDetail: null,
+        errorCanRetry: true,
+        isPreviewStream: false,
+        substitutedFrom: null,
+        resumePosition: null,
+        userQueue: [],
+        sourceQueue: [],
+        currentIndex: -1,
+        shuffleOrder: [],
+        queueMode: 'sequential',
+        activeSeedTrack: null,
+        isReplenishingQueue: false
+      });
+      persistSetting(PLAYER_SETTING_KEYS.lastSession, null);
+      MediaSessionService.clear();
+    },
+
     clearUserQueue: emptyUserQueue,
 
     setSourceQueue: (queue: UnifiedTrack[], startIndex = 0) => {

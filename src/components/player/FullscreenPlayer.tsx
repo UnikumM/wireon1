@@ -665,19 +665,27 @@ export const FullscreenPlayer: React.FC<FullscreenPlayerProps> = ({ className = 
               </div>
             ) : (
               <div
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'space-between',
-                  gap: 'var(--space-4)'
-                }}
+                style={
+                  {
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    gap: 'var(--space-4)',
+                    /*
+                     * Боковые колонки — по ширине громкости с подписью «100%»
+                     * (замерено 174 px). Было 150: громкость не помещалась,
+                     * вылезала влево и накрывала кнопку «∞» на 8 пикселей.
+                     */
+                    '--fullscreen-side-col': '184px'
+                  } as React.CSSProperties
+                }
               >
-                <div style={{ width: '150px', flexShrink: 0, display: 'flex', alignItems: 'center' }}>
+                <div style={{ width: 'var(--fullscreen-side-col)', flexShrink: 0, display: 'flex', alignItems: 'center' }}>
                   {/* Mirrors the volume slider on the right, so the transport stays centred. */}
                   <TempoControl align="left" size="lg" />
                 </div>
                 <TransportControls variant="comfortable" idPrefix="fullscreen" />
-                <div style={{ width: '150px', flexShrink: 0, display: 'flex', justifyContent: 'flex-end' }}>
+                <div style={{ width: 'var(--fullscreen-side-col)', flexShrink: 0, display: 'flex', justifyContent: 'flex-end' }}>
                   <VolumeSlider
                     volume={volume}
                     isMuted={isMuted}

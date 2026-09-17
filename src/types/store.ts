@@ -146,6 +146,11 @@ export interface PlayerStoreActions {
   reorderUserQueue: (fromIndex: number, toIndex: number) => void;
   jumpToUserQueueTrack: (index: number) => Promise<void>;
   clearQueue: () => void;
+  /**
+   * Останавливает музыку и убирает трек из плеера совсем — вместе с очередью и
+   * сохранённой позицией, чтобы после перезапуска он не появился снова.
+   */
+  clearPlayback: () => void;
   clearUserQueue: () => void;
   setSourceQueue: (queue: UnifiedTrack[], startIndex?: number) => void;
   syncSourceQueue: (tracks: UnifiedTrack[]) => void;

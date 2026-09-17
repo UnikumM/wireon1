@@ -1,5 +1,4 @@
-import { createPortal } from 'react-dom';
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
   AlertTriangle,
   Check,
@@ -69,6 +68,7 @@ export const PlayerBar: React.FC<PlayerBarProps> = ({ className = '' }) => {
   const errorDetail = usePlayerStore((s) => s.errorDetail);
   const isPreviewStream = usePlayerStore((s) => s.isPreviewStream);
   const substitutedFrom = usePlayerStore((s) => s.substitutedFrom);
+  const clearPlayback = usePlayerStore((s) => s.clearPlayback);
   const userQueue = usePlayerStore((s) => s.userQueue);
   const visualizerEnabled = usePlayerStore((s) => s.visualizerEnabled);
   const visualizerPreset = usePlayerStore((s) => s.visualizerPreset);
@@ -128,11 +128,35 @@ export const PlayerBar: React.FC<PlayerBarProps> = ({ className = '' }) => {
 
   const sleepRemaining = useCountdown(sleepTimerEndsAt);
 
-  const { containerRef: menuRef, backdropProps } = useDismissable<HTMLDivElement>({
+  const { containerRef: menuRef } = useDismissable<HTMLDivElement>({
     isOpen: isMenuOpen,
     onDismiss: () => setIsMenuOpen(false),
     lockScroll: false
   });
+  const menuAnchorRef = useRef<HTMLDivElement | null>(null);
+
+  /*
+   * Щелчок мимо меню закрывает его — слушателем на документе, а не слоем.
+   *
+   * Слоем-ловцом это не работало ни внутри полосы, ни снаружи. Внутри: на
+   * стеклянных обликах у полосы `backdrop-filter`, и ловец покрывал только её
+   * 92 пикселя. Снаружи, в body: полоса живёт в изолированном слое приложения,
+   * и ловец со своим z-index оказывался **поверх самого меню** — любой щелчок
+   * мышью по пункту просто закрывал меню. Таймер сна, автоплей и визуализация
+   * из этого меню не включались вовсе; работала только клавиатура.
+   */
+  useEffect(() => {
+    if (!isMenuOpen) return;
+    const onPointerDown = (event: PointerEvent) => {
+      const target = event.target as Node | null;
+      if (!target) return;
+      // Кнопка «Ещё» и само меню лежат в одной обёртке: щелчок внутри неё не «мимо».
+      if (menuAnchorRef.current?.contains(target)) return;
+      setIsMenuOpen(false);
+    };
+    document.addEventListener('pointerdown', onPointerDown, true);
+    return () => document.removeEventListener('pointerdown', onPointerDown, true);
+  }, [isMenuOpen]);
 
   useEffect(() => {
     if (error === null) setDismissedError(null);
@@ -912,7 +936,7 @@ export const PlayerBar: React.FC<PlayerBarProps> = ({ className = '' }) => {
             <Maximize2 size={ICON.md} />
           </Button>
 
-          <div style={{ position: 'relative', flexShrink: 0 }}>
+          <div ref={menuAnchorRef} style={{ position: 'relative', flexShrink: 0 }}>
             <Button
               variant="ghost"
               size="icon"
@@ -930,17 +954,6 @@ export const PlayerBar: React.FC<PlayerBarProps> = ({ className = '' }) => {
 
             {isMenuOpen && (
               <>
-                {/*
-                  Ловец кликов мимо меню — через портал в body.
-                  Внутри полосы он бесполезен: на стеклянных обликах у неё
-                  стоит `backdrop-filter`, а он делает элемент системой
-                  координат для `position: fixed`, и ловец покрывал 92 пикселя
-                  полосы вместо всего окна — меню не закрывалось кликом мимо.
-                */}
-                {createPortal(
-                  <div {...backdropProps} style={{ position: 'fixed', inset: 0, zIndex: 'var(--z-header)' }} />,
-                  document.body
-                )}
                 <div
                   ref={menuRef}
                   role="menu"
@@ -1048,6 +1061,24 @@ export const PlayerBar: React.FC<PlayerBarProps> = ({ className = '' }) => {
                         opacity: autoplayRadio ? 1 : 0
                       }}
                     />
+                  </button>
+
+                  <button
+                    role="menuitem"
+                    className="menu-item-hover"
+                    onClick={() => {
+                      setIsMenuOpen(false);
+                      clearPlayback();
+                    }}
+                    data-testid="player-clear-playback"
+                  >
+                    <X size={ICON.md} aria-hidden="true" style={{ flexShrink: 0 }} />
+                    <span style={{ display: 'flex', flexDirection: 'column', gap: '2px', flex: 1, minWidth: 0 }}>
+                      <span style={{ color: 'var(--text-primary)' }}>Убрать трек</span>
+                      <span style={{ fontSize: 'var(--text-xs)', color: 'var(--text-faint)' }}>
+                        Остановить музыку и очистить очередь. Поток потом начнётся с нуля
+                      </span>
+                    </span>
                   </button>
 
                   <button
