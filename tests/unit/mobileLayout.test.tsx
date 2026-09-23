@@ -10,6 +10,7 @@ import { SettingRow, InfoRow } from '../../src/components/settings/SettingsPrimi
 import { ArtistHubView } from '../../src/components/artist/ArtistHubView';
 import { LibraryView } from '../../src/components/library/LibraryView';
 import { FavoritesView } from '../../src/components/library/FavoritesView';
+import { QueueDrawer } from '../../src/components/player/QueueDrawer';
 import { useLibraryStore } from '../../src/store/useLibraryStore';
 import { usePlayerStore } from '../../src/store/usePlayerStore';
 import { useUIStore } from '../../src/store/useUIStore';
@@ -427,6 +428,29 @@ describe('Списки и шапки на телефоне', () => {
     // «Послушать снова» делает ровно то же, что строка, и забирала 50 px из 328.
     expect(screen.queryByTestId('history-play-again-0')).toBeNull();
     expect(screen.getByText('Ghosts of the Late Night Radio Tower')).toBeInTheDocument();
+  });
+
+  it('имя артиста в очереди обрезается, а не заезжает под длительность', () => {
+    usePlayerStore.setState({
+      currentTrack: libraryTrack,
+      userQueue: [libraryTrack],
+      sourceQueue: [libraryTrack, libraryTrack],
+      currentIndex: 0
+    });
+    useUIStore.setState({ isQueueOpen: true });
+
+    render(<QueueDrawer />);
+
+    // Та же ошибка, что в строке медиатеки: `fit-content` без потолка. В широком
+    // Unbounded «Сплин feat. Би-2 и Земфира» ложилось на «3:19».
+    for (const id of ['queue-now-playing-artist', 'user-queue-artist-0']) {
+      const artist = screen.getByTestId(id);
+      expect(artist).toHaveClass('text-truncate');
+      expect(artist).toHaveStyle({ maxWidth: '100%' });
+    }
+    const upcoming = screen.getAllByTestId(/^source-queue-artist-/);
+    expect(upcoming.length).toBeGreaterThan(0);
+    upcoming.forEach((artist) => expect(artist).toHaveStyle({ maxWidth: '100%' }));
   });
 
   it('на широком окне эта кнопка остаётся', () => {
