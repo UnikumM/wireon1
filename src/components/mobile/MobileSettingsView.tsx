@@ -259,8 +259,10 @@ export const MobileSettingsView: React.FC = () => {
               >
                 {section.label}
               </span>
+              {/* Две строки, а не одна: в широком Unbounded подсказка на 390 px
+                  не влезала и теряла последнее слово («Громкость, тембр, перехо…»). */}
               <span
-                className="text-truncate"
+                className="text-clamp-2"
                 style={{
                   fontSize: 'var(--text-sm)',
                   lineHeight: 'var(--leading-sm)',

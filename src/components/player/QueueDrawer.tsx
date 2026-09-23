@@ -346,6 +346,9 @@ export const QueueDrawer: React.FC<QueueDrawerProps> = ({ className = '' }) => {
                     className="text-truncate focus-ring hover-underline"
                     style={{
                       display: 'inline-block',
+                      // Кнопка без переноса строки шириной не меньше своего текста —
+                      // без потолка имя вылезало за край карточки.
+                      maxWidth: '100%',
                       fontSize: 'var(--text-xs)',
                       color: 'var(--text-secondary)',
                       padding: 0,
@@ -502,6 +505,10 @@ export const QueueDrawer: React.FC<QueueDrawerProps> = ({ className = '' }) => {
                             fontSize: 'var(--text-xs)',
                             color: 'var(--text-secondary)',
                             cursor: 'pointer',
+                            // Потолок обязателен: `fit-content` растит коробку под
+                            // текст, и без него длинное имя уезжало под длительность
+                            // вместо многоточия (заметнее всего в широком Unbounded).
+                            maxWidth: '100%',
                             width: 'fit-content'
                           }}
                           title={`Открыть исполнителя ${track.artist}`}
@@ -614,6 +621,10 @@ export const QueueDrawer: React.FC<QueueDrawerProps> = ({ className = '' }) => {
                             fontSize: 'var(--text-xs)',
                             color: 'var(--text-secondary)',
                             cursor: 'pointer',
+                            // Потолок обязателен: `fit-content` растит коробку под
+                            // текст, и без него длинное имя уезжало под длительность
+                            // вместо многоточия (заметнее всего в широком Unbounded).
+                            maxWidth: '100%',
                             width: 'fit-content'
                           }}
                           title={`Открыть исполнителя ${track.artist}`}

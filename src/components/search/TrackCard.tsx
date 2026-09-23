@@ -639,6 +639,8 @@ export const TrackCard: React.FC<TrackCardProps> = ({
               margin: 0,
               cursor: 'pointer',
               display: 'inline-block',
+              // Без потолка `fit-content` отменяет многоточие — см. строку списка ниже.
+              maxWidth: '100%',
               width: 'fit-content'
             }}
             title={`Открыть артиста: ${track.artist}`}
@@ -768,6 +770,8 @@ export const TrackCard: React.FC<TrackCardProps> = ({
               // погасило бы отклик целиком.
               cursor: 'pointer',
               display: 'inline-block',
+              // Без потолка `fit-content` отменяет многоточие — см. строку списка ниже.
+              maxWidth: '100%',
               width: 'fit-content'
             }}
             title={`Открыть артиста: ${track.artist}`}
