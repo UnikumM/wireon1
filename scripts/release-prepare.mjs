@@ -2,9 +2,10 @@
  * Release preparation — bumps the version everywhere it is written down, then
  * proves the tree is releasable before anything reaches GitHub.
  *
- * The version lives in two files (`package.json` and `src/utils/appInfo.ts`,
- * because the built renderer cannot read the manifest), and every release so far
- * has meant editing both by hand. That is the step that silently does nothing
+ * The version lives in `package.json` (and its lockfile), `src/utils/appInfo.ts`
+ * (the built renderer cannot read the manifest) and `android/app/build.gradle`
+ * (the APK's versionName/versionCode), and every release so far has meant
+ * editing them by hand. That is the step that silently does nothing
  * when forgotten: the installer builds, the release publishes, and no installed
  * copy sees an update because `latest.yml` still names the old version.
  *
@@ -28,6 +29,8 @@ const ROOT = path.join(path.dirname(fileURLToPath(import.meta.url)), '..');
 const PACKAGE_JSON = path.join(ROOT, 'package.json');
 const APP_INFO = path.join(ROOT, 'src/utils/appInfo.ts');
 const CHANGELOG = path.join(ROOT, 'src/data/changelog.ts');
+const PACKAGE_LOCK = path.join(ROOT, 'package-lock.json');
+const GRADLE = path.join(ROOT, 'android/app/build.gradle');
 
 const SEMVER = /^(\d+)\.(\d+)\.(\d+)$/;
 
@@ -49,6 +52,26 @@ function bump(version, kind) {
   if (kind === 'major') return `${major + 1}.0.0`;
   if (kind === 'minor') return `${major}.${minor + 1}.0`;
   return `${major}.${minor}.${patch + 1}`;
+}
+
+/**
+ * Android's versionCode, derived from the version: 2.2.5 -> 2205.
+ *
+ * Android refuses to install an APK whose versionCode is not above the installed
+ * one, and the phone updater compares versionName — so a forgotten versionCode
+ * means an update that downloads and then will not install. The formula only
+ * stays monotonic while minor < 10 and patch < 100; past that it would collide
+ * with the next major, so we stop instead of guessing.
+ */
+function androidVersionCode(version) {
+  const [, major, minor, patch] = version.match(SEMVER).map(Number);
+  if (minor > 9 || patch > 99) {
+    fail(
+      `${version} does not fit versionCode = major*1000 + minor*100 + patch.\n` +
+        '  Pick a new scheme in android/app/build.gradle and in scripts/release-prepare.mjs.'
+    );
+  }
+  return major * 1000 + minor * 100 + patch;
 }
 
 /** Higher means newer. Guards against bumping downwards by accident. */
@@ -99,19 +122,65 @@ if (!changelogRaw.includes(`version: '${to}'`)) {
 
 console.log(`\nWireon release: ${from} -> ${to}\n`);
 
-// --- write the version into both places -------------------------------------
+// --- write the version everywhere -------------------------------------------
+//
+// Every file is read and checked before any is written, so a file that does not
+// look as expected stops the script with the tree untouched.
 
-const manifestRaw = readFileSync(PACKAGE_JSON, 'utf8');
-const manifestNext = manifestRaw.replace(`"version": "${from}"`, `"version": "${to}"`);
-if (manifestNext === manifestRaw) fail(`Could not find "version": "${from}" in package.json.`);
+function replaceOrFail(raw, from, to, where) {
+  const next = raw.replace(from, to);
+  if (next === raw) fail(`Could not find ${from} in ${where}.`);
+  return next;
+}
+
+const manifestNext = replaceOrFail(
+  readFileSync(PACKAGE_JSON, 'utf8'),
+  `"version": "${from}"`,
+  `"version": "${to}"`,
+  'package.json'
+);
+
+// The lockfile repeats the version twice: at the top and for the root package.
+const lockRaw = readFileSync(PACKAGE_LOCK, 'utf8');
+const lockHead = `"name": "wireon",\n  "version": "${from}"`;
+const lockRoot = `"name": "wireon",\n      "version": "${from}"`;
+const lockNext = replaceOrFail(
+  replaceOrFail(lockRaw, lockHead, lockHead.replace(from, to), 'package-lock.json'),
+  lockRoot,
+  lockRoot.replace(from, to),
+  'package-lock.json'
+);
+
+const appInfoNext = replaceOrFail(
+  readFileSync(APP_INFO, 'utf8'),
+  `APP_VERSION = '${from}'`,
+  `APP_VERSION = '${to}'`,
+  'src/utils/appInfo.ts'
+);
+
+const gradleRaw = readFileSync(GRADLE, 'utf8');
+const codeMatch = gradleRaw.match(/versionCode (\d+)/);
+if (!codeMatch) fail('Could not find versionCode in android/app/build.gradle.');
+const codeFrom = Number(codeMatch[1]);
+const codeTo = androidVersionCode(to);
+if (codeTo <= codeFrom) {
+  fail(`Android versionCode ${codeTo} for ${to} is not above the current ${codeFrom}; phones would refuse the APK.`);
+}
+const gradleNext = replaceOrFail(
+  replaceOrFail(gradleRaw, `versionCode ${codeFrom}`, `versionCode ${codeTo}`, 'android/app/build.gradle'),
+  `versionName "${from}"`,
+  `versionName "${to}"`,
+  'android/app/build.gradle'
+);
+
 writeFileSync(PACKAGE_JSON, manifestNext);
-console.log(`  package.json          version -> ${to}`);
-
-const appInfoRaw = readFileSync(APP_INFO, 'utf8');
-const appInfoNext = appInfoRaw.replace(`APP_VERSION = '${from}'`, `APP_VERSION = '${to}'`);
-if (appInfoNext === appInfoRaw) fail(`Could not find APP_VERSION = '${from}' in src/utils/appInfo.ts.`);
+console.log(`  package.json              version -> ${to}`);
+writeFileSync(PACKAGE_LOCK, lockNext);
+console.log(`  package-lock.json         version -> ${to}`);
 writeFileSync(APP_INFO, appInfoNext);
-console.log(`  src/utils/appInfo.ts  APP_VERSION -> ${to}`);
+console.log(`  src/utils/appInfo.ts      APP_VERSION -> ${to}`);
+writeFileSync(GRADLE, gradleNext);
+console.log(`  android/app/build.gradle  versionName -> ${to}, versionCode -> ${codeTo}`);
 
 // --- report where the release would land -------------------------------------
 
@@ -129,13 +198,13 @@ function releaseTarget() {
 }
 
 const targetRepo = releaseTarget();
-console.log(`\n  release channel       ${targetRepo ?? 'NOT CONFIGURED — see RELEASE.md'}`);
-console.log(`  GH_TOKEN              ${process.env.GH_TOKEN ? 'present' : 'missing — needed to publish'}`);
+console.log(`\n  release channel           ${targetRepo ?? 'NOT CONFIGURED — see RELEASE.md'}`);
+console.log(`  GH_TOKEN                  ${process.env.GH_TOKEN ? 'present' : 'missing — needed to publish'}`);
 
 // --- prove it builds ---------------------------------------------------------
 
 if (skipVerify) {
-  console.log('\n  verify                skipped (--skip-verify)');
+  console.log('\n  verify                    skipped (--skip-verify)');
 } else {
   console.log('\nRunning npm run verify (typecheck + tests + build + smoke, ~6-8 min)...\n');
   try {

@@ -12,7 +12,7 @@
 ## Короткая версия для тех, кто уже всё настроил
 
 ```bash
-npm run release:prepare patch   # поднимает версию в двух местах + npm run verify
+npm run release:prepare patch   # поднимает версию везде, где она записана, + npm run verify
 export GH_TOKEN=ghp_...         # только в окружении, не в файлах репозитория
 npm run release                 # собирает и публикует
 ```
@@ -64,10 +64,12 @@ npm run release                 # собирает и публикует
    ```
 
    Скрипт делает то, что раньше делалось руками и иногда забывалось: пишет
-   версию **в оба места** — `package.json` → `"version"` и
-   `src/utils/appInfo.ts` → `APP_VERSION`. Забыть второе особенно неприятно:
-   сборка проходит, релиз публикуется, а обновление не приходит никому.
-   Расхождение ловит и тест `tests/unit/appInfo.test.ts`.
+   версию **во все места сразу** — `package.json` и `package-lock.json`,
+   `src/utils/appInfo.ts` → `APP_VERSION` и `android/app/build.gradle` →
+   `versionName` и `versionCode` (2.2.6 → 2206). Забыть `APP_VERSION` особенно
+   неприятно: сборка проходит, релиз публикуется, а обновление не приходит
+   никому. Расхождение ловит и тест `tests/unit/appInfo.test.ts`. Забыть
+   `versionCode` — телефон скачает APK, а Android откажется его ставить.
 
    Первым делом он проверяет, что в `src/data/changelog.ts` есть запись про
    новую версию, и отказывается работать, если её нет. Список «Что нового»
