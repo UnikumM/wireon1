@@ -300,14 +300,20 @@ describe('Milestone 3 UI & Player Components Test Suite', () => {
       expect(screen.getByTestId('app-topnav')).toBeInTheDocument();
       expect(screen.getByLabelText('Wireon Sounds — на главную')).toBeInTheDocument();
 
-      fireEvent.click(screen.getByTestId('nav-favorites'));
-      expect(useUIStore.getState().activeView).toBe('favorites');
-
       fireEvent.click(screen.getByTestId('nav-wave'));
       expect(useUIStore.getState().activeView).toBe('wave');
 
       fireEvent.click(screen.getByTestId('nav-library'));
       expect(useUIStore.getState().activeView).toBe('library');
+    });
+
+    it('вкладки медиатеки не повторяются в шапке, а «Медиатека» на них остаётся выбранной', () => {
+      useUIStore.setState({ activeView: 'favorites' });
+      render(<TopNav />);
+
+      expect(screen.queryByTestId('nav-favorites')).toBeNull();
+      expect(screen.queryByTestId('nav-playlists')).toBeNull();
+      expect(screen.getByTestId('nav-library')).toHaveAttribute('aria-current', 'page');
     });
 
     it('выбранный раздел отмечен не только цветом', () => {

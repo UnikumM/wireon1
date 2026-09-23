@@ -49,6 +49,8 @@ export const FullscreenPlayer: React.FC<FullscreenPlayerProps> = ({ className = 
   // секунду перерисовывали бы всё окно целиком — обложку, текст песни, очередь.
   /** Один хук на весь экран — тот же порог, что у полосы плеера. */
   const isNarrow = useMediaQuery('(max-width: 768px)');
+  // Подпись «80%» у громкости занимает 40 px, которых в узком окне нет.
+  const isCompactRow = useMediaQuery('(max-width: 900px)');
 
   const volume = usePlayerStore((s) => s.volume);
   const isMuted = usePlayerStore((s) => s.isMuted);
@@ -558,7 +560,7 @@ export const FullscreenPlayer: React.FC<FullscreenPlayerProps> = ({ className = 
               {
                 position: 'relative',
                 width: '100%',
-                maxWidth: '760px',
+                maxWidth: '860px',
                 margin: '0 auto',
                 padding: 'var(--space-5) var(--space-6) var(--space-7)',
                 display: 'flex',
@@ -670,28 +672,28 @@ export const FullscreenPlayer: React.FC<FullscreenPlayerProps> = ({ className = 
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'space-between',
-                    gap: 'var(--space-4)',
-                    /*
-                     * Боковые колонки — по ширине громкости с подписью «100%»
-                     * (замерено 174 px). Было 150: громкость не помещалась,
-                     * вылезала влево и накрывала кнопку «∞» на 8 пикселей.
-                     */
-                    '--fullscreen-side-col': '184px'
-                  } as React.CSSProperties
+                    gap: 'var(--space-4)'
+                  }
                 }
               >
-                <div style={{ width: 'var(--fullscreen-side-col)', flexShrink: 0, display: 'flex', alignItems: 'center' }}>
+                {/*
+                  * Боковые колонки делят поровну то, что осталось от транспорта
+                  * (400 px). Раньше они были жёсткими 184 px, и ряд требовал
+                  * 800 px при колонке в 712: громкость вылезала за край и в узком
+                  * окне липла к кнопке «∞».
+                  */}
+                <div style={{ flex: '1 1 0', minWidth: 0, display: 'flex', alignItems: 'center' }}>
                   {/* Mirrors the volume slider on the right, so the transport stays centred. */}
                   <TempoControl align="left" size="lg" />
                 </div>
                 <TransportControls variant="comfortable" idPrefix="fullscreen" />
-                <div style={{ width: 'var(--fullscreen-side-col)', flexShrink: 0, display: 'flex', justifyContent: 'flex-end' }}>
+                <div style={{ flex: '1 1 0', minWidth: 0, display: 'flex', justifyContent: 'flex-end' }}>
                   <VolumeSlider
                     volume={volume}
                     isMuted={isMuted}
                     onVolumeChange={setVolume}
                     onToggleMute={toggleMute}
-                    showPercentage
+                    showPercentage={!isCompactRow}
                   />
                 </div>
               </div>

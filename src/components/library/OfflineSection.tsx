@@ -237,16 +237,14 @@ export const OfflineSection: React.FC<OfflineSectionProps> = ({ className = '' }
           }}
         >
           <label
+            className="search-field"
             style={{
               display: 'flex',
               alignItems: 'center',
               gap: 'var(--space-2)',
               flex: '1 1 260px',
               maxWidth: '360px',
-              padding: '0 var(--space-3)',
-              backgroundColor: 'var(--surface-sunken)',
-              border: '1px solid var(--border)',
-              borderRadius: 'var(--radius-sm)'
+              padding: '0 var(--space-3)'
             }}
           >
             <Search size={ICON.md} aria-hidden="true" style={{ color: 'var(--text-muted)', flexShrink: 0 }} />

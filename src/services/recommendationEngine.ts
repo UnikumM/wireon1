@@ -160,6 +160,12 @@ const MAX_SAME_SOURCE_RUN = 3;
  */
 const WAVE_SEED_RADIO_SUFFICIENT = 8;
 /**
+ * Надбавка найденному по словам энергии и жанра — при крайнем положении
+ * регулятора. Радио про энергию ничего не знает, и без надбавки найденное
+ * проигрывало знакомым трекам из радио, а регулятор ничего не менял.
+ */
+const TUNED_SEARCH_BONUS = 0.35;
+/**
  * Сколько раз продлить радио, зацепившись за трек из уже полученных.
  *
  * Так пул добирается тем же способом, которым начался, вместо поиска по словам:
@@ -826,17 +832,24 @@ export class RecommendationEngineService implements RecommendationEngine {
     profile: UserProfile,
     limit: number
   ): Promise<UnifiedTrack[]> {
-    const primary = config.seedTrack;
-    if (!primary || !primary.originalId) return [];
+    const primary = config.seedTrack?.originalId ? config.seedTrack : null;
     if (config.seedKind === 'discovery' || config.seedKind === 'forgotten') return [];
     // «От этой песни» — это буквально просьба про одну песню.
-    if (config.seedKind === 'track') return [primary];
+    if (config.seedKind === 'track') return primary ? [primary] : [];
 
     const novelty = clampAxis(config.novelty, 0.35);
     const wanted = novelty > 0.6 ? 4 : novelty > 0.3 ? 3 : 2;
 
-    const seeds: UnifiedTrack[] = [primary];
-    const usedArtists = new Set<string>([normalizeArtist(primary.artist)]);
+    /*
+     * «Из библиотеки» опирается на библиотеку, а не на играющую песню.
+     *
+     * Раньше играющий трек всегда шёл первым очагом, и Поток на каждый запуск
+     * оказывался радио той же песни — регуляторам нечего было менять.
+     * Теперь очаги берутся вразброс из избранного и истории, а играющая песня —
+     * только запасной вариант, когда библиотека пуста.
+     */
+    const seeds: UnifiedTrack[] = [];
+    const usedArtists = new Set<string>();
 
     /*
      * Библиотека — то, что человек сложил сам. Избранное впереди истории:
@@ -852,17 +865,20 @@ export class RecommendationEngineService implements RecommendationEngine {
         .then((rows) => rows.map((row) => row.track))
         .catch(() => [] as UnifiedTrack[])
     ]);
-    const pool = [...favorites, ...history];
+    const favoriteIds = new Set(favorites.map((track) => track?.id));
+    // Перемешано, чтобы каждый запуск начинался с разных очагов.
+    const pool = [...shuffleCopy(favorites), ...shuffleCopy(history)];
     for (const track of pool) {
       if (seeds.length >= wanted) break;
       if (!track?.originalId) continue;
       const artist = normalizeArtist(track.artist);
       if (!artist || usedArtists.has(artist)) continue;
-      // Слушают этого артиста заметно или нет — важнее, чем порядок в списке.
-      if ((profile.artistPlayCounts.get(artist) ?? 0) < 1) continue;
+      // Избранное — сигнал сам по себе; из истории — только артисты, которых слушают.
+      if (!favoriteIds.has(track.id) && (profile.artistPlayCounts.get(artist) ?? 0) < 1) continue;
       usedArtists.add(artist);
       seeds.push(track);
     }
+    if (seeds.length === 0 && primary) seeds.push(primary);
 
     // Лимит меньше десятка — просят добор, а не новый поток: хватит одного очага.
     return limit < 10 ? seeds.slice(0, 1) : seeds;
@@ -953,16 +969,29 @@ export class RecommendationEngineService implements RecommendationEngine {
     const enoughFromRadio = Math.min(limit, WAVE_SEED_RADIO_SUFFICIENT);
 
     // Скупое радио продлеваем радио же — зацепившись за трек из полученных.
-    if (config.seedTrack && seedRadioCount > 0 && seedRadioCount < enoughFromRadio) {
+    if (seeds.length > 0 && seedRadioCount > 0 && seedRadioCount < enoughFromRadio) {
       seedRadioCount = await this.extendPoolByRadio(
         candidates,
         addTrack,
         enoughFromRadio,
-        new Set<string>([config.seedTrack.id])
+        new Set<string>(seeds.map((seed) => seed.id))
       );
     }
 
-    const seedRadioIsEnough = seedRadioCount >= enoughFromRadio;
+    /*
+     * Энергия и жанр радио не управляют: оно отвечает «похожим», а не «бодрее».
+     * Поэтому при сдвинутом регуляторе или выбранном жанре поиск идёт всегда,
+     * а найденное получает надбавку — иначе регулятор был бы только подписью.
+     */
+    const energyPull = energyPhrases(config.energy).length > 0 ? Math.abs(clampAxis(config.energy) - 0.5) * 2 : 0;
+    const tunedBonus = TUNED_SEARCH_BONUS * Math.max(energyPull, config.genre ? 0.6 : 0);
+    const searchedIds = new Set<string>();
+    const addSearched = (track: UnifiedTrack | undefined): void => {
+      if (tunedBonus > 0 && track?.id && !seenIds.has(track.id)) searchedIds.add(track.id);
+      addTrack(track);
+    };
+
+    const seedRadioIsEnough = seedRadioCount >= enoughFromRadio && tunedBonus === 0;
 
     // «Забытое» берётся из собственной истории: искать в сети то, что уже
     // слушали, незачем — оно лежит локально вместе с датой прослушивания.
@@ -982,10 +1011,10 @@ export class RecommendationEngineService implements RecommendationEngine {
         ]);
 
         if (ytRes.status === 'fulfilled' && Array.isArray(ytRes.value)) {
-          ytRes.value.forEach(addTrack);
+          ytRes.value.forEach(addSearched);
         }
         if (scRes.status === 'fulfilled' && Array.isArray(scRes.value)) {
-          scRes.value.forEach(addTrack);
+          scRes.value.forEach(addSearched);
         }
       });
 
@@ -1005,10 +1034,10 @@ export class RecommendationEngineService implements RecommendationEngine {
         ]);
 
         if (ytRes.status === 'fulfilled' && Array.isArray(ytRes.value)) {
-          ytRes.value.forEach(addTrack);
+          ytRes.value.forEach(addSearched);
         }
         if (scRes.status === 'fulfilled' && Array.isArray(scRes.value)) {
-          scRes.value.forEach(addTrack);
+          scRes.value.forEach(addSearched);
         }
       });
       await Promise.all(fallbackPromises);
@@ -1023,9 +1052,11 @@ export class RecommendationEngineService implements RecommendationEngine {
     }
 
     // Score all filtered candidates with scoring matrix
-    let scoredCandidates = filtered.map((track) =>
-      this.scoreCandidate(track, config, profile)
-    );
+    let scoredCandidates = filtered.map((track) => {
+      const entry = this.scoreCandidate(track, config, profile);
+      if (searchedIds.has(track.id)) entry.score += tunedBonus;
+      return entry;
+    });
 
     /*
      * «Только знакомое» — обещание, а не пожелание.
@@ -1036,7 +1067,10 @@ export class RecommendationEngineService implements RecommendationEngine {
      * Теперь незнакомые отсеиваются, а нехватка добирается из того, что человек
      * уже слушал сам. При «в основном знакомое» незнакомых не больше четверти.
      */
-    if (hasAxes(config) && !config.seedKind) {
+    // «Открытия» просят незнакомое, «от этой песни» — радио одной песни:
+    // подмешивать туда библиотеку значило бы не выполнить просьбу.
+    const gateApplies = config.seedKind !== 'discovery' && config.seedKind !== 'track';
+    if (hasAxes(config) && gateApplies) {
       const novelty = clampAxis(config.novelty, 0.35);
       if (novelty < FAMILIAR_ONLY_BELOW) {
         scoredCandidates = scoredCandidates.filter((entry) => isFamiliarTrack(entry.track, profile));

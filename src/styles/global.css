@@ -422,6 +422,30 @@ select:focus {
   box-shadow: var(--ring-1) var(--border-accent), var(--ring);
 }
 
+/* Поле поиска со значком: рамку рисует обёртка, а у самого поля её нет —
+ * иначе при наведении и фокусе рамка вставала внутри рамки. */
+.search-field {
+  background-color: var(--surface-sunken);
+  border-radius: var(--radius-sm);
+  box-shadow: var(--ring-1) var(--border);
+  transition: box-shadow var(--dur-normal) var(--ease-out);
+}
+
+.search-field:hover {
+  box-shadow: var(--ring-1) var(--border-strong);
+}
+
+.search-field:focus-within {
+  box-shadow: var(--ring-1) var(--border-accent), var(--ring);
+}
+
+.search-field input[type='text'],
+.search-field input[type='text']:hover,
+.search-field input[type='text']:focus {
+  background: transparent;
+  box-shadow: none;
+}
+
 input::placeholder,
 textarea::placeholder {
   color: var(--text-faint);
@@ -1382,6 +1406,110 @@ svg.lucide[width='48'] {
 }
 
 /**
+ * Ряд вкладок без подложки. Раньше каждая вкладка была пилюлей с рамкой внутри
+ * ещё одной рамки — ряд читался набитым. Теперь вкладки — просто текст, а
+ * выбранную отмечает одна акцентная плашка, которая переезжает под неё.
+ * Положение плашки задаёт компонент через `--tab-x` и `--tab-w`.
+ */
+.tab-strip {
+  position: relative;
+  isolation: isolate;
+}
+
+.tab-strip .chip {
+  background: transparent;
+  box-shadow: none;
+}
+
+.tab-strip .chip:hover:not(:disabled) {
+  background: var(--surface-hover);
+  box-shadow: none;
+}
+
+.tab-strip .chip[aria-selected='true'],
+.tab-strip .chip[aria-selected='true']:hover:not(:disabled) {
+  background: transparent;
+  box-shadow: none;
+}
+
+.tab-strip-indicator {
+  position: absolute;
+  z-index: -1;
+  top: var(--space-1);
+  bottom: var(--space-1);
+  left: 0;
+  width: var(--tab-w, 0);
+  transform: translateX(var(--tab-x, 0));
+  background: var(--accent-soft);
+  border-radius: var(--radius-full);
+  box-shadow: var(--ring-1) var(--border-accent);
+  transition: transform var(--dur-normal) var(--ease-out), width var(--dur-normal) var(--ease-out);
+  pointer-events: none;
+}
+
+/* Первое положение ставится без анимации — иначе плашка выезжала бы от края. */
+.tab-strip-indicator:not([data-ready]) {
+  transition: none;
+}
+
+/* Настройки: список категорий сбоку, разделы справа. */
+.settings-layout {
+  display: grid;
+  grid-template-columns: 184px minmax(0, 1fr);
+  gap: var(--space-6);
+  align-items: start;
+}
+
+.settings-nav {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.settings-nav-item {
+  padding: var(--space-2) var(--space-3);
+  font-size: var(--text-sm);
+  font-weight: var(--weight-medium);
+  color: var(--text-secondary);
+  text-align: left;
+  white-space: nowrap;
+  cursor: pointer;
+  border-radius: var(--radius-sm);
+  transition: color var(--dur-fast) var(--ease-out), background-color var(--dur-fast) var(--ease-out);
+}
+
+.settings-nav-item:hover {
+  color: var(--text-primary);
+  background: var(--surface-hover);
+}
+
+.settings-nav-item[aria-pressed='true'] {
+  color: var(--accent);
+  background: var(--accent-soft);
+}
+
+@media (max-width: 768px) {
+  .settings-layout {
+    grid-template-columns: minmax(0, 1fr);
+    gap: var(--space-3);
+  }
+
+  /* Узкое окно: список становится рядом. Фон полупрозрачный и размытый —
+   * сплошная полоса резала бы прокручиваемые под ней настройки. */
+  .settings-nav {
+    flex-direction: row;
+    overflow-x: auto;
+    padding: var(--space-2) 0;
+    background: color-mix(in srgb, var(--bg-base) 72%, transparent);
+    backdrop-filter: blur(14px);
+    -webkit-backdrop-filter: blur(14px);
+  }
+}
+
+/**
  * Клавиша в подсказке: «Esc», «Ctrl K». Моноширинный, с нижней кромкой —
  * кромка снизу и есть весь объём, больше клавише не нужно.
  */
@@ -1404,6 +1532,54 @@ svg.lucide[width='48'] {
  * Закладка сегментированного переключателя. Отличается от чипа тем, что живёт
  * внутри общей дорожки: своей рамки у неё нет, форму даёт выбранное состояние.
  */
+/**
+ * Подложка переключателя из двух вкладок. Выбранную отмечает плашка, которая
+ * скользит между вкладками, а не вспыхивает на месте. Скругление плашки —
+ * скругление подложки минус зазор, иначе углы не ложатся друг в друга.
+ */
+.segmented {
+  --segmented-pad: 3px;
+  position: relative;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space-1);
+  padding: var(--segmented-pad);
+  background-color: var(--surface-sunken);
+  border-radius: var(--radius-lg);
+  isolation: isolate;
+}
+
+.segmented::before {
+  content: '';
+  position: absolute;
+  z-index: -1;
+  top: var(--segmented-pad);
+  bottom: var(--segmented-pad);
+  left: var(--segmented-pad);
+  width: calc((100% - 2 * var(--segmented-pad) - var(--space-1)) / 2);
+  background: var(--surface-2);
+  border-radius: calc(var(--radius-lg) - var(--segmented-pad));
+  box-shadow: var(--shadow-xs);
+  transition: transform var(--dur-normal) var(--ease-out);
+}
+
+.segmented[data-index='1']::before {
+  transform: translateX(calc(100% + var(--space-1)));
+}
+
+.segmented .segmented-tab {
+  border-radius: calc(var(--radius-lg) - var(--segmented-pad));
+}
+
+.segmented .segmented-tab[aria-selected='true'] {
+  background: transparent;
+  box-shadow: none;
+}
+
+.segmented .segmented-tab:focus-visible {
+  box-shadow: var(--ring-inset);
+}
+
 .segmented-tab {
   flex: 1;
   padding: var(--space-2) var(--space-3);

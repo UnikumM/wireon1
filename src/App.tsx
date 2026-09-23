@@ -39,6 +39,9 @@ import { migrateLegacyDatabase } from './services/db';
 import { streamResolver } from './services/streamResolver';
 import { youtubeCookiesService } from './services/youtubeCookies';
 
+/** Вкладки «Медиатеки» — один раздел. */
+const LIBRARY_VIEWS = new Set(['library', 'favorites', 'playlists', 'offline']);
+
 export const App: React.FC = () => {
   const activeView = useUIStore((s) => s.activeView);
   const playbackError = usePlayerStore((s) => s.error);
@@ -237,7 +240,11 @@ export const App: React.FC = () => {
           </>
         }
       >
-        <ErrorBoundary key={activeView}>{renderActiveView()}</ErrorBoundary>
+        {/* Вкладки «Медиатеки» — один раздел: иначе он пересоздавался бы на
+            каждое переключение, и плашке вкладок нечего было бы двигать. */}
+        <ErrorBoundary key={LIBRARY_VIEWS.has(activeView) ? 'library' : activeView}>
+          {renderActiveView()}
+        </ErrorBoundary>
       </AppShell>
     </ErrorBoundary>
   );
