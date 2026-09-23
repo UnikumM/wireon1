@@ -3,8 +3,10 @@ import {
   StreamResolver,
   SOURCE_TIMEOUT_MS,
   SOURCE_TIMEOUT_MOBILE_MS,
+  SOUNDCLOUD_TIMEOUT_MOBILE_MS,
   RESOLVE_TIMEOUT_MESSAGE
 } from '../../src/services/streamResolver';
+import { readResolveLog, resetResolveLogForTests } from '../../src/services/resolveLog';
 import { youtubeService, YouTubeService } from '../../src/services/youtube';
 import { soundCloudService, SoundCloudService } from '../../src/services/soundcloud';
 import { UnifiedTrack } from '../../src/types/music';
@@ -1246,5 +1248,71 @@ describe('Сроки на телефоне', () => {
     await vi.advanceTimersByTimeAsync(SOURCE_TIMEOUT_MOBILE_MS);
     await pending;
     expect(settled).toBe(true);
+  });
+
+  /*
+   * У SoundCloud на телефоне нет Python: ссылка — пара запросов к api-v2. Ждать
+   * их девяносто секунд значило держать человека на крутилке полторы минуты,
+   * прежде чем включится замена с YouTube.
+   */
+  it('SoundCloud ждём 25 секунд, а не 90, и дальше сразу ищем замену', async () => {
+    const scTrack: UnifiedTrack = {
+      id: 'sc_mobile',
+      source: 'soundcloud',
+      originalId: '777',
+      title: 'Группа крови',
+      artist: 'Кино',
+      duration: 280,
+      artworkUrl: ''
+    };
+    const yt = { resolveStreamUrl: vi.fn(async () => ({ streamUrl: 'https://yt/audio', format: 'm4a', bitrate: 128, expiresAt: Date.now() + 3600e3 })), search: vi.fn(async () => []) };
+    const sc = { search: vi.fn(async () => []), resolveStreamUrl: vi.fn(() => new Promise(() => {})) };
+    const resolver = new StreamResolver(yt as never, sc as never);
+
+    let settled = false;
+    resolver.resolve(scTrack).then(
+      () => (settled = true),
+      () => (settled = true)
+    );
+
+    await vi.advanceTimersByTimeAsync(SOUNDCLOUD_TIMEOUT_MOBILE_MS - 1000);
+    expect(settled).toBe(false);
+    await vi.advanceTimersByTimeAsync(2000 + 20000);
+    expect(SOUNDCLOUD_TIMEOUT_MOBILE_MS).toBeLessThan(SOURCE_TIMEOUT_MOBILE_MS);
+    // Поиск замены начался, а не ждал полторы минуты.
+    expect(yt.search).toHaveBeenCalled();
+  });
+
+  it('пишет попытки в журнал телефона — с причиной отказа и временем', async () => {
+    resetResolveLogForTests();
+    localStorage.removeItem('wireon_resolve_log');
+    const scTrack: UnifiedTrack = {
+      id: 'sc_log',
+      source: 'soundcloud',
+      originalId: '778',
+      title: 'Кукла колдуна',
+      artist: 'Король и Шут',
+      duration: 200,
+      artworkUrl: ''
+    };
+    const yt = { resolveStreamUrl: vi.fn(), search: vi.fn(async () => []) };
+    const sc = {
+      search: vi.fn(async () => []),
+      resolveStreamUrl: vi.fn(async () => {
+        throw new Error('SoundCloud track 778 is only offered as DRM-protected audio (label upload)');
+      })
+    };
+    const resolver = new StreamResolver(yt as never, sc as never);
+
+    const pending = resolver.resolve(scTrack);
+    pending.catch(() => {});
+    await vi.advanceTimersByTimeAsync(60000);
+    await expect(pending).rejects.toThrow(/DRM/);
+
+    const [entry] = readResolveLog();
+    expect(entry.ok).toBe(false);
+    expect(entry.source).toBe('soundcloud');
+    expect(entry.title).toBe('Король и Шут — Кукла колдуна');
+    expect(entry.detail).toMatch(/DRM/);
   });
 });

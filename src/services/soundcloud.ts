@@ -15,7 +15,23 @@ export interface SoundCloudServiceConfig {
   requestTimeout?: number;
   /** Overrides the HLS capability probe (used by tests and by the main process). */
   hlsSupported?: boolean;
+  /**
+   * Ключ `localStorage`, где помнить рабочий `client_id` между запусками.
+   * Только у общего экземпляра: тестовым незачем делить ключ через хранилище.
+   */
+  persistKey?: string;
 }
+
+/**
+ * Где общий экземпляр помнит рабочий ключ.
+ *
+ * Без этого каждый холодный запуск начинал с вшитых ключей, которые за месяцы
+ * умирают: несколько отказов 401, а когда живых не осталось — поход за свежим
+ * ключом (страница soundcloud.com и её сборки, мегабайты по мобильной сети).
+ * Телефон приложение выгружает часто, и первый трек с SoundCloud после каждого
+ * запуска ждал именно этого.
+ */
+export const SOUNDCLOUD_CLIENT_ID_STORAGE_KEY = 'wireon_soundcloud_client_id';
 
 const DEFAULT_SOUNDCLOUD_CLIENT_IDS = [
   'UMY1dzQ68n2QbCuypNe8JOivmV2FO2Ep',
@@ -272,10 +288,47 @@ export class SoundCloudService {
   private discoveryInFlight: Promise<string | null> | null = null;
   private hlsSupportedOverride?: boolean;
 
+  private readonly persistKey?: string;
+
   constructor(config: SoundCloudServiceConfig = {}) {
     this.clientIds = SoundCloudService.dedupe(config.clientIds || DEFAULT_SOUNDCLOUD_CLIENT_IDS);
     this.requestTimeout = config.requestTimeout || 6000;
     this.hlsSupportedOverride = config.hlsSupported;
+    this.persistKey = config.persistKey;
+    this.restoreClientId();
+  }
+
+  /** Поднимает ключ, сработавший в прошлый запуск, если его срок не вышел. */
+  private restoreClientId(): void {
+    if (!this.persistKey) return;
+    try {
+      const raw = typeof localStorage !== 'undefined' ? localStorage.getItem(this.persistKey) : null;
+      const saved = raw ? JSON.parse(raw) : null;
+      if (
+        saved &&
+        typeof saved.id === 'string' &&
+        /^[a-zA-Z0-9]{32}$/.test(saved.id) &&
+        typeof saved.expiresAt === 'number' &&
+        saved.expiresAt > Date.now()
+      ) {
+        this.registerClientId(saved.id);
+        this.cachedClientId = saved.id;
+        this.clientIdExpiry = saved.expiresAt;
+      }
+    } catch {
+      // Нет хранилища или запись битая — начнём со вшитых, как раньше.
+    }
+  }
+
+  private persistClientId(clientId: string | null, expiresAt: number): void {
+    if (!this.persistKey) return;
+    try {
+      if (typeof localStorage === 'undefined') return;
+      if (clientId) localStorage.setItem(this.persistKey, JSON.stringify({ id: clientId, expiresAt }));
+      else localStorage.removeItem(this.persistKey);
+    } catch {
+      // Не запомнили — в следующий запуск просто найдём заново.
+    }
   }
 
   private static dedupe(ids: string[]): string[] {
@@ -316,6 +369,7 @@ export class SoundCloudService {
    * Stores a client_id for reuse. Passing null invalidates the cache.
    */
   public setClientId(clientId: string | null, ttlMs: number = CLIENT_ID_TTL_MS): void {
+    this.persistClientId(clientId, Date.now() + ttlMs);
     if (!clientId) {
       this.cachedClientId = null;
       this.clientIdExpiry = 0;
@@ -403,6 +457,7 @@ export class SoundCloudService {
    */
   public noteClientIdWorked(clientId: string): void {
     this.deadClientIds.delete(clientId);
+    if (clientId === this.cachedClientId) this.persistClientId(clientId, this.clientIdExpiry);
   }
 
   /**
@@ -490,6 +545,8 @@ export class SoundCloudService {
      */
     const leaving = this.cachedClientId ?? this.clientIds[this.currentClientIdIndex];
     if (leaving) this.markDead(leaving);
+    // Запомненный ключ больше не годится — следующий запуск не должен с него начинать.
+    this.persistClientId(null, 0);
 
     this.currentClientIdIndex = (this.currentClientIdIndex + 1) % this.clientIds.length;
     const next = this.firstLiveClientId();
@@ -1057,4 +1114,4 @@ export class SoundCloudService {
   }
 }
 
-export const soundCloudService = new SoundCloudService();
+export const soundCloudService = new SoundCloudService({ persistKey: SOUNDCLOUD_CLIENT_ID_STORAGE_KEY });
