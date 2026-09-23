@@ -14,6 +14,15 @@
  * именно nightly: стабильные релизы yt-dlp выходят раз в месяц, а починки
  * YouTube попадают в ночные в тот же день.
  *
+ * На Windows и Linux ставится сборка «папкой» (`yt-dlp_win.zip`,
+ * `yt-dlp_linux.zip`), а не одним файлом. Однофайловая сборка при каждом
+ * запуске распаковывает в temp весь Python — это около половины секунды на
+ * Linux и больше на Windows, где распакованное ещё и проверяет антивирус. А
+ * запускается yt-dlp на каждый трек. Папка распакована один раз, при
+ * установке. Каждая версия живёт в своей папке (`bin/yt-dlp-<тег>`): на
+ * Windows папку, из которой прямо сейчас что-то запущено, не переименовать и
+ * не удалить, а новой папке старая не мешает — её уберём при следующем случае.
+ *
  * Чего здесь сознательно нет — ни одного `throw` наружу. Нет сети, GitHub
  * ответил пятисоткой, файл занят антивирусом: во всех случаях играем на вшитой
  * версии, как раньше, и пробуем снова позже.
@@ -24,8 +33,9 @@
 
 import { execFile } from 'child_process';
 import { createHash } from 'crypto';
-import { chmodSync, existsSync, mkdirSync, readFileSync, renameSync, rmSync, writeFileSync } from 'fs';
+import { chmodSync, existsSync, mkdirSync, readdirSync, readFileSync, renameSync, rmSync, writeFileSync } from 'fs';
 import path from 'path';
+import { extractZip } from './unzip.js';
 
 /** Что лежит рядом с управляемым бинарником, чтобы знать его происхождение. */
 export interface YtDlpState {
@@ -36,6 +46,11 @@ export interface YtDlpState {
   installedAt: number;
   /** Когда последний раз спрашивали GitHub. С `installedAt` не совпадает. */
   checkedAt: number;
+  /**
+   * Папка сборки внутри `bin`, если стоит сборка «папкой». Нет поля — значит
+   * маркер остался от однофайловой сборки (версии до 2.2.6).
+   */
+  folder?: string;
 }
 
 /** Итог одной попытки обновления. Ошибка — это тоже итог, а не исключение. */
@@ -61,6 +76,7 @@ export interface YtDlpFsLike {
   renameSync: typeof renameSync;
   rmSync: typeof rmSync;
   chmodSync: typeof chmodSync;
+  readdirSync: typeof readdirSync;
 }
 
 export interface YtDlpManagerDeps {
@@ -108,18 +124,54 @@ const DOWNLOAD_TIMEOUT_MS = 120_000;
  */
 const MIN_BINARY_BYTES = 1024 * 1024;
 
+/** Что качать под систему и что в скачанном запускать. */
+export interface NightlyLayout {
+  /** Имя ассета в релизе. */
+  asset: string;
+  /** Исполняемый файл: внутри папки — для архива, имя файла — для одиночной сборки. */
+  exe: string;
+  /** `true` — ассет это zip со сборкой «папкой». */
+  folder: boolean;
+}
+
 /**
- * Имя ассета в релизе для текущей платформы.
+ * Ассет в релизе для текущей платформы.
  *
- * Для Linux берётся `yt-dlp_linux`, а не одноимённый `yt-dlp`: последний —
+ * Для Linux — самодостаточная сборка, а не одноимённый `yt-dlp`: тот —
  * питоновский zipapp, и без python3 в системе он не запускается вовсе. Внутри
- * AppImage питона нет, и у человека он тоже может отсутствовать; `yt-dlp_linux`
- * собран самодостаточным и не требует ничего.
+ * AppImage питона нет, и у человека он тоже может отсутствовать.
+ *
+ * macOS остаётся на одном файле: под него приложение не выпускается, и
+ * проверить на живой машине сборку «папкой» не на чем.
  */
+export function getNightlyLayout(platform: string = process.platform): NightlyLayout {
+  if (platform === 'win32') return { asset: 'yt-dlp_win.zip', exe: 'yt-dlp.exe', folder: true };
+  if (platform === 'darwin') return { asset: 'yt-dlp_macos', exe: 'yt-dlp_macos', folder: false };
+  return { asset: 'yt-dlp_linux.zip', exe: 'yt-dlp_linux', folder: true };
+}
+
+/** Имя ассета в релизе для текущей платформы. */
 export function getNightlyAssetName(platform: string = process.platform): string {
+  return getNightlyLayout(platform).asset;
+}
+
+/**
+ * Однофайловая сборка, которую ставили версии до 2.2.6, — `bin/yt-dlp.exe`.
+ *
+ * Играет, пока не встала папка: она новее вшитой. После установки папки файл
+ * удаляется.
+ */
+function legacyFileName(platform: string): string {
   if (platform === 'win32') return 'yt-dlp.exe';
   if (platform === 'darwin') return 'yt-dlp_macos';
   return 'yt-dlp_linux';
+}
+
+/** Папки версий внутри `bin`: `yt-dlp-2026.08.18.122307`. */
+const FOLDER_PREFIX = 'yt-dlp-';
+
+function folderNameFor(tag: string): string {
+  return FOLDER_PREFIX + tag.replace(/[^0-9A-Za-z._-]/g, '_');
 }
 
 /**
@@ -168,7 +220,8 @@ function defaultProbeVersion(exe: string): Promise<string> {
 export class YtDlpManager {
   private readonly bundledPath: string;
   private readonly binDir: string | null;
-  private readonly assetName: string;
+  private readonly layout: NightlyLayout;
+  private readonly legacyName: string;
   private readonly fetchImpl: typeof fetch;
   private readonly now: () => number;
   private readonly logLine: (message: string) => void;
@@ -187,7 +240,9 @@ export class YtDlpManager {
   constructor(deps: YtDlpManagerDeps) {
     this.bundledPath = deps.bundledPath;
     this.binDir = deps.stateDir ? path.join(deps.stateDir, 'bin') : null;
-    this.assetName = getNightlyAssetName(deps.platform ?? process.platform);
+    const platform = deps.platform ?? process.platform;
+    this.layout = getNightlyLayout(platform);
+    this.legacyName = legacyFileName(platform);
     this.fetchImpl = deps.fetchImpl || ((globalThis as { fetch?: typeof fetch }).fetch as typeof fetch);
     this.now = deps.now || (() => Date.now());
     this.logLine = deps.log || ((message: string) => console.log('[yt-dlp]', message));
@@ -202,13 +257,21 @@ export class YtDlpManager {
       renameSync,
       rmSync,
       chmodSync,
+      readdirSync,
       ...(deps.fs || {})
     } as YtDlpFsLike;
   }
 
-  /** Путь к управляемому бинарнику, даже если его ещё нет на диске. */
+  /**
+   * Путь к управляемому бинарнику нужного вида, даже если его ещё нет на диске.
+   *
+   * Для сборки «папкой» — по маркеру; маркера с папкой нет — пути тоже нет.
+   */
   public getManagedPath(): string | null {
-    return this.binDir ? path.join(this.binDir, this.assetName) : null;
+    if (!this.binDir) return null;
+    if (!this.layout.folder) return path.join(this.binDir, this.layout.exe);
+    const folder = this.readState()?.folder;
+    return folder ? path.join(this.binDir, folder, this.layout.exe) : null;
   }
 
   /**
@@ -218,16 +281,29 @@ export class YtDlpManager {
    * подмена бинарника подхватывается сама, перезапуск приложения не нужен.
    */
   public getBinaryPath(): string {
+    return this.findManagedBinary() ?? this.bundledPath;
+  }
+
+  /**
+   * Установленный нами бинарник: сначала нужного вида, потом однофайловый от
+   * прошлых версий — он всё равно свежее вшитого.
+   */
+  private findManagedBinary(): string | null {
     const managed = this.getManagedPath();
     if (managed && this.fs.existsSync(managed)) return managed;
-    return this.bundledPath;
+    const legacy = this.getLegacyPath();
+    if (legacy && this.fs.existsSync(legacy)) return legacy;
+    return null;
+  }
+
+  private getLegacyPath(): string | null {
+    return this.binDir && this.layout.folder ? path.join(this.binDir, this.legacyName) : null;
   }
 
   /** Для диагностики: что за бинарник в деле и какой он версии. */
   public describe(): YtDlpInfo {
     const active = this.getBinaryPath();
-    const managed = this.getManagedPath();
-    const isManaged = Boolean(managed && active === managed);
+    const isManaged = active !== this.bundledPath;
     return {
       path: active,
       source: isManaged ? 'managed' : 'bundled',
@@ -248,7 +324,10 @@ export class YtDlpManager {
           tag: parsed.tag,
           version: typeof parsed.version === 'string' ? parsed.version : parsed.tag,
           installedAt: Number(parsed.installedAt) || 0,
-          checkedAt: Number(parsed.checkedAt) || 0
+          checkedAt: Number(parsed.checkedAt) || 0,
+          ...(typeof parsed.folder === 'string' && parsed.folder.startsWith(FOLDER_PREFIX) && !/[\\/]/.test(parsed.folder)
+            ? { folder: parsed.folder }
+            : {})
         };
       }
     } catch {
@@ -277,13 +356,15 @@ export class YtDlpManager {
   }
 
   private async runUpdate(force: boolean): Promise<YtDlpUpdateResult> {
-    const managed = this.getManagedPath();
-    if (!managed) {
+    if (!this.binDir) {
       return { updated: false, tag: null, reason: 'нет папки для данных приложения' };
     }
 
     const state = this.readState();
-    const haveBinary = this.fs.existsSync(managed);
+    // Однофайловая сборка от прошлых версий не считается: её надо сменить папкой,
+    // даже если тег тот же.
+    const managed = this.getManagedPath();
+    const haveBinary = Boolean(managed && this.fs.existsSync(managed));
     if (!force && state && haveBinary && this.now() - state.checkedAt < CHECK_INTERVAL_MS) {
       return { updated: false, tag: state.tag, reason: 'проверяли недавно' };
     }
@@ -303,7 +384,7 @@ export class YtDlpManager {
     }
 
     try {
-      const version = await this.install(tag, managed);
+      const version = await this.install(tag);
       this.logLine(`обновлён до ${tag} (${version})`);
       try {
         this.onUpdated(tag);
@@ -321,7 +402,7 @@ export class YtDlpManager {
   /** Один дешёвый запрос за тегом: читаем, куда указывает `latest/download`. */
   private async fetchLatestTag(): Promise<string> {
     if (typeof this.fetchImpl !== 'function') throw new Error('fetch недоступен');
-    const latestUrl = `${NIGHTLY_REPO}/releases/latest/download/${this.assetName}`;
+    const latestUrl = `${NIGHTLY_REPO}/releases/latest/download/${this.layout.asset}`;
     const res = await this.fetchImpl(latestUrl, {
       method: 'GET',
       redirect: 'manual',
@@ -346,8 +427,8 @@ export class YtDlpManager {
     const url = `${NIGHTLY_REPO}/releases/download/${encodeURIComponent(tag)}/SHA2-256SUMS`;
     const res = await this.fetchImpl(url, { signal: AbortSignal.timeout(TAG_TIMEOUT_MS) });
     if (!res.ok) throw new Error(`список контрольных сумм недоступен (HTTP ${res.status})`);
-    const expected = findChecksum(await res.text(), this.assetName);
-    if (!expected) throw new Error(`в списке сумм нет строки для ${this.assetName}`);
+    const expected = findChecksum(await res.text(), this.layout.asset);
+    if (!expected) throw new Error(`в списке сумм нет строки для ${this.layout.asset}`);
     return expected;
   }
 
@@ -357,8 +438,9 @@ export class YtDlpManager {
    * Сначала во временный `.part`: половина файла по рабочему пути — это
    * приложение, которое не умеет играть вообще ничего.
    */
-  private async install(tag: string, target: string): Promise<string> {
-    const url = `${NIGHTLY_REPO}/releases/download/${encodeURIComponent(tag)}/${this.assetName}`;
+  private async install(tag: string): Promise<string> {
+    const binDir = this.binDir as string;
+    const url = `${NIGHTLY_REPO}/releases/download/${encodeURIComponent(tag)}/${this.layout.asset}`;
     const res = await this.fetchImpl(url, { signal: AbortSignal.timeout(DOWNLOAD_TIMEOUT_MS) });
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
 
@@ -384,18 +466,36 @@ export class YtDlpManager {
       throw new Error(`контрольная сумма не сошлась (ожидали ${expected.slice(0, 12)}…, получили ${actual.slice(0, 12)}…)`);
     }
 
+    this.fs.mkdirSync(binDir, { recursive: true });
+    const folder = this.layout.folder ? folderNameFor(tag) : undefined;
+    const target = folder ? path.join(binDir, folder) : path.join(binDir, this.layout.exe);
     const part = `${target}.part`;
-    this.fs.mkdirSync(path.dirname(target), { recursive: true });
-    this.fs.writeFileSync(part, bytes);
+    const partExe = folder ? path.join(part, this.layout.exe) : part;
+
+    this.discard(part);
+    if (folder) {
+      try {
+        extractZip(bytes, part, this.fs);
+      } catch (err) {
+        this.discard(part);
+        throw new Error(`архив не распаковался: ${err instanceof Error ? err.message : String(err)}`);
+      }
+      if (!this.fs.existsSync(partExe)) {
+        this.discard(part);
+        throw new Error(`в архиве нет ${this.layout.exe}`);
+      }
+    } else {
+      this.fs.writeFileSync(part, bytes);
+    }
     try {
-      this.fs.chmodSync(part, 0o755);
+      this.fs.chmodSync(partExe, 0o755);
     } catch {
       // На Windows права не нужны, на остальных — уже могли быть выставлены.
     }
 
     let version: string;
     try {
-      version = await this.probeVersion(part);
+      version = await this.probeVersion(partExe);
     } catch (err) {
       this.discard(part);
       throw new Error(`не запускается: ${err instanceof Error ? err.message : String(err)}`);
@@ -406,6 +506,9 @@ export class YtDlpManager {
     }
 
     try {
+      // Та же версия уже стояла, а маркер потерялся: папку-тёзку убираем. На
+      // Windows занятую папку не заменить — тогда отказ, прежний бинарник цел.
+      if (folder) this.fs.rmSync(target, { recursive: true, force: true });
       this.fs.renameSync(part, target);
     } catch (err) {
       this.discard(part);
@@ -413,13 +516,39 @@ export class YtDlpManager {
     }
 
     const at = this.now();
-    this.writeState({ tag, version, installedAt: at, checkedAt: at });
+    this.writeState({ tag, version, installedAt: at, checkedAt: at, ...(folder ? { folder } : {}) });
+    // Прежнюю версию не трогаем до следующего запуска: из неё может прямо сейчас
+    // идти извлечение, а на Linux удалённые файлы пропали бы у него из-под ног.
     return version;
+  }
+
+  /**
+   * Убирает прежние версии: старые папки, недокачанные `.part` и однофайловую
+   * сборку от 2.2.5 и раньше.
+   *
+   * Только при запуске: из прежних папок после перезапуска уже ничто не
+   * запускается. Молча и по возможности:
+   * что не удалилось (антивирус держит файл), уйдёт в следующий раз.
+   */
+  private removeStale(): void {
+    if (!this.binDir || !this.layout.folder) return;
+    const current = this.readState()?.folder;
+    if (!current) return;
+    let names: string[] = [];
+    try {
+      names = this.fs.readdirSync(this.binDir).map(String);
+    } catch {
+      return;
+    }
+    for (const name of names) {
+      const stale = name === this.legacyName || (name.startsWith(FOLDER_PREFIX) && name !== current);
+      if (stale) this.discard(path.join(this.binDir, name));
+    }
   }
 
   private discard(file: string): void {
     try {
-      this.fs.rmSync(file, { force: true });
+      this.fs.rmSync(file, { recursive: true, force: true });
     } catch {
       // Мусорный `.part` безвреден: следующая попытка его перезапишет.
     }
@@ -444,10 +573,13 @@ export class YtDlpManager {
 
   /** Проверка при запуске и дальше по расписанию. */
   public start(): void {
-    if (!this.getManagedPath() || this.firstCheck || this.interval) return;
+    if (!this.binDir || this.firstCheck || this.interval) return;
 
     this.firstCheck = setTimeout(() => {
       this.firstCheck = null;
+      // Прежние версии — не раньше, чем окно открылось: удаление сотни файлов
+      // на старте задержало бы его.
+      this.removeStale();
       void this.ensureCurrent().then((result) => {
         // Сеть после логина поднимается не мгновенно, а до первого обновления
         // часть песен не играет — одна короткая пересборка того стоит.
@@ -470,8 +602,7 @@ export class YtDlpManager {
   }
 
   private hasManagedBinary(): boolean {
-    const managed = this.getManagedPath();
-    return Boolean(managed && this.fs.existsSync(managed));
+    return this.findManagedBinary() !== null;
   }
 
   public dispose(): void {

@@ -13,13 +13,18 @@
  * binary landing on the working path, a downloaded file that cannot run, an
  * unchanged version costing an 18 MB download, and any failure at all reaching
  * the main process as an exception. Every dependency is injected, so no test
- * touches GitHub, the disk or a child process.
+ * touches GitHub or a child process; the disk is a throwaway temp directory.
+ *
+ * On Windows and Linux the nightly arrives as a zip with a one-folder build
+ * (it starts about twice as fast as the one-file build), so the download in
+ * these tests is a real zip archive built by `makeZip`.
  */
 
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { mkdtempSync, rmSync, existsSync, readFileSync, writeFileSync, mkdirSync } from 'fs';
+import { mkdtempSync, rmSync, existsSync, readFileSync, writeFileSync, mkdirSync, readdirSync } from 'fs';
 import { tmpdir } from 'os';
 import path from 'path';
+import { deflateRawSync } from 'zlib';
 
 import {
   YtDlpManager,
@@ -27,8 +32,10 @@ import {
   FIRST_CHECK_DELAY_MS,
   RETRY_DELAY_MS,
   getNightlyAssetName,
+  getNightlyLayout,
   parseTagFromLocation
 } from '../../electron/ytdlp';
+import { extractZip } from '../../electron/unzip';
 
 const NOW = 1_700_000_000_000;
 const TAG = '2026.08.18.122307';
@@ -36,6 +43,82 @@ const BUNDLED = path.join('C:', 'app', 'node_modules', 'youtube-dl-exec', 'bin',
 
 /** A payload big enough to pass the size floor. */
 const BINARY_BYTES = new Uint8Array(2 * 1024 * 1024).fill(7);
+
+/**
+ * A minimal zip writer — just enough of the format for `extractZip`.
+ *
+ * CRCs are left at zero: the archive as a whole is checked by SHA-256 before
+ * it is unpacked, so the extractor does not read them.
+ */
+function makeZip(
+  entries: Record<string, Uint8Array | string>,
+  options: { deflate?: boolean; unixMode?: number } = {}
+): Uint8Array {
+  const locals: Buffer[] = [];
+  const centrals: Buffer[] = [];
+  let offset = 0;
+  for (const [name, content] of Object.entries(entries)) {
+    const nameBytes = Buffer.from(name, 'utf-8');
+    const raw = typeof content === 'string' ? Buffer.from(content) : Buffer.from(content);
+    const isDir = name.endsWith('/');
+    const method = options.deflate && !isDir ? 8 : 0;
+    const data = method === 8 ? deflateRawSync(raw) : raw;
+
+    const local = Buffer.alloc(30);
+    local.writeUInt32LE(0x04034b50, 0);
+    local.writeUInt16LE(20, 4);
+    local.writeUInt16LE(method, 8);
+    local.writeUInt32LE(data.length, 18);
+    local.writeUInt32LE(raw.length, 22);
+    local.writeUInt16LE(nameBytes.length, 26);
+    locals.push(local, nameBytes, data);
+
+    const central = Buffer.alloc(46);
+    central.writeUInt32LE(0x02014b50, 0);
+    central.writeUInt16LE(options.unixMode ? (3 << 8) | 20 : 20, 4);
+    central.writeUInt16LE(20, 6);
+    central.writeUInt16LE(method, 10);
+    central.writeUInt32LE(data.length, 20);
+    central.writeUInt32LE(raw.length, 24);
+    central.writeUInt16LE(nameBytes.length, 28);
+    central.writeUInt32LE(options.unixMode && !isDir ? (options.unixMode << 16) >>> 0 : 0, 38);
+    central.writeUInt32LE(offset, 42);
+    centrals.push(central, nameBytes);
+
+    offset += local.length + nameBytes.length + data.length;
+  }
+  const centralSize = centrals.reduce((sum, part) => sum + part.length, 0);
+  const end = Buffer.alloc(22);
+  end.writeUInt32LE(0x06054b50, 0);
+  end.writeUInt16LE(Object.keys(entries).length, 8);
+  end.writeUInt16LE(Object.keys(entries).length, 10);
+  end.writeUInt32LE(centralSize, 12);
+  end.writeUInt32LE(offset, 16);
+  return new Uint8Array(Buffer.concat([...locals, ...centrals, end]));
+}
+
+/** What `yt-dlp_win.zip` looks like: the exe plus its `_internal` folder. */
+const WIN_ZIP = makeZip({
+  '_internal/': '',
+  '_internal/python3.dll': 'python',
+  'yt-dlp.exe': BINARY_BYTES
+});
+
+/** Where a folder build of `tag` lands inside `<stateDir>/bin`. */
+function folderExe(stateDir: string, tag = TAG): string {
+  return path.join(stateDir, 'bin', `yt-dlp-${tag}`, 'yt-dlp.exe');
+}
+
+/** An installed folder build plus its marker, as a previous run left them. */
+function seedInstalled(stateDir: string, state: { tag: string; installedAt: number; checkedAt: number }): void {
+  const exe = folderExe(stateDir, state.tag);
+  mkdirSync(path.dirname(exe), { recursive: true });
+  writeFileSync(exe, 'existing');
+  writeFileSync(
+    path.join(stateDir, 'bin', 'yt-dlp.json'),
+    JSON.stringify({ ...state, version: state.tag, folder: `yt-dlp-${state.tag}` })
+  );
+}
 
 /** Совпадающая пара «сумма из релиза» и «сумма скачанного» для тестов. */
 const FAKE_HASH = 'a'.repeat(64);
@@ -55,7 +138,7 @@ function tagResponse(tag = TAG, status = 302): Response {
   } as unknown as Response;
 }
 
-function downloadResponse(bytes: Uint8Array = BINARY_BYTES, ok = true, status = 200): Response {
+function downloadResponse(bytes: Uint8Array = WIN_ZIP, ok = true, status = 200): Response {
   return {
     ok,
     status,
@@ -66,7 +149,7 @@ function downloadResponse(bytes: Uint8Array = BINARY_BYTES, ok = true, status = 
 }
 
 /** Список контрольных сумм релиза — его модуль просит после загрузки. */
-function sumsResponse(hash = FAKE_HASH, asset = 'yt-dlp.exe', ok = true, status = 200): Response {
+function sumsResponse(hash = FAKE_HASH, asset = 'yt-dlp_win.zip', ok = true, status = 200): Response {
   return {
     ok,
     status,
@@ -123,7 +206,7 @@ describe('electron/ytdlp', () => {
     });
     return {
       manager,
-      managed: path.join(stateDir, 'bin', 'yt-dlp.exe'),
+      managed: folderExe(stateDir),
       logs,
       fetchImpl: fetchImpl as unknown as ReturnType<typeof vi.fn>,
       probeVersion: probeVersion as unknown as ReturnType<typeof vi.fn>
@@ -145,10 +228,11 @@ describe('electron/ytdlp', () => {
   // ==========================================================================
   describe('asset names and tags', () => {
     it('asks for the artefact the platform can actually run', () => {
-      expect(getNightlyAssetName('win32')).toBe('yt-dlp.exe');
-      expect(getNightlyAssetName('darwin')).toBe('yt-dlp_macos');
+      // Папкой: однофайловая сборка распаковывает Python на каждый запуск.
+      expect(getNightlyLayout('win32')).toEqual({ asset: 'yt-dlp_win.zip', exe: 'yt-dlp.exe', folder: true });
       // Не `yt-dlp`: тот ассет — питоновский zipapp, а внутри AppImage питона нет.
-      expect(getNightlyAssetName('linux')).toBe('yt-dlp_linux');
+      expect(getNightlyLayout('linux')).toEqual({ asset: 'yt-dlp_linux.zip', exe: 'yt-dlp_linux', folder: true });
+      expect(getNightlyAssetName('darwin')).toBe('yt-dlp_macos');
     });
 
     it('reads the version out of the release redirect', () => {
@@ -159,6 +243,43 @@ describe('electron/ytdlp', () => {
       ).toBe('2026.08.18.122307');
       expect(parseTagFromLocation('https://github.com/whatever')).toBeNull();
       expect(parseTagFromLocation('')).toBeNull();
+    });
+  });
+
+  // ==========================================================================
+  // Unpacking the folder build
+  // ==========================================================================
+  describe('extractZip', () => {
+    it('unpacks stored and deflated entries and keeps the Linux exec bit', () => {
+      const dest = path.join(stateDir, 'out');
+      const entries = extractZip(
+        makeZip({ '_internal/': '', '_internal/lib.so': 'lib', 'yt-dlp_linux': 'elf' }, { deflate: true, unixMode: 0o755 }),
+        dest
+      );
+
+      expect(readFileSync(path.join(dest, '_internal', 'lib.so'), 'utf-8')).toBe('lib');
+      expect(readFileSync(path.join(dest, 'yt-dlp_linux'), 'utf-8')).toBe('elf');
+      expect(entries.find((entry) => entry.name === 'yt-dlp_linux')?.mode).toBe(0o755);
+    });
+
+    it('refuses entries that climb out of the target folder', () => {
+      const dest = path.join(stateDir, 'out');
+      expect(() => extractZip(makeZip({ '../escaped.txt': 'x' }), dest)).toThrow(/за пределы/);
+      expect(existsSync(path.join(stateDir, 'escaped.txt'))).toBe(false);
+    });
+
+    it('refuses bytes that are not a zip archive', () => {
+      expect(() => extractZip(new Uint8Array(100), path.join(stateDir, 'out'))).toThrow(/не zip/);
+      expect(() => extractZip(new Uint8Array(0), path.join(stateDir, 'out'))).toThrow(/не zip/);
+    });
+
+    it('refuses an archive cut off in the middle', () => {
+      const whole = makeZip({ 'yt-dlp.exe': BINARY_BYTES });
+      // Keep the table of contents, drop the file body it points at.
+      const tail = whole.subarray(whole.byteLength - 100);
+      const cut = new Uint8Array(1000 + tail.byteLength);
+      cut.set(tail, 1000);
+      expect(() => extractZip(cut, path.join(stateDir, 'out'))).toThrow();
     });
   });
 
@@ -205,18 +326,26 @@ describe('electron/ytdlp', () => {
 
       expect(result).toEqual({ updated: true, tag: TAG, reason: `обновлён до ${TAG}` });
       expect(readFileSync(managed).byteLength).toBe(BINARY_BYTES.byteLength);
-      // The `.part` file must not survive: a stray one confuses the next run.
-      expect(existsSync(`${managed}.part`)).toBe(false);
+      // The whole folder came along — the exe does not start without it.
+      expect(readFileSync(path.join(path.dirname(managed), '_internal', 'python3.dll'), 'utf-8')).toBe('python');
+      // The `.part` folder must not survive: a stray one confuses the next run.
+      expect(existsSync(`${path.dirname(managed)}.part`)).toBe(false);
       // Verified before it was promoted, not after.
-      expect(probeVersion).toHaveBeenCalledWith(`${managed}.part`);
+      expect(probeVersion).toHaveBeenCalledWith(path.join(`${path.dirname(managed)}.part`, 'yt-dlp.exe'));
 
       const state = JSON.parse(readFileSync(path.join(stateDir, 'bin', 'yt-dlp.json'), 'utf-8'));
-      expect(state).toEqual({ tag: TAG, version: TAG, installedAt: NOW, checkedAt: NOW });
+      expect(state).toEqual({
+        tag: TAG,
+        version: TAG,
+        installedAt: NOW,
+        checkedAt: NOW,
+        folder: `yt-dlp-${TAG}`
+      });
 
       const [tagUrl] = fetchImpl.mock.calls[0];
       const [downloadUrl] = fetchImpl.mock.calls[1];
-      expect(String(tagUrl)).toContain('yt-dlp-nightly-builds/releases/latest/download/yt-dlp.exe');
-      expect(String(downloadUrl)).toContain(`/releases/download/${TAG}/yt-dlp.exe`);
+      expect(String(tagUrl)).toContain('yt-dlp-nightly-builds/releases/latest/download/yt-dlp_win.zip');
+      expect(String(downloadUrl)).toContain(`/releases/download/${TAG}/yt-dlp_win.zip`);
       expect(logs.join(' ')).toContain(`обновлён до ${TAG}`);
     });
 
@@ -232,7 +361,7 @@ describe('electron/ytdlp', () => {
       expect(result.updated).toBe(false);
       expect(result.reason).toMatch(/не запускается/);
       expect(existsSync(managed)).toBe(false);
-      expect(existsSync(`${managed}.part`)).toBe(false);
+      expect(existsSync(`${path.dirname(managed)}.part`)).toBe(false);
       expect(manager.getBinaryPath()).toBe(BUNDLED);
       expect(logs.join(' ')).toMatch(/не удалось/);
     });
@@ -305,7 +434,7 @@ describe('electron/ytdlp', () => {
       expect(result.reason).toMatch(/контрольная сумма/i);
       // Ни на рабочем пути, ни во временном: подменённый файл не запускался.
       expect(existsSync(managed)).toBe(false);
-      expect(existsSync(`${managed}.part`)).toBe(false);
+      expect(existsSync(`${path.dirname(managed)}.part`)).toBe(false);
       expect(logs.join(' ')).toMatch(/контрольная сумма/i);
     });
 
@@ -323,7 +452,7 @@ describe('electron/ytdlp', () => {
 
     it('не ставит ничего, когда в списке нет строки про наш файл', async () => {
       const { manager, managed } = build({
-        responses: [tagResponse(), downloadResponse(), sumsResponse(FAKE_HASH, 'yt-dlp_linux')]
+        responses: [tagResponse(), downloadResponse(), sumsResponse(FAKE_HASH, 'yt-dlp_linux.zip')]
       });
 
       const result = await manager.ensureCurrent();
@@ -368,7 +497,7 @@ describe('electron/ytdlp', () => {
       });
 
       expect((await manager.ensureCurrent()).updated).toBe(true);
-      expect(manager.getBinaryPath()).toBe(path.join(stateDir, 'bin', 'yt-dlp.exe'));
+      expect(manager.getBinaryPath()).toBe(folderExe(stateDir));
     });
   });
 
@@ -377,12 +506,7 @@ describe('electron/ytdlp', () => {
   // ==========================================================================
   describe('staying put', () => {
     it('does not spend 18 MB on a version it already has', async () => {
-      mkdirSync(path.join(stateDir, 'bin'), { recursive: true });
-      writeFileSync(path.join(stateDir, 'bin', 'yt-dlp.exe'), 'existing');
-      writeFileSync(
-        path.join(stateDir, 'bin', 'yt-dlp.json'),
-        JSON.stringify({ tag: TAG, version: TAG, installedAt: NOW - 1000, checkedAt: NOW - 1000 })
-      );
+      seedInstalled(stateDir, { tag: TAG, installedAt: NOW - 1000, checkedAt: NOW - 1000 });
 
       const { manager, fetchImpl } = build({ responses: [tagResponse()], now: () => NOW + CHECK_INTERVAL_MS });
 
@@ -398,12 +522,7 @@ describe('electron/ytdlp', () => {
     });
 
     it('does not ask GitHub on every launch', async () => {
-      mkdirSync(path.join(stateDir, 'bin'), { recursive: true });
-      writeFileSync(path.join(stateDir, 'bin', 'yt-dlp.exe'), 'existing');
-      writeFileSync(
-        path.join(stateDir, 'bin', 'yt-dlp.json'),
-        JSON.stringify({ tag: TAG, version: TAG, installedAt: NOW, checkedAt: NOW })
-      );
+      seedInstalled(stateDir, { tag: TAG, installedAt: NOW, checkedAt: NOW });
 
       const { manager, fetchImpl } = build({ responses: [], now: () => NOW + 60_000 });
 
@@ -416,18 +535,94 @@ describe('electron/ytdlp', () => {
     });
 
     it('asks anyway when the user presses the button', async () => {
-      mkdirSync(path.join(stateDir, 'bin'), { recursive: true });
-      writeFileSync(path.join(stateDir, 'bin', 'yt-dlp.exe'), 'existing');
-      writeFileSync(
-        path.join(stateDir, 'bin', 'yt-dlp.json'),
-        JSON.stringify({ tag: '2026.01.01', version: '2026.01.01', installedAt: NOW, checkedAt: NOW })
-      );
+      seedInstalled(stateDir, { tag: '2026.01.01', installedAt: NOW, checkedAt: NOW });
 
-      const { manager, fetchImpl } = build({ now: () => NOW + 60_000 });
+      const { manager, managed, fetchImpl } = build({ now: () => NOW + 60_000 });
 
       const result = await manager.ensureCurrent({ force: true });
       expect(result.updated).toBe(true);
       expect(fetchImpl).toHaveBeenCalledTimes(3);
+      expect(manager.getBinaryPath()).toBe(managed);
+      // The old folder stays for now: an extraction may still be running from it.
+      expect(existsSync(folderExe(stateDir, '2026.01.01'))).toBe(true);
+
+      // The next launch clears it away.
+      vi.useFakeTimers();
+      const next = build({ responses: [], now: () => NOW + 60_000 }).manager;
+      next.start();
+      await vi.advanceTimersByTimeAsync(FIRST_CHECK_DELAY_MS + 10);
+      next.dispose();
+      expect(readdirSync(path.join(stateDir, 'bin')).sort()).toEqual([`yt-dlp-${TAG}`, 'yt-dlp.json']);
+    });
+
+    it('moves a 2.2.5 single-file install to the folder build, even on the same tag', async () => {
+      // What 2.2.5 left behind: `bin/yt-dlp.exe` and a marker without `folder`.
+      mkdirSync(path.join(stateDir, 'bin'), { recursive: true });
+      const legacy = path.join(stateDir, 'bin', 'yt-dlp.exe');
+      writeFileSync(legacy, 'one-file build');
+      writeFileSync(
+        path.join(stateDir, 'bin', 'yt-dlp.json'),
+        JSON.stringify({ tag: TAG, version: TAG, installedAt: NOW, checkedAt: NOW })
+      );
+
+      const { manager, managed, fetchImpl } = build({ now: () => NOW + 60_000 });
+      // Until the folder lands, the old file still beats the bundled binary.
+      expect(manager.getBinaryPath()).toBe(legacy);
+      expect(manager.describe().source).toBe('managed');
+
+      const result = await manager.ensureCurrent();
+
+      expect(result.updated).toBe(true);
+      expect(fetchImpl).toHaveBeenCalledTimes(3);
+      expect(manager.getBinaryPath()).toBe(managed);
+
+      // The one-file build goes on the next launch, like any old version.
+      vi.useFakeTimers();
+      const next = build({ responses: [], now: () => NOW + 60_000 }).manager;
+      next.start();
+      await vi.advanceTimersByTimeAsync(FIRST_CHECK_DELAY_MS + 10);
+      next.dispose();
+      expect(existsSync(legacy)).toBe(false);
+      expect(next.getBinaryPath()).toBe(managed);
+    });
+
+    it('keeps macOS on the single-file build', async () => {
+      const { manager } = build({
+        platform: 'darwin',
+        responses: [tagResponse(), downloadResponse(BINARY_BYTES), sumsResponse(FAKE_HASH, 'yt-dlp_macos')]
+      });
+
+      const result = await manager.ensureCurrent();
+
+      expect(result.updated).toBe(true);
+      expect(manager.getBinaryPath()).toBe(path.join(stateDir, 'bin', 'yt-dlp_macos'));
+      expect(readFileSync(manager.getBinaryPath()).byteLength).toBe(BINARY_BYTES.byteLength);
+    });
+
+    it('does not install an archive without the exe in it', async () => {
+      const { manager, managed, logs } = build({
+        responses: [tagResponse(), downloadResponse(makeZip({ 'readme.txt': BINARY_BYTES })), sumsResponse()]
+      });
+
+      const result = await manager.ensureCurrent();
+
+      expect(result.updated).toBe(false);
+      expect(result.reason).toMatch(/нет yt-dlp\.exe/);
+      expect(existsSync(path.dirname(managed))).toBe(false);
+      expect(existsSync(`${path.dirname(managed)}.part`)).toBe(false);
+      expect(logs.join('\n')).toMatch(/не удалось/);
+    });
+
+    it('does not install something that is not a zip at all', async () => {
+      const { manager, managed } = build({
+        responses: [tagResponse(), downloadResponse(BINARY_BYTES), sumsResponse()]
+      });
+
+      const result = await manager.ensureCurrent();
+
+      expect(result.updated).toBe(false);
+      expect(result.reason).toMatch(/архив не распаковался/);
+      expect(existsSync(managed)).toBe(false);
     });
 
     it('re-downloads when the marker is there but the binary is gone', async () => {
@@ -506,7 +701,7 @@ describe('electron/ytdlp', () => {
       expect(manager.getBinaryPath()).toBe(BUNDLED);
 
       await vi.advanceTimersByTimeAsync(RETRY_DELAY_MS + 10);
-      expect(manager.getBinaryPath()).toBe(path.join(stateDir, 'bin', 'yt-dlp.exe'));
+      expect(manager.getBinaryPath()).toBe(folderExe(stateDir));
 
       manager.dispose();
     });
