@@ -16,6 +16,7 @@
 import { describe, it, expect } from 'vitest';
 import {
   CONTRAST_OPTIONS,
+  TINT_OPTIONS,
   DESIGN_PRESETS,
   NO_OVERRIDES,
   designVars
@@ -127,4 +128,64 @@ describe('ручка контраста остаётся в границах', (
       expect(failures).toEqual([]);
     });
   }
+});
+
+/**
+ * Оттенок акцента в фоне меняет тон поверхностей, но не их яркость — значит
+ * лестница текста обязана читаться так же, какой бы цвет ни выбрали. Проверяем
+ * самые «опасные» акценты: насыщенные, тёплые и холодные.
+ */
+describe('оттенок акцента в фоне не ломает контраст', () => {
+  const ACCENTS = ['#419efb', '#ff3b30', '#ffd60a', '#30d158', '#bf5af2'];
+
+  for (const option of TINT_OPTIONS) {
+    it(`«${option.label}» читается на любой теме и любом акценте`, () => {
+      const failures: string[] = [];
+      for (const accentHex of ACCENTS) {
+        for (const preset of DESIGN_PRESETS) {
+          for (const depth of DEPTHS) {
+            const vars = designVars({
+              presetId: preset.id,
+              depth,
+              accentHex,
+              overrides: { ...NO_OVERRIDES, tint: option.id }
+            });
+            const background = hexToRgb(vars['--bg-base']);
+            const surface = hexToRgb(vars['--surface-1']);
+            for (const [token, floor] of Object.entries(FLOORS)) {
+              const colour = hexToRgb(vars[token]);
+              const worst = Math.min(contrast(colour, background), contrast(colour, surface));
+              if (worst < floor) {
+                failures.push(`${accentHex} ${preset.id}/${depth} ${token}: ${worst.toFixed(2)}:1 < ${floor}:1`);
+              }
+            }
+          }
+        }
+      }
+      expect(failures).toEqual([]);
+    });
+  }
+
+  it('фон берёт тон акцента, а без оттенка остаётся пресетным', () => {
+    const base = { presetId: DESIGN_PRESETS[0].id, depth: 'dusk' as ThemeDepth, accentHex: '#ff3b30' };
+    const plain = designVars({ ...base, overrides: NO_OVERRIDES });
+    const off = designVars({ ...base, overrides: { ...NO_OVERRIDES, tint: 'off' } });
+    const soft = designVars({ ...base, overrides: { ...NO_OVERRIDES, tint: 'soft' } });
+    const rich = designVars({ ...base, overrides: { ...NO_OVERRIDES, tint: 'rich' } });
+
+    expect(off['--bg-base']).toBe(plain['--bg-base']);
+    expect(soft['--bg-base']).not.toBe(plain['--bg-base']);
+    // Красный акцент — у фона красного больше, чем синего.
+    const [r, , b] = hexToRgb(rich['--surface-2']);
+    expect(r).toBeGreaterThan(b);
+    // Текст оттенок не трогает.
+    expect(rich['--text-secondary']).toBe(plain['--text-secondary']);
+  });
+
+  it('серый акцент тона не несёт и фон не трогает', () => {
+    const base = { presetId: DESIGN_PRESETS[0].id, depth: 'dusk' as ThemeDepth, accentHex: '#8a8a8a' };
+    expect(designVars({ ...base, overrides: { ...NO_OVERRIDES, tint: 'rich' } })['--bg-base']).toBe(
+      designVars({ ...base, overrides: NO_OVERRIDES })['--bg-base']
+    );
+  });
 });

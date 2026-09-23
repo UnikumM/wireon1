@@ -5,6 +5,7 @@ import {
   isDensityOverride,
   isMotionOverride,
   isContrastOverride,
+  isTintOverride,
   isParticleProfileId,
   isPresetId,
   isRadiusOverride,
@@ -126,7 +127,8 @@ export function parseOverrides(raw: unknown): DesignOverrides {
     particles: isParticleProfileId(source.particles) ? source.particles : null,
     glass: typeof source.glass === 'boolean' ? source.glass : null,
     grain: typeof source.grain === 'boolean' ? source.grain : null,
-    contrast: isContrastOverride(source.contrast) ? source.contrast : null
+    contrast: isContrastOverride(source.contrast) ? source.contrast : null,
+    tint: isTintOverride(source.tint) ? source.tint : null
   };
 }
 
@@ -210,7 +212,9 @@ export function snapshotsEqual(a: DesignSnapshot, b: DesignSnapshot): boolean {
     a.overrides.motion === b.overrides.motion &&
     a.overrides.particles === b.overrides.particles &&
     a.overrides.glass === b.overrides.glass &&
-    a.overrides.grain === b.overrides.grain
+    a.overrides.grain === b.overrides.grain &&
+    a.overrides.contrast === b.overrides.contrast &&
+    a.overrides.tint === b.overrides.tint
   );
 }
 
