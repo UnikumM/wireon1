@@ -1,5 +1,5 @@
 import React from 'react';
-import { Heart, Home, Library, ListMusic, Music, Radio, Search, Sparkles } from 'lucide-react';
+import { Home, Library, Music, Radio, Search, Sparkles } from 'lucide-react';
 import { useUIStore } from '../../store/useUIStore';
 import { ICON } from '../../styles/icons';
 
@@ -16,18 +16,17 @@ import { ICON } from '../../styles/icons';
  * Плейлисты сюда не переехали: их список был в подвале панели и уже живёт в
  * «Медиатеке», где ему и место. В навигации остались разделы, а не записи.
  *
+ * «Избранное» и «Плейлисты» отсюда убраны: это вкладки «Медиатеки», и в
+ * полосе они повторяли её же — как раньше на телефоне (`MobileNav`).
+ *
  * На узком окне полоса прячется (`global.css` §19) — там навигация снизу, у
  * большого пальца.
  */
 
-type NavViewId =
-  | 'home'
-  | 'search'
-  | 'wave'
-  | 'foryou'
-  | 'library'
-  | 'favorites'
-  | 'playlists';
+type NavViewId = 'home' | 'search' | 'wave' | 'foryou' | 'library';
+
+/** Вкладки «Медиатеки» — пункт «Медиатека» остаётся выбранным на любой из них. */
+const LIBRARY_VIEWS = new Set(['library', 'favorites', 'playlists', 'offline']);
 
 interface NavItem {
   id: NavViewId;
@@ -47,9 +46,7 @@ const NAV_ITEMS: NavItem[] = [
    * одного раздела не было двух разных лиц.
    */
   { id: 'foryou', label: 'Для вас', icon: <Sparkles size={ICON.md} /> },
-  { id: 'library', label: 'Медиатека', icon: <Library size={ICON.md} /> },
-  { id: 'favorites', label: 'Избранное', icon: <Heart size={ICON.md} /> },
-  { id: 'playlists', label: 'Плейлисты', icon: <ListMusic size={ICON.md} /> }
+  { id: 'library', label: 'Медиатека', icon: <Library size={ICON.md} /> }
   // Настройки сюда не входят: это утилита, а не место с музыкой. Они стоят
   // рядом с аккаунтом в правой части шапки.
 ];
@@ -100,7 +97,11 @@ export const TopNav: React.FC<TopNavProps> = ({ className = '' }) => {
             key={item.id}
             type="button"
             className="topnav-item focus-ring"
-            aria-current={activeView === item.id ? 'page' : undefined}
+            aria-current={
+              activeView === item.id || (item.id === 'library' && LIBRARY_VIEWS.has(activeView))
+                ? 'page'
+                : undefined
+            }
             // Имя на кнопке, а не только в подписи: на среднем окне подписи
             // скрываются, и без этого у пунктов не осталось бы имени вовсе.
             aria-label={item.label}

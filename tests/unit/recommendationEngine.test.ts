@@ -143,6 +143,40 @@ describe('RecommendationEngineService', () => {
     expect(recs.every((track) => track.artist === 'Кино')).toBe(true);
   });
 
+  it('«только знакомое» действует и при источнике «из библиотеки»', async () => {
+    // В приложении источник выбран всегда, и правило из-за этого не работало ни у кого.
+    const known: UnifiedTrack = { ...mockYtTrack1, id: 'yt_known', originalId: 'known', artist: 'Кино', title: 'Кукушка' };
+    await addToHistory(known);
+
+    const recs = await engine.getRecommendationsForWave(
+      { mood: 'favorite', novelty: 0, energy: 0.5, seedKind: 'library' },
+      5
+    );
+
+    expect(recs.length).toBeGreaterThan(0);
+    expect(recs.every((track) => track.artist === 'Кино')).toBe(true);
+  });
+
+  it('сдвинутая энергия пускает поиск и слышна в очереди, даже когда радио ответило', async () => {
+    const radio = Array.from({ length: 20 }, (_, i) => ({
+      ...mockYtTrack1,
+      id: `yt_r${i}`,
+      originalId: `r${i}`,
+      title: `Radio Song ${i}`,
+      artist: `Radio Artist ${i}`
+    }));
+    mockYtService.getRelatedVideos = vi.fn().mockResolvedValue(radio);
+    const seed = { ...mockYtTrack1, id: 'yt_seed', originalId: 'seed' };
+
+    const recs = await engine.getRecommendationsForWave(
+      { mood: 'energy', novelty: 0.5, energy: 1, seedKind: 'library', seedTrack: seed },
+      10
+    );
+
+    expect(mockYtService.search).toHaveBeenCalled();
+    expect(recs.some((track) => !track.id.startsWith('yt_r'))).toBe(true);
+  });
+
   it('«больше нового» незнакомых не отсеивает', async () => {
     const recs = await engine.getRecommendationsForWave({ mood: 'favorite', novelty: 0.9, energy: 0.5 }, 5);
     expect(recs.some((track) => track.artist !== 'Кино')).toBe(true);

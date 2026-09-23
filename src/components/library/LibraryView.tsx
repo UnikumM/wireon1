@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import {
   ListMusic,
   Heart,
@@ -148,6 +148,8 @@ export const LibraryView: React.FC<LibraryViewProps> = ({
   const [isImportModalOpen, setIsImportModalOpen] = useState(false);
 
   const tablistRef = useRef<HTMLDivElement>(null);
+  const indicatorRef = useRef<HTMLSpanElement>(null);
+  const indicatorPlacedRef = useRef(false);
 
   useEffect(() => {
     const updateOfflineCount = () => {
@@ -175,6 +177,27 @@ export const LibraryView: React.FC<LibraryViewProps> = ({
       : activeView === 'offline' || (activeView as string) === 'downloaded'
       ? 'offline'
       : localTab;
+
+  // Плашка выбранной вкладки переезжает под неё: меряем положение вкладки.
+  useLayoutEffect(() => {
+    const list = tablistRef.current;
+    const indicator = indicatorRef.current;
+    if (!list || !indicator) return;
+    const place = () => {
+      const tab = list.querySelector<HTMLElement>('[role="tab"][aria-selected="true"]');
+      if (!tab) return;
+      indicator.style.setProperty('--tab-x', `${tab.offsetLeft}px`);
+      indicator.style.setProperty('--tab-w', `${tab.offsetWidth}px`);
+    };
+    // Первый замер ставит плашку на место без переезда — иначе она выезжала бы от края.
+    if (indicatorPlacedRef.current) indicator.setAttribute('data-ready', '');
+    place();
+    indicatorPlacedRef.current = true;
+    // Счётчики во вкладках меняют их ширину.
+    const observer = typeof ResizeObserver === 'undefined' ? null : new ResizeObserver(place);
+    observer?.observe(list);
+    return () => observer?.disconnect();
+  }, [activeTab]);
 
   const needle = query.trim().toLowerCase();
 
@@ -298,6 +321,7 @@ export const LibraryView: React.FC<LibraryViewProps> = ({
       }}
     >
       <label
+        className="search-field"
         style={{
           display: 'flex',
           alignItems: 'center',
@@ -308,10 +332,7 @@ export const LibraryView: React.FC<LibraryViewProps> = ({
           flex: isNarrow ? '1 1 120px' : '1 1 260px',
           minWidth: 0,
           maxWidth: '360px',
-          padding: '0 var(--space-3)',
-          backgroundColor: 'var(--surface-sunken)',
-          border: '1px solid var(--border)',
-          borderRadius: 'var(--radius-sm)'
+          padding: '0 var(--space-3)'
         }}
       >
         <Search size={ICON.md} aria-hidden="true" style={{ color: 'var(--text-muted)', flexShrink: 0 }} />
@@ -388,7 +409,7 @@ export const LibraryView: React.FC<LibraryViewProps> = ({
           role="tablist"
           aria-label="Разделы медиатеки"
           onKeyDown={handleTabKeyDown}
-          className="scroll-x-quiet"
+          className="scroll-x-quiet tab-strip"
           style={{
             display: 'flex',
             alignItems: 'center',
@@ -401,12 +422,10 @@ export const LibraryView: React.FC<LibraryViewProps> = ({
             // ширины, но добираться до края теперь можно пальцем.
             width: 'max-content',
             maxWidth: '100%',
-            overflowX: 'auto',
-            backgroundColor: 'var(--surface-2)',
-            border: '1px solid var(--border-subtle)',
-            borderRadius: 'var(--radius-md)'
+            overflowX: 'auto'
           }}
         >
+          <span ref={indicatorRef} className="tab-strip-indicator" aria-hidden="true" />
           {TABS.map((descriptor) => {
             const isSelected = descriptor.tab === activeTab;
             const count =

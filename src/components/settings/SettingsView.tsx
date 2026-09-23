@@ -124,42 +124,39 @@ export const SettingsView: React.FC<{ className?: string }> = ({ className }) =>
         </div>
       )}
 
-      <nav
-        aria-label="Разделы настроек"
-        style={{
-          position: 'sticky',
-          top: 0,
-          zIndex: 1,
-          display: 'flex',
-          flexWrap: 'wrap',
-          gap: 'var(--space-2)',
-          padding: 'var(--space-2) 0',
-          background: 'var(--bg-base)'
-        }}
-      >
-        {sections.map((section) => {
-          const isActive = section.id === activeId;
-          return (
-            <button
-              key={section.id}
-              type="button"
-              className="chip"
-              aria-pressed={isActive}
-              onClick={() => jumpTo(section.id)}
-              data-testid={`settings-nav-${section.id}`}
-              style={{ fontSize: 'var(--text-xs)' }}
-            >
-              {section.label}
-            </button>
-          );
-        })}
-      </nav>
+      {/*
+        * Категории — простым списком сбоку, как в Discord. Раньше это был ряд
+        * пилюль на сплошной полосе фона: полоса резала прокручиваемые
+        * настройки, а над ней ещё просвечивал их край. Вид — в `.settings-nav`
+        * (global.css): на узком окне список становится рядом с размытым фоном.
+        */}
+      <div className="settings-layout">
+        <nav aria-label="Разделы настроек" className="settings-nav scroll-x-quiet">
+          {sections.map((section) => {
+            const isActive = section.id === activeId;
+            return (
+              <button
+                key={section.id}
+                type="button"
+                className="settings-nav-item focus-ring"
+                aria-pressed={isActive}
+                onClick={() => jumpTo(section.id)}
+                data-testid={`settings-nav-${section.id}`}
+              >
+                {section.label}
+              </button>
+            );
+          })}
+        </nav>
 
-      {sections.map((section) => (
-        <div key={section.id} data-section-id={section.id}>
-          {section.render()}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-5)', minWidth: 0 }}>
+          {sections.map((section) => (
+            <div key={section.id} data-section-id={section.id}>
+              {section.render()}
+            </div>
+          ))}
         </div>
-      ))}
+      </div>
     </div>
   );
 };

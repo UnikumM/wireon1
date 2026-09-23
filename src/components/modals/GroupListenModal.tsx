@@ -652,14 +652,8 @@ export const GroupListenModal: React.FC<GroupListenModalProps> = ({ isOpen, onCl
             <div
               role="tablist"
               aria-label="Как присоединиться"
-              style={{
-                display: 'grid',
-                gridTemplateColumns: '1fr 1fr',
-                gap: 'var(--space-1)',
-                backgroundColor: 'var(--surface-sunken)',
-                padding: '3px',
-                borderRadius: 'var(--radius-lg)'
-              }}
+              className="segmented"
+              data-index={tab === 'host' ? 0 : 1}
             >
               <button
                 type="button"
@@ -716,7 +710,7 @@ export const GroupListenModal: React.FC<GroupListenModalProps> = ({ isOpen, onCl
 
             {/* Tab: Host */}
             {tab === 'host' ? (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-4)' }}>
+              <div key="host" className="animate-fade-in" style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-4)' }}>
                 <div style={{ fontSize: 'var(--text-sm)', color: 'var(--text-secondary)', lineHeight: 1.5 }}>
                   Включайте музыку — остальные услышат то же самое и в тот же момент. Пауза, перемотка и смена
                   трека повторяются у всех, задержка сети учитывается автоматически.
@@ -780,6 +774,8 @@ export const GroupListenModal: React.FC<GroupListenModalProps> = ({ isOpen, onCl
             ) : (
               /* Tab: Join */
               <form
+                key="join"
+                className="animate-fade-in"
                 onSubmit={handleJoinRoom}
                 style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-4)' }}
               >
@@ -802,8 +798,6 @@ export const GroupListenModal: React.FC<GroupListenModalProps> = ({ isOpen, onCl
                     data-testid="group-listen-code-input"
                     style={{
                       padding: 'var(--space-3)',
-                      backgroundColor: 'var(--surface-sunken)',
-                      border: '1px solid var(--border)',
                       borderRadius: 'var(--radius-md)',
                       fontSize: 'var(--text-xl)',
                       fontFamily: 'var(--font-mono)',
@@ -811,8 +805,7 @@ export const GroupListenModal: React.FC<GroupListenModalProps> = ({ isOpen, onCl
                       letterSpacing: '0.2em',
                       textAlign: 'center',
                       color: 'var(--text-primary)',
-                      textTransform: 'uppercase',
-                      outline: 'none'
+                      textTransform: 'uppercase'
                     }}
                   />
                 </div>

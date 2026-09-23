@@ -193,6 +193,30 @@ describe('Поток: несколько очагов вкуса, а не оди
     );
 
     expect(asked.length).toBeGreaterThan(1);
+    // Играющая песня — только запас: при непустой библиотеке очаги берутся из неё.
+    expect(asked).not.toContain('seed123');
+    expect(asked).toEqual(expect.arrayContaining(['fav1', 'hist1']));
+  });
+
+  it('«из библиотеки» при пустой библиотеке опирается на играющую песню', async () => {
+    vi.restoreAllMocks();
+    const db = await import('../../src/services/db');
+    vi.spyOn(db, 'getFavorites').mockResolvedValue([] as never);
+    vi.spyOn(db, 'getHistory').mockResolvedValue([] as never);
+    const { recommendationEngine } = await import('../../src/services/recommendationEngine');
+    const { youtubeService } = await import('../../src/services/youtube');
+
+    const asked: string[] = [];
+    vi.spyOn(youtubeService, 'getRelatedVideos').mockImplementation(async (id: string) => {
+      asked.push(id);
+      return [];
+    });
+
+    await recommendationEngine.getRecommendationsForWave(
+      { mood: 'favorite', seedTrack, seedKind: 'library', novelty: 0.5 },
+      20
+    );
+
     expect(asked[0]).toBe('seed123');
   });
 
