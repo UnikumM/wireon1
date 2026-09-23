@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { render, screen, fireEvent, cleanup, waitFor } from '@testing-library/react';
+import { render, screen, fireEvent, cleanup, waitFor, within } from '@testing-library/react';
 import '../setup';
 
 import { AppearanceSettings } from '../../src/components/settings/AppearanceSettings';
@@ -396,8 +396,10 @@ describe('Тема: хранилище и настройки внешнего в
     it('переключатель визуализации остался на месте', () => {
       render(<AppearanceSettings />);
 
-      expect(screen.getByTestId('settings-visualizer-preset')).toHaveValue('CYBER_BARS');
-      expect(screen.getByRole('option', { name: 'Нет' })).toBeInTheDocument();
+      const visualizer = screen.getByTestId('settings-visualizer-preset');
+      expect(visualizer).toHaveValue('CYBER_BARS');
+      // «Нет» есть и у оттенка фона — ищем внутри списка визуализации.
+      expect(within(visualizer).getByRole('option', { name: 'Нет' })).toBeInTheDocument();
     });
   });
 });
