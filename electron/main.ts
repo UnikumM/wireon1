@@ -83,6 +83,52 @@ export const GLOBAL_HOTKEY_ACTIONS: ReadonlyArray<MediaKeyAction> = [
   'volume-down'
 ];
 
+/**
+ * Действия плеера из командной строки: `Wireon --next`.
+ *
+ * Запасной путь для сочетаний, которые не может занять само приложение. Чаще
+ * всего это Linux на Wayland: там окно не вправе перехватывать клавиши
+ * системы, сочетания раздаёт рабочий стол через портал, а на части рабочих
+ * столов (GNOME) Electron этот портал пока не понимает. Команду же можно
+ * повесить на сочетание в настройках самой системы — это работает везде.
+ * Второй экземпляр приложения не открывает окно, а передаёт действие первому.
+ */
+export const COMMAND_LINE_ACTIONS: ReadonlyArray<MediaKeyAction> = [
+  'play-pause',
+  'next',
+  'prev',
+  'stop',
+  'volume-up',
+  'volume-down'
+];
+
+export function extractCommandLineAction(argv: ReadonlyArray<string>): MediaKeyAction | null {
+  for (const arg of argv) {
+    if (typeof arg !== 'string' || !arg.startsWith('--')) continue;
+    const name = arg.slice(2) as MediaKeyAction;
+    if (COMMAND_LINE_ACTIONS.includes(name)) return name;
+  }
+  return null;
+}
+
+/** Linux под Wayland — там глобальные сочетания живут по своим правилам. */
+export function isWaylandSession(env: NodeJS.ProcessEnv = process.env, platform: string = process.platform): boolean {
+  if (platform !== 'linux') return false;
+  return (env.XDG_SESSION_TYPE || '').toLowerCase() === 'wayland' || Boolean(env.WAYLAND_DISPLAY);
+}
+
+/**
+ * Как запустить именно это приложение из системного сочетания.
+ *
+ * AppImage распаковывается во временную папку, и `process.execPath` указывает
+ * туда — после перезапуска этого пути уже нет. Постоянный путь лежит в
+ * `APPIMAGE`.
+ */
+export function getControlCommand(env: NodeJS.ProcessEnv = process.env): string {
+  const exe = env.APPIMAGE || process.execPath;
+  return /\s/.test(exe) ? `"${exe}"` : exe;
+}
+
 export const DEFAULT_GLOBAL_HOTKEYS: Readonly<Record<string, string>> = {
   'play-pause': 'CommandOrControl+Alt+Space',
   next: 'CommandOrControl+Alt+Right',
@@ -1280,6 +1326,11 @@ export function setupIpcHandlers(
       botCheckSeen: resolver.hasSeenBotCheck(),
       mediaKeys: getMediaKeyRegistration(),
       globalHotkeys: getGlobalHotkeyRegistration(),
+      hotkeyControl: {
+        command: getControlCommand(),
+        wayland: isWaylandSession(),
+        desktop: process.env.XDG_CURRENT_DESKTOP || null,
+      },
       logPath: app && typeof app.getPath === 'function' ? path.join(app.getPath('userData'), 'logs', 'streams.log') : null,
     };
   });
@@ -2225,6 +2276,14 @@ if (app) {
     ]);
   }
 
+  // На Wayland приложение не может само перехватить клавишу: сочетания выдаёт
+  // рабочий стол через портал GlobalShortcuts. Без этого флага Electron портал
+  // не спрашивает, и `globalShortcut.register` не делает ничего. KDE и новые
+  // GNOME портал поддерживают; где нет — остаётся `Wireon --next` (см. выше).
+  if (isWaylandSession() && typeof app.commandLine?.appendSwitch === 'function') {
+    app.commandLine.appendSwitch('enable-features', 'GlobalShortcutsPortal');
+  }
+
   const hasSingleInstanceLock =
     typeof app.requestSingleInstanceLock === 'function' ? app.requestSingleInstanceLock() : true;
 
@@ -2242,6 +2301,14 @@ if (app) {
     }
 
     app.on('second-instance', (_event, commandLine) => {
+      // `Wireon --next` из системного сочетания: переключить трек, не вытаскивая
+      // окно на передний план посреди чужой работы.
+      const action = extractCommandLineAction(commandLine);
+      if (action) {
+        const win = getMainWindow();
+        if (win && !win.isDestroyed()) win.webContents.send('media-key-event', action);
+        return;
+      }
       focusMainWindow();
       const deepLink = extractDeepLinkUrl(commandLine);
       if (deepLink) {

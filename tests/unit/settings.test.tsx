@@ -923,6 +923,27 @@ describe('Settings (src/components/settings)', () => {
       expect(button).toHaveTextContent('Ctrl + Shift + J');
     });
 
+    it('на Wayland сразу показывает команды для сочетаний в настройках системы', async () => {
+      installDesktopBridge({
+        getPlatform: () => 'linux',
+        getStreamDiagnostics: async () => ({
+          log: [],
+          ytDlpPath: '',
+          ytDlpAvailable: true,
+          logPath: null,
+          hotkeyControl: { command: '/home/flav/Wireon.AppImage', wayland: true, desktop: 'GNOME' }
+        })
+      });
+      render(<ShortcutsSettings />);
+      await flushAsync();
+
+      const hint = screen.getByTestId('system-shortcut-hint');
+      expect(hint).toHaveTextContent('в GNOME Wireon пока не может их занять');
+      expect(within(hint).getByText('/home/flav/Wireon.AppImage --next')).toBeInTheDocument();
+      // Раскрыто, а не спрятано под «подробнее»: без этого сочетаний нет вовсе.
+      expect(hint.querySelector('details')).toBeNull();
+    });
+
     it('uses the Command glyph on macOS', () => {
       installDesktopBridge({ getPlatform: () => 'darwin' });
       render(<ShortcutsSettings />);

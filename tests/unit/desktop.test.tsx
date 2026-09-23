@@ -182,6 +182,9 @@ import {
   createWindow,
   deliverDeepLink,
   extractDeepLinkUrl,
+  extractCommandLineAction,
+  isWaylandSession,
+  getControlCommand,
   flushPendingDeepLink,
   focusMainWindow,
   getAppDir,
@@ -959,6 +962,36 @@ describe('Milestone 5: Desktop Packaging & Electron Integration Test Suite', () 
   // =========================================================================
   // 4. wireon:// deep links (Discord OAuth callback)
   // =========================================================================
+  describe('Команды из системных сочетаний (electron/main.ts)', () => {
+    it('узнаёт действие в командной строке второго экземпляра', () => {
+      expect(extractCommandLineAction(['/opt/Wireon.AppImage', '--next'])).toBe('next');
+      expect(extractCommandLineAction(['C:\\Wireon.exe', '--allow-file-access', '--play-pause'])).toBe('play-pause');
+      expect(extractCommandLineAction(['wireon', '--volume-down'])).toBe('volume-down');
+    });
+
+    it('не путает действие с флагами Chromium и ссылками', () => {
+      expect(extractCommandLineAction(['wireon', '--no-sandbox', '--enable-features=X'])).toBeNull();
+      expect(extractCommandLineAction(['wireon', 'wireon://auth/callback#next'])).toBeNull();
+      expect(extractCommandLineAction(['wireon', 'next'])).toBeNull();
+    });
+
+    it('считает Wayland только на Linux', () => {
+      expect(isWaylandSession({ XDG_SESSION_TYPE: 'wayland' }, 'linux')).toBe(true);
+      expect(isWaylandSession({ WAYLAND_DISPLAY: 'wayland-0' }, 'linux')).toBe(true);
+      expect(isWaylandSession({ XDG_SESSION_TYPE: 'x11' }, 'linux')).toBe(false);
+      expect(isWaylandSession({ XDG_SESSION_TYPE: 'wayland' }, 'win32')).toBe(false);
+    });
+
+    it('даёт постоянный путь AppImage, а не временную папку распаковки', () => {
+      expect(getControlCommand({ APPIMAGE: '/home/flav/Apps/Wireon-2.2.6.AppImage' })).toBe(
+        '/home/flav/Apps/Wireon-2.2.6.AppImage'
+      );
+      expect(getControlCommand({ APPIMAGE: '/home/flav/My Apps/Wireon.AppImage' })).toBe(
+        '"/home/flav/My Apps/Wireon.AppImage"'
+      );
+    });
+  });
+
   describe('Deep links (electron/main.ts)', () => {
     const CALLBACK_URL = 'wireon://auth/callback#access_token=secret.token&state=abc123';
 
