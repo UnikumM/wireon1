@@ -55,6 +55,11 @@ export interface StreamDiagnostics {
   /** В этом запуске уже натыкались на проверку «подтвердите, что вы не робот». */
   botCheckSeen?: boolean;
   logPath: string | null;
+  /**
+   * Как управлять плеером из системного сочетания: `<command> --next`.
+   * `wayland` — окно не может само занять сочетание, решает рабочий стол.
+   */
+  hotkeyControl?: { command: string; wayland: boolean; desktop: string | null };
 }
 
 /** Outcome of the in-app Discord consent window. */

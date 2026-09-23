@@ -154,6 +154,8 @@ const GlobalHotkeysSection: React.FC = () => {
         Во время записи: Esc — отменить, Backspace — снять клавишу с действия.
       </p>
 
+      <SystemShortcutHint />
+
       <button
         type="button"
         onClick={resetHotkeys}
@@ -171,6 +173,103 @@ const GlobalHotkeysSection: React.FC = () => {
         Вернуть стандартные
       </button>
     </SettingsSection>
+  );
+};
+
+/**
+ * Команды для сочетаний, назначенных в самой системе: `Wireon --next`.
+ *
+ * На Wayland окно не вправе занять клавишу само: это делает рабочий стол, и на
+ * части из них (GNOME) у Electron это пока не получается. Поэтому там подсказка
+ * раскрыта сразу и говорит прямо. На Windows и X11 — свёрнута: свои сочетания
+ * там работают, а команда нужна разве что для макросов и кнопок мыши.
+ */
+const SystemShortcutHint: React.FC = () => {
+  const [control, setControl] = useState<{ command: string; wayland: boolean; desktop: string | null } | null>(null);
+  const [copied, setCopied] = useState<string | null>(null);
+
+  useEffect(() => {
+    let alive = true;
+    window.electronAPI
+      ?.getStreamDiagnostics?.()
+      .then((diagnostics) => {
+        if (alive && diagnostics?.hotkeyControl) setControl(diagnostics.hotkeyControl);
+      })
+      .catch(() => {});
+    return () => {
+      alive = false;
+    };
+  }, []);
+
+  if (!control) return null;
+
+  const copy = (text: string) => {
+    void navigator.clipboard?.writeText(text).then(
+      () => setCopied(text),
+      () => {}
+    );
+  };
+
+  const commands = (
+    <ul style={{ listStyle: 'none', margin: 'var(--space-2) 0 0', padding: 0, display: 'grid', gap: 'var(--space-1)' }}>
+      {GLOBAL_ACTIONS.map(({ action, label }) => {
+        const line = `${control.command} --${action}`;
+        return (
+          <li key={action} style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)', minWidth: 0 }}>
+            <span style={{ flexShrink: 0, minWidth: '130px', color: 'var(--text-secondary)' }}>{label}</span>
+            <code
+              className="text-truncate"
+              title={line}
+              style={{ flex: 1, minWidth: 0, fontFamily: 'var(--font-mono)', fontSize: 'var(--text-xs)', color: 'var(--text-muted)' }}
+            >
+              {line}
+            </code>
+            <button
+              type="button"
+              onClick={() => copy(line)}
+              style={{ ...kbdStyle, cursor: 'pointer', flexShrink: 0 }}
+              aria-label={`Скопировать команду: ${label}`}
+            >
+              {copied === line ? 'скопировано' : 'копировать'}
+            </button>
+          </li>
+        );
+      })}
+    </ul>
+  );
+
+  const gnome = /gnome/i.test(control.desktop || '');
+  const intro = control.wayland
+    ? `На Wayland сочетания выдаёт рабочий стол${
+        gnome ? ', и в GNOME Wireon пока не может их занять' : ' — при первом включении он может спросить разрешение'
+      }. Если клавиши не срабатывают, назначьте их в настройках системы (в GNOME: Настройки → Клавиатура → Свои комбинации клавиш) на эти команды:`
+    : 'Сочетание можно назначить и в самой системе или на кнопку мыши — на эти команды. Окно при этом не всплывает.';
+
+  return (
+    <div
+      data-testid="system-shortcut-hint"
+      style={{
+        marginTop: 'var(--space-3)',
+        padding: 'var(--space-3)',
+        borderRadius: 'var(--radius-sm)',
+        border: `1px solid ${control.wayland ? 'var(--border-accent)' : 'var(--border-subtle)'}`,
+        fontSize: 'var(--text-xs)',
+        color: 'var(--text-secondary)'
+      }}
+    >
+      {control.wayland ? (
+        <>
+          <p style={{ margin: 0 }}>{intro}</p>
+          {commands}
+        </>
+      ) : (
+        <details>
+          <summary style={{ cursor: 'pointer' }}>Команды для системных сочетаний</summary>
+          <p style={{ margin: 'var(--space-2) 0 0' }}>{intro}</p>
+          {commands}
+        </details>
+      )}
+    </div>
   );
 };
 
