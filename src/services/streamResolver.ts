@@ -113,6 +113,32 @@ function sourceTimeoutMs(): number {
 }
 
 
+/**
+ * Как искать замену треку: для SoundCloud исполнитель часто стоит в названии.
+ *
+ * Самый частый вид загрузки там — «Kendrick Lamar - Not Like Us» от имени
+ * лейбла или канала: в поле исполнителя загрузчик. Именно лейблы чаще всего
+ * закрывают поток DRM, то есть такие треки и уходят на замену с YouTube, — а
+ * подбор сверял исполнителя «TDE Records» с настоящим и не находил правильную
+ * запись. Поэтому исполнитель берётся из названия, а загрузчик — только если
+ * там его нет.
+ *
+ * Название режется как есть, без чистки: пометки вроде «(Sped Up)» должны
+ * дойти до проверки варианта, иначе замена сыграла бы другую версию.
+ */
+export function substituteView(track: UnifiedTrack): UnifiedTrack {
+  if (track.source !== 'soundcloud' || !track.title) return track;
+  for (const separator of [' — ', ' – ', ' - ', ' -- ', ' ‒ ']) {
+    const at = track.title.indexOf(separator);
+    if (at > 0 && at < track.title.length - separator.length) {
+      const artist = track.title.slice(0, at).trim();
+      const title = track.title.slice(at + separator.length).trim();
+      if (artist && title) return { ...track, artist, title };
+    }
+  }
+  return track;
+}
+
 /** Что сыграло — одной строкой для журнала. */
 function describeResult(result: ResolvedStreamInfo): string {
   const parts = [result.format || '?'];
@@ -738,8 +764,10 @@ export class StreamResolver {
     const known = await this.resolveKnownLink(track, 'youtube');
     if (known) return known;
 
+    // Искать и сверять — по настоящему исполнителю, а не по загрузчику.
+    const wanted = substituteView(track);
     try {
-      const query = `${track.artist || ''} ${track.title || ''}`.trim();
+      const query = `${wanted.artist || ''} ${wanted.title || ''}`.trim();
       if (query.length < 3) return null;
 
       const candidates = await withTimeout(
@@ -748,7 +776,7 @@ export class StreamResolver {
         `youtube search "${query}"`
       );
 
-      let match = this.pickSameRecording(track, candidates);
+      let match = this.pickSameRecording(wanted, candidates);
       if (!match && typeof this.ytService.searchVideos === 'function') {
         // Песни нет — есть клип или чужая загрузка. Отбор тот же, строгий:
         // «slowed» вместо обычной версии он не пропустит.
@@ -757,7 +785,7 @@ export class StreamResolver {
           SUBSTITUTE_TIMEOUT_MS,
           `youtube video search "${query}"`
         ).catch(() => [] as UnifiedTrack[]);
-        match = this.pickSameRecording(track, videos);
+        match = this.pickSameRecording(wanted, videos);
       }
       if (!match) return null;
 

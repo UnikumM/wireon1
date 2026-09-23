@@ -160,6 +160,61 @@ describe('StreamResolver Service', () => {
     expect(result.substitutedFrom).toBe('youtube');
   });
 
+  /*
+   * Самый частый вид загрузки на SoundCloud: исполнитель в названии, а в поле
+   * исполнителя — тот, кто загрузил (лейбл, канал). Именно лейблы чаще всего
+   * закрывают поток DRM, то есть именно такие треки и уходят на замену. С
+   * загрузчиком вместо исполнителя правильная запись набирала 60 + 0 + 20 = 80
+   * при пороге 85 — стоило длительностям разойтись на 4–8 секунд.
+   */
+  it('трек «Артист - Песня» от лейбла находит замену по настоящему исполнителю', async () => {
+    const scTrack: UnifiedTrack = {
+      ...mockScTrack,
+      id: 'sc_label',
+      originalId: 'label1',
+      title: 'Kendrick Lamar - Not Like Us',
+      artist: 'TDE Records',
+      duration: 274
+    };
+    vi.spyOn(soundCloudService, 'resolveStreamUrl').mockRejectedValue(
+      new Error('SoundCloud track label1 is only offered as DRM-protected audio (label upload)')
+    );
+    const search = vi.spyOn(youtubeService, 'search').mockResolvedValue([
+      { ...mockYtTrack, id: 'yt_right', originalId: 'right', title: 'Not Like Us', artist: 'Kendrick Lamar', duration: 280 },
+      { ...mockYtTrack, id: 'yt_wrong', originalId: 'wrong', title: 'Not Like Us', artist: 'Some Cover Band', duration: 275 }
+    ]);
+    const ytResolve = vi.spyOn(youtubeService, 'resolveStreamUrl').mockResolvedValue({
+      streamUrl: 'https://googlevideo.com/right', format: 'm4a', bitrate: 128, expiresAt: Date.now() + 3600_000
+    });
+
+    const result = await resolver.resolve(scTrack);
+
+    // Искали без имени лейбла: оно только сбивает выдачу.
+    expect(search.mock.calls[0][0]).toBe('Kendrick Lamar Not Like Us');
+    expect(ytResolve).toHaveBeenCalledWith('right');
+    expect(result.substitutedFrom).toBe('youtube');
+  });
+
+  it('«Артист - Песня (Sped Up)» не подменяется обычной версией', async () => {
+    const scTrack: UnifiedTrack = {
+      ...mockScTrack,
+      id: 'sc_sped',
+      originalId: 'sped1',
+      title: 'Kendrick Lamar - Not Like Us (Sped Up)',
+      artist: 'speedy edits',
+      duration: 230
+    };
+    vi.spyOn(soundCloudService, 'resolveStreamUrl').mockRejectedValue(new Error('SoundCloud track sped1: HTTP 404'));
+    vi.spyOn(youtubeService, 'search').mockResolvedValue([
+      { ...mockYtTrack, id: 'yt_normal', originalId: 'normal', title: 'Not Like Us', artist: 'Kendrick Lamar', duration: 232 }
+    ]);
+    vi.spyOn(youtubeService, 'searchVideos').mockResolvedValue([]);
+    const ytResolve = vi.spyOn(youtubeService, 'resolveStreamUrl');
+
+    await expect(resolver.resolve(scTrack)).rejects.toThrow();
+    expect(ytResolve).not.toHaveBeenCalled();
+  });
+
   it('когда песни нет и на YouTube, ошибка остаётся честной', async () => {
     const scTrack: UnifiedTrack = {
       id: 'sc_nowhere',
