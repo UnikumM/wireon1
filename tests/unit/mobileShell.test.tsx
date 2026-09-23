@@ -342,11 +342,17 @@ describe('Настройки', () => {
   });
 
   it('разделы, которым нужен настольный мост, на телефоне не предлагаются', () => {
-    // Плашка была, а панель за ней пустовала: оба раздела ничего не рисуют без
+    // Плашка была, а панель за ней пустовала: раздел ничего не рисует без
     // `window.electronAPI`.
     render(<MobileSettingsView />);
     expect(screen.queryByTestId('mobile-settings-row-desktop')).toBeNull();
-    expect(screen.queryByTestId('mobile-settings-row-diagnostics')).toBeNull();
+  });
+
+  it('«Диагностика» на телефоне — журнал попыток, а не пустая настольная панель', () => {
+    render(<MobileSettingsView />);
+    fireEvent.click(screen.getByTestId('mobile-settings-row-diagnostics'));
+    expect(screen.getByTestId('settings-section-resolve-log')).toBeInTheDocument();
+    expect(screen.queryByTestId('diagnostics-log')).toBeNull();
   });
 
   it('раздел открывается своей страницей с возвратом', () => {

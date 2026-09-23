@@ -25,6 +25,7 @@ import { OfflineSettings } from '../settings/OfflineSettings';
 import { AccountSettings } from '../settings/AccountSettings';
 import { DesktopSettings } from '../settings/DesktopSettings';
 import { DiagnosticsSettings } from '../settings/DiagnosticsSettings';
+import { ResolveLogSettings } from '../settings/ResolveLogSettings';
 import { ShortcutsSettings } from '../settings/ShortcutsSettings';
 import { MobileUpdateSection } from '../settings/MobileUpdateSection';
 import { AboutSettings } from '../settings/AboutSettings';
@@ -156,6 +157,15 @@ export const MobileSettingsView: React.FC = () => {
         hint: 'Что происходит под капотом',
         icon: <Stethoscope size={ICON.lg} />,
         render: () => <DiagnosticsSettings />
+      });
+    } else {
+      // На телефоне своего журнала у главного процесса нет — есть журнал попыток.
+      entries.push({
+        id: 'diagnostics',
+        label: 'Диагностика',
+        hint: 'Почему трек не играет',
+        icon: <Stethoscope size={ICON.lg} />,
+        render: () => <ResolveLogSettings />
       });
     }
     entries.push({

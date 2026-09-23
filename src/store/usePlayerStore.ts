@@ -8,6 +8,7 @@ import { audioEngine, MIN_PLAYBACK_RATE, MAX_PLAYBACK_RATE } from '../services/a
 import { MediaSessionService } from '../services/mediaSession';
 import { streamResolver } from '../services/streamResolver';
 import { describePlaybackError } from '../services/playbackErrors';
+import { recordResolve } from '../services/resolveLog';
 import { searchAggregator } from '../services/aggregator';
 import { recommendationEngine, deriveWaveMood, clampAxis } from '../services/recommendationEngine';
 import { offlineMode } from '../services/offlineMode';
@@ -1874,6 +1875,17 @@ if (typeof window !== 'undefined') {
   audioEngine.onError((err) => {
     const track = usePlayerStore.getState().currentTrack;
     usePlayerStore.setState(errorPatch(err, track?.source));
+    // Ссылка получена, а звук не пошёл (HLS не открылся, раздача ответила
+    // отказом) — в журнал телефона, рядом с попытками получить ссылку.
+    if (track && detectPlatform() === 'mobile') {
+      recordResolve({
+        source: track.source,
+        title: `${track.artist ? `${track.artist} — ` : ''}${track.title}`,
+        ms: 0,
+        ok: false,
+        detail: `воспроизведение: ${err instanceof Error ? err.message : String(err)}`
+      });
+    }
   });
 
   audioEngine.onEnded(() => {

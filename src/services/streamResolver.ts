@@ -5,6 +5,7 @@ import { detectVariants, normalizeForMatch, rankCandidates, scoreCandidate } fro
 import { db, getSetting, setSetting } from './db';
 import { findLink, forgetLink, rememberLink } from './matchLinks';
 import { detectPlatform } from './nativeBridge';
+import { recordResolve } from './resolveLog';
 import { objectUrlFor, trackFileUrl } from './offlineFiles';
 import { needsLocalSource } from './audioProcessing';
 import { cacheStreamToFile } from './streamCache';
@@ -85,6 +86,21 @@ export const SOURCE_TIMEOUT_MS = 30000;
  */
 export const SOURCE_TIMEOUT_MOBILE_MS = 90000;
 
+/**
+ * SoundCloud на телефоне ждём не 90 секунд, а 25.
+ *
+ * Девяносто взяты под YouTube, где телефон ждёт Python на сервере. У SoundCloud
+ * ссылка — это пара обычных запросов к api-v2 по шесть секунд потолка каждый;
+ * если за 25 секунд не вышло, дальше ждать бессмысленно, а человек всё это
+ * время смотрел на крутилку, и только потом включалась замена с YouTube. Отсюда
+ * «треки с SoundCloud грузятся очень долго».
+ */
+export const SOUNDCLOUD_TIMEOUT_MOBILE_MS = 25000;
+
+function soundCloudTimeoutMs(): number {
+  return detectPlatform() === 'mobile' ? SOUNDCLOUD_TIMEOUT_MOBILE_MS : SOURCE_TIMEOUT_MS;
+}
+
 /** На подмену времени меньше: человек к этому моменту ждёт уже вдвое дольше обычного. */
 export const SUBSTITUTE_TIMEOUT_MS = 15000;
 
@@ -96,6 +112,15 @@ function sourceTimeoutMs(): number {
   return detectPlatform() === 'mobile' ? SOURCE_TIMEOUT_MOBILE_MS : SOURCE_TIMEOUT_MS;
 }
 
+
+/** Что сыграло — одной строкой для журнала. */
+function describeResult(result: ResolvedStreamInfo): string {
+  const parts = [result.format || '?'];
+  if (result.substitutedFrom) parts.push(`замена с ${result.substitutedFrom}`);
+  if (result.isPreview) parts.push('отрывок');
+  if (/^(capacitor|file|https?:\/\/localhost)/i.test(result.streamUrl || '')) parts.push('из файла');
+  return parts.join(', ');
+}
 
 /** По этому тексту выше видно, что источник промолчал, а не отказал. */
 export const RESOLVE_TIMEOUT_MESSAGE = 'Source did not answer in time';
@@ -298,16 +323,48 @@ export class StreamResolver {
       return inFlight;
     }
 
-    const resolutionPromise = this.performResolution(track, priority, rejectUrl).finally(() => {
-      this.inFlightResolutions.delete(track.id);
-      this.inFlightPriority.delete(track.id);
-    });
+    const startedAt = Date.now();
+    const resolutionPromise = this.performResolution(track, priority, rejectUrl)
+      .then(
+        (result) => {
+          this.logAttempt(track, priority, startedAt, true, describeResult(result));
+          return result;
+        },
+        (err) => {
+          this.logAttempt(track, priority, startedAt, false, err instanceof Error ? err.message : String(err));
+          throw err;
+        }
+      )
+      .finally(() => {
+        this.inFlightResolutions.delete(track.id);
+        this.inFlightPriority.delete(track.id);
+      });
 
     // The map holds the same promise every caller awaits, so a rejection is
     // always observed by at least the caller that started the resolution.
     this.inFlightResolutions.set(track.id, resolutionPromise);
     this.inFlightPriority.set(track.id, priority);
     return resolutionPromise;
+  }
+
+  /**
+   * Запись в журнал попыток — только на телефоне: на компьютере свой, подробнее,
+   * ведёт главный процесс.
+   */
+  private logAttempt(track: UnifiedTrack, priority: ResolvePriority, startedAt: number, ok: boolean, detail: string): void {
+    if (detectPlatform() !== 'mobile') return;
+    try {
+      recordResolve({
+        source: track.source,
+        title: `${track.artist ? `${track.artist} — ` : ''}${track.title}`,
+        ms: Date.now() - startedAt,
+        ok,
+        detail,
+        prefetch: priority === 'prefetch'
+      });
+    } catch {
+      // Журнал — не повод уронить воспроизведение.
+    }
   }
 
   /**
@@ -382,7 +439,7 @@ export class StreamResolver {
           this.scService.resolveStreamUrl(track.originalId, undefined, undefined, {
             preferKnownFallback: fallbackKnown
           }),
-          sourceTimeoutMs(),
+          soundCloudTimeoutMs(),
           `soundcloud ${track.originalId}`
         );
         // Тридцатисекундный отрывок — это не трек. Раньше он доезжал до
