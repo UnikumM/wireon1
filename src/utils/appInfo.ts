@@ -7,7 +7,7 @@
  */
 import { detectPlatform } from '../services/nativeBridge';
 
-export const APP_VERSION = '2.2.5';
+export const APP_VERSION = '2.2.6';
 
 const PLATFORM_NAMES: Record<string, string> = {
   win32: 'Windows',
