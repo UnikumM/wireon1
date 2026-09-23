@@ -10,7 +10,7 @@ import {
   pickTextOnAccent,
   type ThemeDepth
 } from '../../styles/palette';
-import { designVars, findPreset } from '../../styles/presets';
+import { designVars, findPreset, TINT_OPTIONS, type TintOverride } from '../../styles/presets';
 import { VisualizerPreset } from '../../types/visualizer';
 
 /** Russian names for the presets, in the order they appear in the picker. */
@@ -62,6 +62,7 @@ export const AppearanceSettings: React.FC = () => {
   const setAccent = useThemeStore((s) => s.setAccent);
   const setCustomAccent = useThemeStore((s) => s.setCustomAccent);
   const setDepth = useThemeStore((s) => s.setDepth);
+  const setOverride = useThemeStore((s) => s.setOverride);
 
   const accentHex = resolveAccentHex({ accentId, customAccentHex });
 
@@ -240,6 +241,29 @@ export const AppearanceSettings: React.FC = () => {
           Цвет применён — но текст на акцентных кнопках будет бледным.
         </p>
       )}
+
+      <SettingRow
+        label="Оттенок фона"
+        controlId="setting-accent-tint"
+        description="Фон и панели берут тон акцента. Меняется только цвет, не яркость — текст читается так же."
+      >
+        <select
+          id="setting-accent-tint"
+          value={overrides.tint ?? 'off'}
+          aria-describedby="setting-accent-tint-description"
+          onChange={(e) => {
+            const value = e.target.value as TintOverride;
+            setOverride('tint', value === 'off' ? null : value);
+          }}
+          data-testid="settings-accent-tint"
+        >
+          {TINT_OPTIONS.map((option) => (
+            <option key={option.id} value={option.id} title={option.description}>
+              {option.label}
+            </option>
+          ))}
+        </select>
+      </SettingRow>
 
       <div className="divider" role="presentation" />
 

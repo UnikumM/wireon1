@@ -1,4 +1,4 @@
-import { hexToRgba, hslToHex, type ThemeDepth } from './palette';
+import { hexToHsl, hexToRgba, hslToHex, normalizeHex, relativeLuminance, type ThemeDepth } from './palette';
 import { type FontId } from './typography';
 import { type PlayerSkinId } from './playerSkins';
 
@@ -326,9 +326,55 @@ export interface DesignOverrides {
    * значит разное. Двигает всю лестницу разом, чтобы иерархия не рассыпалась.
    */
   contrast: ContrastOverride | null;
+  /**
+   * Оттенок акцента в фоне и панелях. `null` — как в пресете, то есть без него.
+   *
+   * Только оттенок, а не своя тема из акцента: яркость поверхностей остаётся
+   * пресетной, поэтому лестница контраста текста (и её тест) держится, какой
+   * бы цвет человек ни выбрал.
+   */
+  tint: TintOverride | null;
 }
 
 export type ContrastOverride = 'normal' | 'high' | 'max';
+
+export type TintOverride = 'off' | 'soft' | 'rich';
+
+export const TINT_OPTIONS: readonly { id: TintOverride; label: string; description: string }[] = [
+  { id: 'off', label: 'Нет', description: 'Фон нейтральный, как в пресете' },
+  { id: 'soft', label: 'Слегка', description: 'Фон и панели чуть отдают цветом акцента' },
+  { id: 'rich', label: 'Заметно', description: 'Цвет акцента виден во всём фоне' }
+];
+
+/**
+ * Насыщенность поверхностей при оттенке — нижняя граница, а не прибавка:
+ * у пресета, который и так цветной, оттенок меняет тон, а не красит вдвое.
+ * Яркость не трогается вовсе.
+ */
+const TINT_SATURATION: Readonly<Record<TintOverride, number>> = {
+  off: 0,
+  soft: 16,
+  rich: 30
+};
+
+export function isTintOverride(value: unknown): value is TintOverride {
+  return typeof value === 'string' && value in TINT_SATURATION;
+}
+
+/**
+ * Пресет, у которого фон взял тон акцента.
+ *
+ * Серый акцент (насыщенность ниже 8%) тона не несёт: взятый из него «тон»
+ * был бы случайным числом, поэтому такой акцент фон не трогает.
+ */
+function tintedPreset(preset: DesignPreset, accentHex: string, tint: TintOverride | null): DesignPreset {
+  if (!tint || tint === 'off') return preset;
+  const hex = normalizeHex(accentHex);
+  if (!hex) return preset;
+  const accent = hexToHsl(hex);
+  if (accent.s < 8) return preset;
+  return { ...preset, hue: accent.h, sat: Math.max(preset.sat, TINT_SATURATION[tint]) };
+}
 
 /**
  * Ручка идёт только вверх, и это не упущение.
@@ -367,7 +413,8 @@ export const NO_OVERRIDES: DesignOverrides = {
   particles: null,
   glass: null,
   grain: null,
-  contrast: null
+  contrast: null,
+  tint: null
 };
 
 /** Готовые лестницы скруглений для ручного выбора. */
@@ -489,19 +536,39 @@ function surfaceSat(sat: number, index: number, light: boolean): number {
   return Math.max(0, sat * fade);
 }
 
-function surfaceRamp(preset: DesignPreset, depth: DepthBase): Record<string, string> {
+function surfaceRamp(preset: DesignPreset, depth: DepthBase, neutral: DesignPreset = preset): Record<string, string> {
   const out: Record<string, string> = {};
   SURFACE_STOPS.forEach((stop, index) => {
     const lightness = depth.base + stop * depth.step * preset.lift;
-    out[SURFACE_NAMES[index]] = hslToHex({
-      h: preset.hue,
-      s: surfaceSat(preset.sat, index, depth.light),
-      // Ниже 1.2% цвета сливаются в чистый чёрный и подтон теряется, выше 99.6%
-      // белые панели перестают отличаться друг от друга.
-      l: Math.min(99.6, Math.max(1.2, lightness))
-    });
+    // Ниже 1.2% цвета сливаются в чистый чёрный и подтон теряется, выше 99.6%
+    // белые панели перестают отличаться друг от друга.
+    const l = Math.min(99.6, Math.max(1.2, lightness));
+    const plain = hslToHex({ h: neutral.hue, s: surfaceSat(neutral.sat, index, depth.light), l });
+    out[SURFACE_NAMES[index]] =
+      preset === neutral
+        ? plain
+        : matchLuminance({ h: preset.hue, s: surfaceSat(preset.sat, index, depth.light) }, relativeLuminance(plain));
   });
   return out;
+}
+
+/**
+ * Цвет заданного тона с той же яркостью для глаза, что у образца.
+ *
+ * Одинаковая светлота HSL — не одинаковая яркость: жёлтый и зелёный при том же
+ * L заметно светлее синего. Оттенок фона с тем же L поднимал подложку, и на
+ * «Стали» тихие подписи падали ниже порога контраста. Поэтому светлота
+ * подбирается делением пополам под яркость нейтральной поверхности.
+ */
+function matchLuminance(color: { h: number; s: number }, target: number): string {
+  let low = 0;
+  let high = 100;
+  for (let i = 0; i < 24; i += 1) {
+    const mid = (low + high) / 2;
+    if (relativeLuminance(hslToHex({ ...color, l: mid })) < target) low = mid;
+    else high = mid;
+  }
+  return hslToHex({ ...color, l: (low + high) / 2 });
 }
 
 /* ==========================================================================
@@ -632,9 +699,12 @@ export function resolveDepth(presetId: PresetId, depth: ThemeDepth): ThemeDepth 
  * а применяет их `designService` — единственное место, которое трогает `<html>`.
  */
 export function designVars(selection: DesignSelection): Record<string, string> {
-  const preset = findPreset(selection.presetId);
-  const depth = DEPTH_BASES[resolveDepth(preset.id, selection.depth)] ?? DEPTH_BASES.dusk;
   const { overrides } = selection;
+  const basePreset = findPreset(selection.presetId);
+  const depth = DEPTH_BASES[resolveDepth(basePreset.id, selection.depth)] ?? DEPTH_BASES.dusk;
+  // Оттенок акцента меняет только тон и насыщенность поверхностей; всё прочее
+  // (яркость, текст, радиусы) считается от пресета как было.
+  const preset = tintedPreset(basePreset, selection.accentHex, overrides.tint ?? null);
 
   const radius = overrides.radius ? RADIUS_SCALES[overrides.radius] : preset.radius;
   const density = overrides.density ? DENSITY_FACTORS[overrides.density] : preset.density;
@@ -647,7 +717,8 @@ export function designVars(selection: DesignSelection): Record<string, string> {
   const veil = (alpha: number) =>
     depth.light ? `rgba(11, 15, 22, ${alpha.toFixed(3)})` : `rgba(255, 255, 255, ${alpha.toFixed(3)})`;
 
-  const textSat = Math.min(18, preset.sat * 0.5);
+  // Текст — от пресета без оттенка: цветной подтон в подписях читался бы хуже.
+  const textSat = Math.min(18, basePreset.sat * 0.5);
   /*
    * Сдвиг ступеней текста. На тёмном «контрастнее» означает светлее, на
    * светлом — темнее, поэтому знак зависит от глубины, а не от пресета.
@@ -657,11 +728,20 @@ export function designVars(selection: DesignSelection): Record<string, string> {
     const shifted = shiftable
       ? lightness + (depth.light ? -contrastShift : contrastShift)
       : lightness;
-    return hslToHex({ h: preset.hue, s: textSat, l: Math.max(4, Math.min(96, shifted)) });
+    return hslToHex({ h: basePreset.hue, s: textSat, l: Math.max(4, Math.min(96, shifted)) });
+  };
+
+  // Подложка стекла — тот же приём, что у поверхностей: тон от оттенка, яркость
+  // от пресета без него.
+  const glassTone = (index: number, l: number): string => {
+    const plain = hslToHex({ h: basePreset.hue, s: surfaceSat(basePreset.sat, index, depth.light), l });
+    return preset === basePreset
+      ? plain
+      : matchLuminance({ h: preset.hue, s: surfaceSat(preset.sat, index, depth.light) }, relativeLuminance(plain));
   };
 
   const vars: Record<string, string> = {
-    ...surfaceRamp(preset, depth),
+    ...surfaceRamp(preset, depth, basePreset),
     ...shadowVars(preset.shadow, depth.light, selection.accentHex),
     ...EASE_SETS[preset.ease],
 
@@ -704,14 +784,8 @@ export function designVars(selection: DesignSelection): Record<string, string> {
     // показывает сквозь себя текст, и читать нельзя ни то, ни другое. Поэтому при
     // выключенном стекле подложка становится почти плотной.
     '--glass-blur': glassOn ? `blur(${preset.glassBlur}px) saturate(${depth.light ? 130 : 150}%)` : 'none',
-    '--glass-bg': hexToRgba(
-      hslToHex({ h: preset.hue, s: surfaceSat(preset.sat, 2, depth.light), l: depth.base + depth.step * preset.lift }),
-      glassOn ? preset.glassAlpha : 0.97
-    ),
-    '--glass-bg-strong': hexToRgba(
-      hslToHex({ h: preset.hue, s: surfaceSat(preset.sat, 1, depth.light), l: depth.base }),
-      glassOn ? Math.min(0.96, preset.glassAlpha + 0.16) : 0.99
-    ),
+    '--glass-bg': hexToRgba(glassTone(2, depth.base + depth.step * preset.lift), glassOn ? preset.glassAlpha : 0.97),
+    '--glass-bg-strong': hexToRgba(glassTone(1, depth.base), glassOn ? Math.min(0.96, preset.glassAlpha + 0.16) : 0.99),
     '--glass-border': veil(Math.max(0.06, preset.borderAlpha * 1.4)),
     '--glass-highlight': depth.light
       ? 'inset 0 1px 0 rgba(255, 255, 255, 0.9)'
