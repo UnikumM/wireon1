@@ -9,6 +9,7 @@ import discordRpc, { DiscordRpcClient, DiscordActivityPayload } from './discordR
 import { StreamResolver, normalizeCookieBrowser } from './streamResolver.js';
 import { AudioTranscoder, normalizeBitrate } from './transcoder.js';
 import { YtDlpManager } from './ytdlp.js';
+import { ensureWorkerPlugin, YtDlpWorkerPool, type YtDlpRunResult } from './ytdlpWorker.js';
 import { DISCORD_AUTH_SCHEME, runDiscordLogin } from './authWindow.js';
 import {
   createUpdateService,
@@ -560,7 +561,24 @@ export function getYtDlpBinaryPath(): string {
   return getYtDlpManager().getBinaryPath();
 }
 
-type YtdlFn = (url: string, flags: Record<string, unknown>) => Promise<unknown>;
+type YtdlFn = (url: string, flags: Record<string, unknown>, options?: Record<string, unknown>) => Promise<unknown>;
+
+/**
+ * JS-движок для задачек YouTube — Node, который уже есть внутри Electron.
+ *
+ * Без JS-движка yt-dlp не решает задачки плеера YouTube (подпись и параметр
+ * `n`): часть форматов не отдаётся, и резолвер перебирает клиентов один за
+ * другим — отсюда и секунды ожидания, и отказы. В логе это видно строкой
+ * `JS runtimes: none`. Ставить людям Deno или Node ради этого незачем: сам
+ * Electron с `ELECTRON_RUN_AS_NODE=1` — это Node 24, и yt-dlp его принимает
+ * (проверено: `JS runtimes: node-24.18.1`, запуск с `--permission` чистый).
+ */
+export function jsRuntimeFlag(execPath: string = process.execPath, versions: NodeJS.ProcessVersions = process.versions): string | null {
+  if (!versions.electron || !execPath) return null;
+  return `node:${execPath}`;
+}
+
+export const JS_RUNTIME_ENV: Readonly<Record<string, string>> = { ELECTRON_RUN_AS_NODE: '1' };
 
 let ytdlBinding: { exe: string; run: YtdlFn } | null = null;
 
@@ -571,7 +589,7 @@ let ytdlBinding: { exe: string; run: YtdlFn } | null = null;
  * начал бы работать только после перезапуска приложения, а весь смысл в том,
  * чтобы починка доехала до человека сразу.
  */
-function getYtdl(): YtdlFn {
+function getSpawningYtdl(): YtdlFn {
   const exe = getYtDlpBinaryPath();
   if (!ytdlBinding || ytdlBinding.exe !== exe) {
     ytdlBinding = {
@@ -580,6 +598,65 @@ function getYtdl(): YtdlFn {
     };
   }
   return ytdlBinding.run;
+}
+
+let ytDlpWorkerPool: YtDlpWorkerPool | null = null;
+
+/** Исполнители yt-dlp (см. ytdlpWorker.ts). Лениво — нужен userData. */
+function getYtDlpWorkerPool(): YtDlpWorkerPool {
+  if (!ytDlpWorkerPool) {
+    let stateDir: string | null = null;
+    try {
+      stateDir = app && typeof app.getPath === 'function' ? app.getPath('userData') : null;
+    } catch {
+      stateDir = null;
+    }
+    ytDlpWorkerPool = new YtDlpWorkerPool({
+      pluginDir: ensureWorkerPlugin(stateDir),
+      log: (message: string) => getStreamResolver().log(`yt-dlp: ${message}`),
+      env: { ...JS_RUNTIME_ENV },
+    });
+  }
+  return ytDlpWorkerPool;
+}
+
+/** Флаги в аргументы — той же функцией, что у `youtube-dl-exec`, чтобы не разойтись. */
+function ytdlArgs(flags: Record<string, unknown>): string[] {
+  const convert = (youtubedl as unknown as { args?: (flags: Record<string, unknown>) => string[] }).args;
+  if (typeof convert !== 'function') throw new Error('youtube-dl-exec без args()');
+  return convert(flags);
+}
+
+/** Разбор ответа — как `parse` у `youtube-dl-exec`: вызывающий не должен видеть разницы. */
+export function parseYtdlResult(result: YtDlpRunResult): unknown {
+  const stdout = result.stdout.trim();
+  if (result.code === 0) return stdout.startsWith('{') ? JSON.parse(stdout) : stdout;
+  const stderr = result.stderr.trim();
+  throw Object.assign(new Error(stderr), { stderr, stdout, exitCode: result.code });
+}
+
+/**
+ * Разбор ссылки: через постоянный исполнитель, а если он недоступен или умер
+ * на запросе — обычным запуском, как раньше.
+ */
+function getYtdl(): YtdlFn {
+  return async (url, flags) => {
+    const exe = getYtDlpBinaryPath();
+    const jsRuntime = jsRuntimeFlag();
+    let viaWorker: YtDlpRunResult | null = null;
+    try {
+      const withRuntime = jsRuntime ? { ...flags, jsRuntimes: jsRuntime } : flags;
+      viaWorker = await getYtDlpWorkerPool().run(exe, [url, ...ytdlArgs(withRuntime)]);
+    } catch (error) {
+      getStreamResolver().log(`yt-dlp: исполнитель подвёл, запускаем обычно (${error instanceof Error ? error.message : String(error)})`);
+    }
+    if (viaWorker) return parseYtdlResult(viaWorker);
+    // Обычный запуск на Windows с пробелом в пути идёт через оболочку, и путь к
+    // движку с пробелом она бы разрезала: там обходимся без движка, как раньше.
+    const shellSplits = process.platform === 'win32' && (/\s/.test(exe) || /\s/.test(process.execPath));
+    if (!jsRuntime || shellSplits) return getSpawningYtdl()(url, flags);
+    return getSpawningYtdl()(url, { ...flags, jsRuntimes: jsRuntime }, { env: { ...process.env, ...JS_RUNTIME_ENV } });
+  };
 }
 
 let streamResolver: StreamResolver | null = null;
@@ -2363,6 +2440,7 @@ if (app) {
       updateService?.installOnQuit();
       updateService?.dispose();
       ytDlpManager?.dispose();
+      ytDlpWorkerPool?.dispose();
     });
   }
 }
