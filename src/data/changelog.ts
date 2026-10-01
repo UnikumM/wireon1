@@ -33,6 +33,18 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ReadonlyArray<ChangelogEntry> = [
   {
+    version: '2.2.8',
+    date: '2026-10-01',
+    headline: 'Заставка на телефоне без серой кнопки',
+    items: [
+      {
+        kind: 'fix',
+        title: 'Перед заставкой больше не мелькает серая кнопка «play»',
+        detail: 'Это была заглушка самого Android, пока ролик грузился. Теперь до первого кадра виден только ровный фон.'
+      }
+    ]
+  },
+  {
     version: '2.2.7',
     date: '2026-10-01',
     headline: 'Синхронизация снова работает, SoundCloud на телефоне играет, новый логотип',
