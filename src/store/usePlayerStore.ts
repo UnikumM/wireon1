@@ -713,7 +713,10 @@ export const usePlayerStore = create<PlayerStore>((set, get) => {
           // момент, когда человек действительно попросил играть, — и ставим на ту
           // же секунду, где он закрыл приложение.
           const loaded = audioEngine.getCurrentTrack();
-          if (!loaded || loaded.id !== state.currentTrack.id) {
+          // После отказа элемент стоит в ошибке, и play() по нему отвечает только
+          // «has no supported sources» — так «нажмите ещё раз» не помогало
+          // никогда. Открываем трек заново: `load` сам возьмёт свежую ссылку.
+          if (!loaded || loaded.id !== state.currentTrack.id || state.playbackState === 'error') {
             const resumeAt = state.resumePosition ?? state.currentTime ?? 0;
             set({ playbackState: 'loading', isLoading: true });
             await audioEngine.load(state.currentTrack, true);

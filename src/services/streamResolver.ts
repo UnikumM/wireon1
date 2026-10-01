@@ -8,7 +8,7 @@ import { detectPlatform } from './nativeBridge';
 import { recordResolve } from './resolveLog';
 import { objectUrlFor, trackFileUrl } from './offlineFiles';
 import { needsLocalSource } from './audioProcessing';
-import { cachePathFromUrl, cachedStreamExists, cacheStreamToFile } from './streamCache';
+import { cachePathFromUrl, cachedStreamExists, cacheStreamToFile, deleteCachedStream } from './streamCache';
 
 export interface ResolvedStreamInfo {
   streamUrl: string;
@@ -857,8 +857,13 @@ export class StreamResolver {
    * Removes a single track from cache
    */
   public invalidate(trackId: string): void {
+    // Запись выбрасывают, когда по ней не играет. Файл за ней мог быть и не
+    // звуком — оставь его, и следующий разбор с тем же именем лёг бы рядом.
+    const entry = this.cache.get(trackId);
+    if (entry && cachePathFromUrl(entry.streamUrl)) void deleteCachedStream(entry.streamUrl);
     this.cache.delete(trackId);
     this.failedPrefetches.delete(trackId);
+    this.schedulePersist();
   }
 }
 

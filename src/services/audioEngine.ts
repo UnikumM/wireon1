@@ -111,6 +111,20 @@ export function isBenignPlayInterruption(err: unknown): boolean {
   );
 }
 
+/**
+ * Отказ самого источника при запуске: элемент не смог открыть адрес.
+ *
+ * Обе формулировки Chromium — из журнала телефона владельца: «Failed to load
+ * because no supported source was found» (отказ при загрузке) и «The element
+ * has no supported sources» (play() по элементу, уже стоящему в ошибке). Так
+ * выглядит любая мёртвая ссылка — 403 раздачи, исчезнувший или битый файл, —
+ * и лечится она одинаково: свежей ссылкой.
+ */
+export function isSourceLoadFailure(err: unknown): boolean {
+  const message = (err instanceof Error ? err.message : String(err ?? '')).toLowerCase();
+  return message.includes('no supported source') || message.includes('has no supported sources');
+}
+
 export class AudioEngine implements IAudioEngine {
   private audioA: HTMLAudioElement;
   private audioB: HTMLAudioElement;
@@ -182,6 +196,8 @@ export class AudioEngine implements IAudioEngine {
   private boundProgress: (e?: Event) => void;
   private boundEnded: (e?: Event) => void;
   private boundError: (e: Event) => void;
+  /** Какая загрузка сейчас сама разбирает отказ своего источника (см. `load`). */
+  private startingLoadId: number | null = null;
   private boundPlaying: (e?: Event) => void;
   private boundPause: (e?: Event) => void;
   private boundWaiting: (e?: Event) => void;
@@ -692,15 +708,18 @@ export class AudioEngine implements IAudioEngine {
         secondaryGain.gain.setValueAtTime(0.0, ctxTime);
       }
 
-      if (activeAudio) {
-        if (streamFormat === 'hls' || isHlsUrl(streamUrl)) {
-          const handle = await attachHls(activeAudio, streamUrl, {
-            onError: (err: Error) => this.handleHlsRuntimeError(err, streamUrl as string)
+      /** Вешает адрес на активную деку; `false` — пока вешали, включили другое. */
+      const attach = async (url: string, format: string | undefined): Promise<boolean> => {
+        if (!activeAudio) return true;
+        this.destroyHlsForDeck(this.activeDeck);
+        if (format === 'hls' || isHlsUrl(url)) {
+          const handle = await attachHls(activeAudio, url, {
+            onError: (err: Error) => this.handleHlsRuntimeError(err, url)
           });
 
           if (currentLoadId !== this.loadRequestId) {
             handle.destroy();
-            return;
+            return false;
           }
           if (this.activeDeck === 'A') {
             this.hlsHandleA = handle;
@@ -708,19 +727,61 @@ export class AudioEngine implements IAudioEngine {
             this.hlsHandleB = handle;
           }
         } else {
-          activeAudio.src = streamUrl;
+          activeAudio.src = url;
           activeAudio.load();
           // The load algorithm resets playbackRate, so the chosen speed is re-applied.
           this.applyPlaybackRate();
         }
-      }
+        return true;
+      };
+
+      if (!(await attach(streamUrl, streamFormat))) return;
+      // Отказ при запуске разбирает `load` — одной свежей ссылкой. Без этого на то же
+      // событие `error` параллельно поднималось восстановление обрыва, и трек
+      // разбирался дважды.
+      if (autoPlay) this.startingLoadId = currentLoadId;
 
       if (autoPlay) {
         // Заводим до `play()`: его промис разрешается только когда звук
         // действительно пошёл, так что при мёртвой ссылке ждать здесь можно
         // бесконечно, и завести сторож после уже не выйдет.
         this.startLoadWatchdog(currentLoadId);
-        await this.play();
+        try {
+          // Без собственного сообщения об ошибке: о провале скажет `catch` ниже,
+          // один раз. Раньше говорили оба, и каждый отказ ложился в журнал дважды.
+          await this.startPlayback(false);
+        } catch (err) {
+          if (currentLoadId !== this.loadRequestId || !isSourceLoadFailure(err)) throw err;
+
+          /*
+           * Ссылка есть, а звук не открылся — один раз берём свежую сами.
+           *
+           * Так на телефоне «ничего не играло»: запись в кэше ссылок (файл,
+           * переставший быть звуком, или прямая ссылка YouTube, привязанная к
+           * прежнему адресу сети) живёт часами и переживает перезапуск, и каждое
+           * нажатие отдавало ту же мёртвую ссылку — по журналу владельца шесть–
+           * девять отказов подряд на одном треке за 0,0 с, без единого похода за
+           * новой. `invalidate` выбрасывает и запись, и её файл; сломанный адрес
+           * уходит как «не этот».
+           */
+          const broken = activeAudio?.currentSrc || streamUrl;
+          this.noteToLog(`ссылка для «${track.title || track.id}» не открылась — беру свежую`);
+          this.resolver.invalidate(track.id);
+          const fresh = await this.resolver.resolve(track, true, 'user', broken);
+          if (currentLoadId !== this.loadRequestId) return;
+          this.currentTrack = {
+            ...this.currentTrack,
+            streamUrl: fresh.streamUrl,
+            streamExpiry: fresh.expiresAt,
+            format: fresh.format,
+            bitrate: fresh.bitrate,
+            isPreview: fresh.isPreview === true,
+            substitutedFrom: fresh.substitutedFrom
+          };
+          if (!(await attach(fresh.streamUrl, fresh.format))) return;
+          this.startLoadWatchdog(currentLoadId);
+          await this.startPlayback(false);
+        }
       }
     } catch (err: unknown) {
       if (currentLoadId !== this.loadRequestId) return;
@@ -728,6 +789,8 @@ export class AudioEngine implements IAudioEngine {
       this.setState('error');
       this.emitError(err instanceof Error ? err : new Error(String(err)));
       throw err;
+    } finally {
+      if (this.startingLoadId === currentLoadId) this.startingLoadId = null;
     }
   }
 
@@ -911,6 +974,11 @@ export class AudioEngine implements IAudioEngine {
    * Resumes or starts playback
    */
   public async play(): Promise<void> {
+    return this.startPlayback(true);
+  }
+
+  /** `emitErrors: false` — о провале скажет вызывающий (см. `load`). */
+  private async startPlayback(emitErrors: boolean): Promise<void> {
     this.initAudioGraph();
 
     if (this.audioContext && this.audioContext.state === 'suspended') {
@@ -943,7 +1011,7 @@ export class AudioEngine implements IAudioEngine {
         this.setState('error');
         const message = err instanceof Error ? err.message : String(err);
         const error = new Error(`Audio playback failed: ${message}`);
-        this.emitError(error);
+        if (emitErrors) this.emitError(error);
         throw error;
       }
     }
@@ -1593,6 +1661,9 @@ export class AudioEngine implements IAudioEngine {
       // MEDIA_ERR_ABORTED - User / code switched track, not a fatal failure
       return;
     }
+
+    // Идёт запуск: его отказ разберёт сам `load`.
+    if (this.startingLoadId !== null && this.startingLoadId === this.loadRequestId) return;
 
     const errorReason = activeAudio?.error
       ? `MediaError [${activeAudio.error.code}]: ${activeAudio.error.message || 'Stream error'}`

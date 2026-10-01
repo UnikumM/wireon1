@@ -123,7 +123,16 @@ export async function cacheStreamToFile(
 
     const { uri } = await Filesystem.getUri({ path, directory: CACHE_DIRECTORY });
     void pruneStreamCache();
-    return Capacitor.convertFileSrc(uri);
+    /*
+     * Метка в адресе — у каждой копии файла свой адрес.
+     *
+     * Имя файла от трека постоянное, а медиадвижок Chromium помнит неудачу по
+     * адресу: после битого файла заново скачанный, целый, по тому же адресу
+     * элемент не перечитывал и отвечал прежним DEMUXER_ERROR (замерено на
+     * эмуляторе). Сервер файлов Capacitor запрос после `?` не смотрит, а
+     * `cachePathFromUrl` его отрезает.
+     */
+    return `${Capacitor.convertFileSrc(uri)}?v=${Date.now()}`;
   } catch (err) {
     if ((err as Error)?.name !== 'AbortError') {
       console.warn('[StreamCache] не удалось положить трек в кэш:', err);
@@ -166,6 +175,13 @@ export async function cachedStreamExists(url: string | null | undefined): Promis
   } catch {
     return false;
   }
+}
+
+/** Удаляет файл, на который указывает адрес из кэша ссылок. Не наш адрес — ничего. */
+export async function deleteCachedStream(url: string | null | undefined): Promise<void> {
+  const path = cachePathFromUrl(url);
+  if (!path || !available()) return;
+  await Filesystem.deleteFile({ path, directory: CACHE_DIRECTORY }).catch(() => undefined);
 }
 
 /** Убирает весь кэш — вызывается вместе с очисткой данных приложения. */

@@ -86,6 +86,44 @@ describe('AudioEngine DSP & Playback Core', () => {
     expect(stateChanges).toContain('playing');
   });
 
+  it('мёртвая ссылка при запуске — движок сам берёт свежую, ошибка не всплывает', async () => {
+    // Журнал телефона владельца: шесть–девять отказов подряд на одном треке за
+    // 0,0 с — каждое нажатие отдавало ту же запись из кэша ссылок.
+    (mockResolver.resolve as any)
+      .mockResolvedValueOnce({ streamUrl: 'https://localhost/_capacitor_file_/cache/stream-cache/yt_test123.m4a', format: 'm4a', bitrate: 128, expiresAt: Date.now() + 3600_000, cached: true })
+      .mockResolvedValueOnce({ streamUrl: 'https://googlevideo.com/fresh', format: 'm4a', bitrate: 128, expiresAt: Date.now() + 3600_000, cached: false });
+    mockAudio.play
+      .mockRejectedValueOnce(new Error('Failed to load because no supported source was found.'))
+      .mockResolvedValueOnce(undefined);
+    const invalidate = vi.spyOn(mockResolver, 'invalidate');
+    const errors: Error[] = [];
+    engine.onError((e) => errors.push(e));
+
+    await engine.load(mockTrack, true);
+
+    expect(invalidate).toHaveBeenCalledWith('yt_test123');
+    expect(mockResolver.resolve).toHaveBeenLastCalledWith(
+      expect.objectContaining({ id: 'yt_test123' }),
+      true,
+      'user',
+      'https://localhost/_capacitor_file_/cache/stream-cache/yt_test123.m4a'
+    );
+    expect(mockAudio.src).toBe('https://googlevideo.com/fresh');
+    expect(engine.getState()).toBe('playing');
+    expect(errors).toHaveLength(0);
+  });
+
+  it('не открылась и свежая — ошибка сообщается один раз, не дважды', async () => {
+    mockAudio.play.mockRejectedValue(new Error('Failed to load because no supported source was found.'));
+    const errors: Error[] = [];
+    engine.onError((e) => errors.push(e));
+
+    await expect(engine.load(mockTrack, true)).rejects.toThrow(/no supported source/);
+
+    expect(mockResolver.resolve).toHaveBeenCalledTimes(2);
+    expect(errors).toHaveLength(1);
+  });
+
   it('pauses and resumes playback', async () => {
     await engine.load(mockTrack, true);
 
