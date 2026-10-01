@@ -63,6 +63,18 @@ describe('Вступительная заставка', () => {
     expect(second.queryByTestId('intro-splash')).toBeNull();
   });
 
+  it('до первого кадра ролик скрыт, а постер прозрачный — без заглушки WebView', () => {
+    mockReducedMotion(false);
+    const { container } = render(<IntroSplash />);
+    const video = container.querySelector('video')!;
+
+    expect(video.getAttribute('poster')).toMatch(/^data:image\/gif;base64,/);
+    expect(video.classList.contains('is-started')).toBe(false);
+
+    fireEvent.playing(video);
+    expect(video.classList.contains('is-started')).toBe(true);
+  });
+
   it('при «меньше движения» не показывается вовсе', () => {
     mockReducedMotion(true);
     render(<IntroSplash />);

@@ -2310,6 +2310,10 @@ svg.lucide[width='48'] {
   transition: opacity 450ms ease-out;
 }
 
+.intro-splash video.is-started {
+  opacity: 1;
+}
+
 .intro-splash.is-leaving {
   opacity: 0;
   pointer-events: none;
@@ -2320,6 +2324,8 @@ svg.lucide[width='48'] {
   height: auto;
   aspect-ratio: 1;
   pointer-events: none;
+  /* Скрыт до первого кадра: см. постер в IntroSplash.tsx. */
+  opacity: 0;
   /* Свечение в ролике доходит до краёв кадра, и на ровном фоне читался квадрат. */
   -webkit-mask-image: radial-gradient(closest-side, #000 72%, transparent 100%);
   mask-image: radial-gradient(closest-side, #000 72%, transparent 100%);
