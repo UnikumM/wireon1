@@ -33,6 +33,18 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ReadonlyArray<ChangelogEntry> = [
   {
+    version: '2.2.10',
+    date: '2026-10-01',
+    headline: 'Синхронизация на Linux',
+    items: [
+      {
+        kind: 'fix',
+        title: 'На Linux заработали синхронизация, «Слушать вместе» и импорт из Spotify',
+        detail: 'В сборки для Linux с 2.2.6 по 2.2.9 не попал адрес сервера, и они писали «Сервер синхронизации не настроен». На Windows и Android всё было в порядке — там это обновление ничего не меняет.'
+      }
+    ]
+  },
+  {
     version: '2.2.9',
     date: '2026-10-01',
     headline: 'Больше никаких «нажмите воспроизведение ещё раз»',
