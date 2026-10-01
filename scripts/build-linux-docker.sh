@@ -31,6 +31,16 @@ tar -c --exclude=node_modules --exclude=release --exclude=dist --exclude=dist-el
     --exclude=android --exclude=.git . | (cd /work && tar -x)
 
 cd /work
+
+# Адрес сервера вшивается в сборку из `.env`, а `.env` в git не хранится.
+# Собранное из `git archive` выходило без синхронизации, «Слушать вместе» и
+# Spotify — и без единой жалобы (2.2.6–2.2.9). Скопируйте `.env` в исходник.
+if ! grep -qE '^VITE_WIREON_SERVER_URL=.+' .env 2>/dev/null; then
+  echo "ОШИБКА: в исходнике нет .env с VITE_WIREON_SERVER_URL — сборка вышла бы без синхронизации." >&2
+  echo "Положите рабочий .env рядом с package.json в /src." >&2
+  exit 1
+fi
+
 npm ci --no-audit --no-fund
 npm run build:linux
 
