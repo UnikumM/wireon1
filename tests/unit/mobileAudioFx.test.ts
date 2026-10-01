@@ -158,6 +158,51 @@ describe('Обработка звука на телефоне', () => {
       expect(result.expiresAt).toBeLessThanOrEqual(Date.now() + LOCAL_SOURCE_TTL_MS + 1000);
     });
 
+    it('вытесненный файл не отдаётся повторно — трек забирается заново', async () => {
+      // Замерено на эмуляторе: прогрев трёх следующих вытеснял файлы, а
+      // резолвер продолжал отдавать их адреса — WebView 404, «no supported
+      // source», и SoundCloud «не играл» со второго нажатия.
+      vi.spyOn(nativeBridge, 'detectPlatform').mockReturnValue('mobile');
+      const file = 'https://localhost/_capacitor_file_/data/user/0/pro.wireon.music/cache/stream-cache/yt_fx1.m4a';
+      const cache = vi.spyOn(streamCache, 'cacheStreamToFile').mockResolvedValue(file);
+      setAudioProcessingEnabled(true);
+
+      await resolver.resolve(track);
+      const exists = vi.spyOn(streamCache, 'cachedStreamExists').mockResolvedValue(false);
+      const again = await resolver.resolve(track);
+
+      expect(exists).toHaveBeenCalledWith(file);
+      expect(youtubeService.resolveStreamUrl).toHaveBeenCalledTimes(2);
+      expect(cache).toHaveBeenCalledTimes(2);
+      expect(again.cached).toBe(false);
+    });
+
+    it('файл на месте — повтор берётся из кэша без сети', async () => {
+      vi.spyOn(nativeBridge, 'detectPlatform').mockReturnValue('mobile');
+      vi.spyOn(streamCache, 'cacheStreamToFile').mockResolvedValue(
+        'https://localhost/_capacitor_file_/cache/stream-cache/yt_fx1.m4a'
+      );
+      setAudioProcessingEnabled(true);
+
+      await resolver.resolve(track);
+      vi.spyOn(streamCache, 'cachedStreamExists').mockResolvedValue(true);
+      const again = await resolver.resolve(track);
+
+      expect(again.cached).toBe(true);
+      expect(youtubeService.resolveStreamUrl).toHaveBeenCalledTimes(1);
+    });
+
+    it('путь в кэше узнаётся только у своих файлов', () => {
+      expect(
+        streamCache.cachePathFromUrl(
+          'https://localhost/_capacitor_file_/data/user/0/pro.wireon.music/cache/stream-cache/sc_1.mp3'
+        )
+      ).toBe('stream-cache/sc_1.mp3');
+      expect(streamCache.cachePathFromUrl('https://cf-media.sndcdn.com/stream-cache/x.mp3')).toBeNull();
+      expect(streamCache.cachePathFromUrl('https://localhost/_capacitor_file_/files/offline/x.mp3')).toBeNull();
+      expect(streamCache.cachePathFromUrl(undefined)).toBeNull();
+    });
+
     it('не смогли забрать в кэш — играем ссылку, звук важнее эффектов', async () => {
       vi.spyOn(nativeBridge, 'detectPlatform').mockReturnValue('mobile');
       vi.spyOn(streamCache, 'cacheStreamToFile').mockResolvedValue(null);

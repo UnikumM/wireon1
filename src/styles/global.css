@@ -2287,6 +2287,44 @@ svg.lucide[width='48'] {
   white-space: nowrap;
 }
 
+/* Левое крыло знака уходит в белый: без тени оно растворяется на светлых обликах. */
+.topnav-brand-mark {
+  display: block;
+  filter: drop-shadow(0 1px 2px rgb(0 0 0 / 0.35));
+}
+
+/*
+ * Вступительная заставка (`IntroSplash`). Фон — цвет поля самого видео
+ * (замерен по углу кадра), поэтому край ролика не виден ни на каком экране.
+ * Уход — переходом, а не анимацией: заполненная анимация пересиливает
+ * последующие стили, на этом уже обжигался жест плеера.
+ */
+.intro-splash {
+  position: fixed;
+  inset: 0;
+  z-index: 10200;
+  display: grid;
+  place-items: center;
+  background: #030911;
+  cursor: pointer;
+  transition: opacity 450ms ease-out;
+}
+
+.intro-splash.is-leaving {
+  opacity: 0;
+  pointer-events: none;
+}
+
+.intro-splash video {
+  width: min(78vmin, 560px);
+  height: auto;
+  aspect-ratio: 1;
+  pointer-events: none;
+  /* Свечение в ролике доходит до краёв кадра, и на ровном фоне читался квадрат. */
+  -webkit-mask-image: radial-gradient(closest-side, #000 72%, transparent 100%);
+  mask-image: radial-gradient(closest-side, #000 72%, transparent 100%);
+}
+
 .topnav-items {
   display: flex;
   align-items: center;

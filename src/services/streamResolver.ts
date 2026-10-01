@@ -8,7 +8,7 @@ import { detectPlatform } from './nativeBridge';
 import { recordResolve } from './resolveLog';
 import { objectUrlFor, trackFileUrl } from './offlineFiles';
 import { needsLocalSource } from './audioProcessing';
-import { cacheStreamToFile } from './streamCache';
+import { cachePathFromUrl, cachedStreamExists, cacheStreamToFile } from './streamCache';
 
 export interface ResolvedStreamInfo {
   streamUrl: string;
@@ -331,9 +331,11 @@ export class StreamResolver {
 
     if (!forceRefresh) {
       const cached = this.readCache(track.id);
-      if (cached) {
+      // Адрес файла из кэша звука переживает сам файл — см. `cachedStreamExists`.
+      if (cached && (await cachedStreamExists(cached.streamUrl))) {
         return { ...cached, cached: true };
       }
+      if (cached) this.cache.delete(track.id);
     }
 
     // Check if this track is already actively being resolved to prevent duplicate network calls
@@ -825,8 +827,12 @@ export class StreamResolver {
   public prefetch(track: UnifiedTrack): void {
     if (!track || !track.id) return;
 
+    // Запись о файле не повод молчать: файл могли вытеснить, а `resolve` это
+    // сверит и при надобности заберёт трек заново.
     const cached = this.cache.get(track.id);
-    if (cached && cached.expiresAt > Date.now() + PREFETCH_MARGIN_MS) return;
+    if (cached && cached.expiresAt > Date.now() + PREFETCH_MARGIN_MS && !cachePathFromUrl(cached.streamUrl)) {
+      return;
+    }
 
     if (this.inFlightResolutions.has(track.id)) return;
 

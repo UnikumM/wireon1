@@ -15,6 +15,6 @@
         <domain includeSubdomains="true">10.0.2.2</domain>
         <domain includeSubdomains="true">wireon.pro</domain>
         <!-- Сервер музыки и синхронизации (http и ws на 25545). -->
-        <domain includeSubdomains="false">51.38.150.35</domain>
+        <domain includeSubdomains="false">217.60.240.107</domain>
     </domain-config>
 </network-security-config>

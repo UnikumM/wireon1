@@ -36,5 +36,11 @@
 
     <style name="AppTheme.NoActionBarLaunch" parent="Theme.SplashScreen">
         <item name="android:background">@drawable/splash</item>
+        <!--
+          Android 12+ рисует заставку сам: значок по центру поля. Без цвета поле
+          бралось из темы телефона — на светлой выходило серым, и следом тёмная
+          вступительная заставка вспыхивала. Цвет — фон самого ролика (intro.mp4).
+        -->
+        <item name="windowSplashScreenBackground">#030911</item>
     </style>
 </resources>

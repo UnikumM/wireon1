@@ -281,7 +281,9 @@ for (const [density, launcher, foreground] of DENSITIES) {
  * Размеры не выдуманы — ровно те, что Android ждёт для каждой плотности и
  * ориентации; знак занимает треть меньшей стороны, как принято на заставках.
  */
-const SPLASH_BG = [0x0b, 0x22, 0x26];
+// Фон вступительного видео (`public/intro.mp4`, замерено по углу кадра):
+// системная заставка переходит в него без скачка цвета.
+const SPLASH_BG = [0x03, 0x09, 0x11];
 
 function splash(width, height) {
   const out = Buffer.alloc(width * height * 4);

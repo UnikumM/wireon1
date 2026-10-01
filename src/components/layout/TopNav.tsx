@@ -1,5 +1,5 @@
 import React from 'react';
-import { Home, Library, Music, Radio, Search, Sparkles } from 'lucide-react';
+import { Home, Library, Radio, Search, Sparkles } from 'lucide-react';
 import { useUIStore } from '../../store/useUIStore';
 import { ICON } from '../../styles/icons';
 
@@ -84,9 +84,16 @@ export const TopNav: React.FC<TopNavProps> = ({ className = '' }) => {
         aria-label="Wireon Sounds — на главную"
         data-testid="topnav-brand"
       >
-        {/* Парящий значок — единственное украшение в полосе разделов. */}
+        {/* Парящий знак — единственное украшение в полосе разделов. */}
         <span className="animate-float" aria-hidden="true" style={{ display: 'inline-flex' }}>
-          <Music size={ICON.lg} />
+          <img
+            className="topnav-brand-mark"
+            src={`${import.meta.env.BASE_URL}brand-mark.png`}
+            width={ICON.lg}
+            height={ICON.lg}
+            alt=""
+            draggable={false}
+          />
         </span>
         <span className="hide-on-mobile">Wireon</span>
       </button>

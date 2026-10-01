@@ -13,6 +13,7 @@ import App from './App';
 import './styles/global.css';
 import { MiniWindow } from './components/player/mini';
 import { ErrorBoundary } from './components/common/ErrorBoundary';
+import { IntroSplash } from './components/common/IntroSplash';
 import { handleAuthCallbackPage } from './services/discordAuth';
 import { useThemeStore } from './store/useThemeStore';
 import { usePlayerLayoutStore } from './store/usePlayerLayoutStore';
@@ -53,6 +54,7 @@ function renderRoot(): void {
   root.render(
     <React.StrictMode>
       <App />
+      <IntroSplash />
     </React.StrictMode>
   );
 }

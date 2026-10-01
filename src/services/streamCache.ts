@@ -16,8 +16,16 @@ import { Directory, Filesystem } from '@capacitor/filesystem';
 const CACHE_DIR = 'stream-cache';
 const CACHE_DIRECTORY = Directory.Cache;
 
-/** Сколько файлов держим. Шесть — это текущий трек и ближайшая история. */
-export const STREAM_CACHE_LIMIT = 6;
+/**
+ * Сколько файлов держим: текущий трек, три прогретых следующих
+ * (`PREFETCH_DEPTH`) и ближайшая история.
+ *
+ * Было шесть, и прогрев сам вытеснял то, что вот-вот заиграет: каждое нажатие
+ * добавляет до четырёх файлов. Вытеснение само по себе не беда — резолвер
+ * сверяет файл перед выдачей (`cachedStreamExists`), — но каждый вытесненный
+ * трек это повторная загрузка целиком.
+ */
+export const STREAM_CACHE_LIMIT = 10;
 
 /** Расширение по типу содержимого: без него WebView отдаёт файл как поток байт. */
 export function extensionFor(contentType: string | null | undefined): string {
@@ -121,6 +129,42 @@ export async function cacheStreamToFile(
       console.warn('[StreamCache] не удалось положить трек в кэш:', err);
     }
     return null;
+  }
+}
+
+/**
+ * Путь файла в кэше по адресу, который отдал `convertFileSrc`.
+ * `null` — адрес не наш: обычная ссылка на поток или офлайн-копия.
+ */
+export function cachePathFromUrl(url: string | null | undefined): string | null {
+  if (!url || !/^(https?:\/\/localhost|capacitor|file)/i.test(url)) return null;
+  const marker = `/${CACHE_DIR}/`;
+  const at = url.indexOf(marker);
+  if (at < 0) return null;
+  const name = url.slice(at + marker.length).split(/[?#]/)[0];
+  return name ? `${CACHE_DIR}/${decodeURIComponent(name)}` : null;
+}
+
+/**
+ * Лежит ли ещё файл, на который указывает адрес из кэша ссылок.
+ *
+ * Резолвер помнит адрес файла часами и переживает с ним перезапуск, а сам файл
+ * вытесняется по числу (`pruneStreamCache`) или вычищается системой вместе с
+ * каталогом `Cache`. Отданный без проверки адрес исчезнувшего файла WebView
+ * встречает 404, проигрыватель — «no supported source», а человек — просьбой
+ * нажать ещё раз на треке, который только что играл. Так на телефоне и
+ * «не играли» треки SoundCloud: их файлы вытеснял прогрев следующих.
+ *
+ * Не наш адрес — проверять нечего, `true`.
+ */
+export async function cachedStreamExists(url: string | null | undefined): Promise<boolean> {
+  const path = cachePathFromUrl(url);
+  if (!path || !available()) return true;
+  try {
+    await Filesystem.stat({ path, directory: CACHE_DIRECTORY });
+    return true;
+  } catch {
+    return false;
   }
 }
 

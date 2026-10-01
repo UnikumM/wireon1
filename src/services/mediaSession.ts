@@ -55,7 +55,7 @@ export class MediaSessionService {
     }
 
     try {
-      const artworkSrc = track.artworkUrl || '/icon.svg';
+      const artworkSrc = track.artworkUrl || '/icon.png';
       const artworkList = [
         { src: artworkSrc, sizes: '96x96', type: 'image/png' },
         { src: artworkSrc, sizes: '128x128', type: 'image/png' },
