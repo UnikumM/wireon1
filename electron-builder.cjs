@@ -46,6 +46,17 @@ function fromGitRemote() {
 
 const target = fromEnvironment() || fromGitRemote();
 
+/*
+ * Грузить в релиз, опубликованный больше двух часов назад, — можно.
+ *
+ * Без этого electron-builder молча пропускает загрузку («existing release
+ * published more than 2 hours ago»): портативная сборка и AppImage, собранные
+ * позже установщика, просто не доезжали бы до релиза. Защита эта от перезаписи
+ * старых релизов, а старую версию у нас не опубликовать и так:
+ * `release:prepare` не даёт повторить или понизить номер.
+ */
+if (process.env.EP_GH_IGNORE_TIME === undefined) process.env.EP_GH_IGNORE_TIME = 'true';
+
 if (target) {
   console.log(`[electron-builder] Канал обновлений: github.com/${target.owner}/${target.repo}`);
 } else {
