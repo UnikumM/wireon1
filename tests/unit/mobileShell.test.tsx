@@ -421,4 +421,24 @@ describe('Темп на телефоне', () => {
 
     expect(screen.getByTestId('mobile-fullscreen-tempo').textContent).toContain('0.65×');
   });
+
+  it('Escape closes the tempo sheet before the fullscreen player', () => {
+    render(<MobileFullscreenPlayer />);
+    fireEvent.click(screen.getByTestId('mobile-fullscreen-tempo'));
+    fireEvent.keyDown(document, { key: 'Escape' });
+    expect(screen.queryByTestId('mobile-tempo-sheet')).toBeNull();
+    expect(screen.getByTestId('mobile-fullscreen-player')).toBeInTheDocument();
+    fireEvent.keyDown(document, { key: 'Escape' });
+    expect(useUIStore.getState().isFullscreenPlayerOpen).toBe(false);
+  });
+
+  it('loads the next artwork after the previous artwork failed', () => {
+    usePlayerStore.setState({ currentTrack: { ...track, artworkUrl: 'broken.jpg' } });
+    render(<MobileFullscreenPlayer />);
+    const art = screen.getByTestId('mobile-fullscreen-artwork');
+    fireEvent.error(art.querySelector('img')!);
+    expect(art.querySelector('img')).toBeNull();
+    act(() => usePlayerStore.setState({ currentTrack: { ...track, id: 'next', artworkUrl: 'next.jpg' } }));
+    expect(art.querySelector('img')?.getAttribute('src')).toBe('next.jpg');
+  });
 });

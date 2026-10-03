@@ -1,10 +1,12 @@
 import React from 'react';
+import { createPortal } from 'react-dom';
 import { X } from 'lucide-react';
 import { Button } from './Button';
 import { useDismissable } from '../../hooks/useDismissable';
 import { ICON } from '../../styles/icons';
 import { EXIT_MS } from '../../styles/motion';
 import { readExitMs } from '../../services/designService';
+import '../../styles/overlays.css';
 
 export interface ModalProps {
   isOpen: boolean;
@@ -97,11 +99,15 @@ export const Modal: React.FC<ModalProps> = ({
     ? ({ 'aria-hidden': 'true', inert: '' } as unknown as React.HTMLAttributes<HTMLDivElement>)
     : {};
 
-  return (
+  return createPortal(
     <div
       className={`wireon-modal-backdrop ${isLeaving ? 'animate-fade-out' : 'animate-fade-in'}`}
       {...backdropProps}
       {...ghostProps}
+      onClick={(event) => {
+        event.stopPropagation();
+        backdropProps.onClick(event);
+      }}
       style={
         {
           position: 'fixed',
@@ -111,7 +117,7 @@ export const Modal: React.FC<ModalProps> = ({
           alignItems: 'center',
           justifyContent: 'center',
           zIndex: 'var(--z-modal)',
-          padding: 'var(--space-4)',
+          padding: 'calc(var(--safe-top) + var(--overlay-gutter)) calc(var(--safe-right) + var(--overlay-gutter)) calc(var(--safe-bottom) + var(--overlay-gutter)) calc(var(--safe-left) + var(--overlay-gutter))',
           pointerEvents: isLeaving ? 'none' : 'auto'
         } as React.CSSProperties
       }
@@ -132,9 +138,10 @@ export const Modal: React.FC<ModalProps> = ({
          * движением в две стороны. Плюс `dropIn` удерживает первый кадр
          * (`both`), а `slideUp` — нет: панель успевала мелькнуть готовой.
          */
-        className={`${isLeaving ? 'animate-pop-out' : 'animate-drop-in'}${className ? ` ${className}` : ''}`}
+        className={`wireon-modal-panel ${isLeaving ? 'animate-pop-out' : 'animate-drop-in'}${className ? ` ${className}` : ''}`}
         style={{
           width: '100%',
+          minWidth: 0,
           maxWidth,
           /* Точка роста — середина панели: значение по умолчанию у примитива —
            * верхний край, и оно про меню, выпадающее из-под своей кнопки. У окна
@@ -147,19 +154,21 @@ export const Modal: React.FC<ModalProps> = ({
           overflow: 'hidden',
           display: 'flex',
           flexDirection: 'column',
-          maxHeight: 'calc(100vh - var(--space-8))',
+          maxHeight: 'calc(var(--app-height) - var(--safe-top) - var(--safe-bottom) - var(--overlay-gutter) * 2)',
           '--ring-offset-color': 'var(--surface-4)'
         } as React.CSSProperties}
         data-testid={testId}
       >
         {(title || !hideCloseButton) && (
           <div
+            className="wireon-modal-header"
             style={{
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'space-between',
               gap: 'var(--space-4)',
-              padding: 'var(--space-4) var(--space-5)',
+              padding: 'var(--space-4) var(--overlay-content-padding)',
+              flexShrink: 0,
               borderBottom: '1px solid var(--border-subtle)'
             }}
           >
@@ -171,7 +180,9 @@ export const Modal: React.FC<ModalProps> = ({
                 letterSpacing: 'var(--tracking-lg)',
                 fontWeight: 'var(--weight-semibold)',
                 color: 'var(--text-primary)',
-                margin: 0
+                margin: 0,
+                minWidth: 0,
+                overflowWrap: 'anywhere'
               }}
             >
               {title}
@@ -181,7 +192,7 @@ export const Modal: React.FC<ModalProps> = ({
                 variant="icon"
                 onClick={onClose}
                 aria-label="Закрыть окно"
-                style={{ width: '30px', height: '30px' }}
+                style={{ width: '44px', height: '44px', flexShrink: 0 }}
                 data-testid="modal-close-btn"
               >
                 <X size={ICON.md} />
@@ -191,8 +202,8 @@ export const Modal: React.FC<ModalProps> = ({
         )}
 
         <div
-          className="scrollbar-thin"
-          style={{ padding: 'var(--space-5)', overflowY: 'auto', flex: 1, minHeight: 0 }}
+          className="wireon-modal-content scrollbar-thin"
+          style={{ padding: 'var(--overlay-content-padding)', overflowY: 'auto', flex: 1, minHeight: 0, minWidth: 0, overscrollBehavior: 'contain', overflowWrap: 'anywhere' }}
         >
           {description && (
             <p
@@ -212,10 +223,13 @@ export const Modal: React.FC<ModalProps> = ({
 
         {footer && (
           <div
+            className="wireon-modal-footer"
             style={{
-              padding: 'var(--space-4) var(--space-5)',
+              padding: 'var(--space-4) var(--overlay-content-padding)',
               borderTop: '1px solid var(--border-subtle)',
               display: 'flex',
+              flexWrap: 'wrap',
+              flexShrink: 0,
               alignItems: 'center',
               justifyContent: 'flex-end',
               gap: 'var(--space-3)'
@@ -225,6 +239,7 @@ export const Modal: React.FC<ModalProps> = ({
           </div>
         )}
       </div>
-    </div>
+    </div>,
+    document.body
   );
 };

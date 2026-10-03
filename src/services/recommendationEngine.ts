@@ -833,23 +833,17 @@ export class RecommendationEngineService implements RecommendationEngine {
     limit: number
   ): Promise<UnifiedTrack[]> {
     const primary = config.seedTrack?.originalId ? config.seedTrack : null;
-    if (config.seedKind === 'discovery' || config.seedKind === 'forgotten') return [];
+    if (config.seedKind === 'discovery' || config.seedKind === 'forgotten' || config.seedKind === 'artist') return [];
     // «От этой песни» — это буквально просьба про одну песню.
     if (config.seedKind === 'track') return primary ? [primary] : [];
 
     const novelty = clampAxis(config.novelty, 0.35);
     const wanted = novelty > 0.6 ? 4 : novelty > 0.3 ? 3 : 2;
 
-    /*
-     * «Из библиотеки» опирается на библиотеку, а не на играющую песню.
-     *
-     * Раньше играющий трек всегда шёл первым очагом, и Поток на каждый запуск
-     * оказывался радио той же песни — регуляторам нечего было менять.
-     * Теперь очаги берутся вразброс из избранного и истории, а играющая песня —
-     * только запасной вариант, когда библиотека пуста.
-     */
-    const seeds: UnifiedTrack[] = [];
-    const usedArtists = new Set<string>();
+    // Keep the current song as an anchor, then blend in the library so the
+    // default stream follows what is playing without becoming a single-song radio.
+    const seeds: UnifiedTrack[] = primary ? [primary] : [];
+    const usedArtists = new Set<string>(primary ? [normalizeArtist(primary.artist)] : []);
 
     /*
      * Библиотека — то, что человек сложил сам. Избранное впереди истории:
@@ -878,7 +872,6 @@ export class RecommendationEngineService implements RecommendationEngine {
       usedArtists.add(artist);
       seeds.push(track);
     }
-    if (seeds.length === 0 && primary) seeds.push(primary);
 
     // Лимит меньше десятка — просят добор, а не новый поток: хватит одного очага.
     return limit < 10 ? seeds.slice(0, 1) : seeds;
@@ -1003,7 +996,7 @@ export class RecommendationEngineService implements RecommendationEngine {
     // Query candidate search streams across YouTube and SoundCloud.
     // Не запускается, когда радио от песни уже ответило: это и есть починка
     // «поток не даёт отталкиваться от конкретной песни».
-    if (!seedRadioIsEnough) {
+    if (!seedRadioIsEnough && config.seedKind !== 'forgotten') {
       const searchPromises = queries.map(async (query) => {
         const [ytRes, scRes] = await Promise.allSettled([
           this.ytService.search(query, 12),
@@ -1024,7 +1017,8 @@ export class RecommendationEngineService implements RecommendationEngine {
     // If candidate pool is too small, execute fallback searches.
     // При живом радио не запускается: лучше короткий связный поток, чем полный
     // лимит, добитый треками не из того жанра.
-    if (!seedRadioIsEnough && candidates.filter(isRadioFriendly).length < limit) {
+    if (!seedRadioIsEnough && config.seedKind !== 'forgotten' && config.seedKind !== 'artist'
+      && config.seedKind !== 'track' && candidates.filter(isRadioFriendly).length < limit) {
       const fallbackSeeds = MOOD_DEFAULT_SEEDS[config.mood] || MOOD_DEFAULT_SEEDS.favorite;
       const fallbackPromises = fallbackSeeds.map(async (fQuery) => {
         const queryWithGenre = config.genre ? `${config.genre} ${fQuery}` : fQuery;
@@ -1045,9 +1039,11 @@ export class RecommendationEngineService implements RecommendationEngine {
 
     // Apply radio friendly duration and title filtering
     let filtered = candidates.filter(isRadioFriendly);
+    if (config.seedKind === 'discovery') filtered = filtered.filter((track) => !isFamiliarTrack(track, profile));
     if (filtered.length < Math.min(3, limit)) {
       // Relax duration band to top-up ceiling to prevent empty radio
-      const topUpPool = candidates.filter((t) => isTopUpEligible(t) && !hasPollutedTitle(t));
+      const topUpPool = candidates.filter((t) => isTopUpEligible(t) && !hasPollutedTitle(t) &&
+        (config.seedKind !== 'discovery' || !isFamiliarTrack(t, profile)));
       filtered = Array.from(new Set([...filtered, ...topUpPool]));
     }
 
@@ -1069,7 +1065,7 @@ export class RecommendationEngineService implements RecommendationEngine {
      */
     // «Открытия» просят незнакомое, «от этой песни» — радио одной песни:
     // подмешивать туда библиотеку значило бы не выполнить просьбу.
-    const gateApplies = config.seedKind !== 'discovery' && config.seedKind !== 'track';
+    const gateApplies = config.seedKind !== 'discovery' && config.seedKind !== 'track' && config.seedKind !== 'artist' && config.seedKind !== 'forgotten';
     if (hasAxes(config) && gateApplies) {
       const novelty = clampAxis(config.novelty, 0.35);
       if (novelty < FAMILIAR_ONLY_BELOW) {

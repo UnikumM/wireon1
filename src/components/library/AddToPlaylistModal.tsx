@@ -274,6 +274,7 @@ export const AddToPlaylistModal: React.FC<AddToPlaylistModalProps> = ({
 
         {isCreating ? (
           <form
+            className="playlist-picker-create-form"
             onSubmit={handleCreateAndAdd}
             style={{ display: 'flex', gap: 'var(--space-2)', alignItems: 'center' }}
           >

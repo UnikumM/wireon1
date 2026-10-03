@@ -60,12 +60,7 @@ export const WaveControls: React.FC<WaveControlsProps> = ({
   };
 
   const handleRestart = async () => {
-    try {
-      await startMyWave();
-      showToast('Поток пересобран по текущим настройкам', 'success');
-    } catch {
-      showToast('Не удалось пересобрать Поток', 'error');
-    }
+    await startMyWave(undefined, undefined, 'new');
   };
 
   const handleLike = async () => {
@@ -258,13 +253,13 @@ export const WaveControls: React.FC<WaveControlsProps> = ({
             onClick={handleRestart}
             disabled={isBusy}
             icon={<RefreshCw size={ICON.md} />}
-            title="Пересобрать Поток по текущим настройкам"
-            aria-label="Пересобрать Поток"
+            title="Запустить Поток с нового трека"
+            aria-label="Поток с нового трека"
             className="press"
             style={secondaryStyle}
             data-testid="wave-btn-restart"
           >
-            <span className="hide-on-mobile">Пересобрать</span>
+            <span className="hide-on-mobile">С нового трека</span>
           </Button>
         )}
 

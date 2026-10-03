@@ -138,6 +138,8 @@ function buildWaveConfig(state: PlayerStoreState, seedTrack?: UnifiedTrack | nul
 let sleepTimerHandle: ReturnType<typeof setTimeout> | null = null;
 let hydrationPromise: Promise<void> | null = null;
 let replenishPromise: Promise<void> | null = null;
+let queueGeneration = 0;
+let waveBuildPromise: Promise<void> | null = null;
 let radioFetchInFlight = false;
 let crossfadeTransitionInFlight = false;
 
@@ -319,6 +321,12 @@ interface CommitTrackOptions {
 }
 
 export const usePlayerStore = create<PlayerStore>((set, get) => {
+  const invalidateQueueRequests = (): void => {
+    queueGeneration += 1;
+    replenishPromise = null;
+    waveBuildPromise = null;
+    set({ isReplenishingQueue: false });
+  };
   /**
    * Returns the tracks that would play next, in order, without mutating anything.
    *
@@ -496,8 +504,11 @@ export const usePlayerStore = create<PlayerStore>((set, get) => {
     if (!searchAggregator || typeof searchAggregator.getRelatedTracks !== 'function') return false;
 
     radioFetchInFlight = true;
+    const playbackGeneration = commitGeneration;
+    const requestGeneration = queueGeneration;
     try {
       const related = await searchAggregator.getRelatedTracks(track, RADIO_BATCH_SIZE);
+      if (playbackGeneration !== commitGeneration || requestGeneration !== queueGeneration) return true;
       const state = get();
       const known = new Set<string>([
         track.id,
@@ -655,6 +666,13 @@ export const usePlayerStore = create<PlayerStore>((set, get) => {
       if (!track) return;
 
       const state = get();
+      // Selecting within the active stream keeps it; selecting another list leaves it.
+      if (newSourceQueue && newSourceQueue !== state.sourceQueue) {
+        invalidateQueueRequests();
+        set({ queueMode: 'sequential', activeSeedTrack: null });
+      } else if (waveBuildPromise) {
+        invalidateQueueRequests();
+      }
       const nextSourceQueue = newSourceQueue || state.sourceQueue;
       let nextIndex = index !== undefined ? index : -1;
       if (nextIndex === -1) {
@@ -680,6 +698,7 @@ export const usePlayerStore = create<PlayerStore>((set, get) => {
 
     playTrackSingle: async (track: UnifiedTrack) => {
       if (!track) return;
+      invalidateQueueRequests();
 
       const state = get();
       const nextHistory =
@@ -782,6 +801,8 @@ export const usePlayerStore = create<PlayerStore>((set, get) => {
      */
     nextTrack: async (isManualSkip: boolean = true) => {
       const state = get();
+      const playbackGeneration = commitGeneration;
+      const requestGeneration = queueGeneration;
 
       // Record skip feedback on manual skip
       if (isManualSkip && state.currentTrack) {
@@ -858,6 +879,7 @@ export const usePlayerStore = create<PlayerStore>((set, get) => {
       // Queue exhausted: wave/radio replenishment, or autoplay radio, or stop
       if ((state.queueMode === 'track_radio' || state.queueMode === 'my_wave') && (state.currentTrack || state.activeSeedTrack)) {
         await get().replenishAutoplayQueue();
+        if (playbackGeneration !== commitGeneration || requestGeneration !== queueGeneration) return;
         const freshState = get();
         const freshSourceLen = freshState.sourceQueue.length;
         if (freshState.currentIndex + 1 < freshSourceLen) {
@@ -894,6 +916,8 @@ export const usePlayerStore = create<PlayerStore>((set, get) => {
         await commitTrack(previous, {
           history: state.history.slice(0, -1),
           index: idx !== -1 ? idx : state.currentIndex,
+          userQueue: state.currentTrack && !state.sourceQueue.some((track) => track.id === state.currentTrack?.id)
+            ? [state.currentTrack, ...state.userQueue] : state.userQueue,
           addToHistory: false
         });
         return;
@@ -1046,6 +1070,7 @@ export const usePlayerStore = create<PlayerStore>((set, get) => {
      * он появился бы снова при следующем запуске.
      */
     clearPlayback: () => {
+      invalidateQueueRequests();
       commitGeneration += 1;
       audioEngine.pause();
       set({
@@ -1077,6 +1102,7 @@ export const usePlayerStore = create<PlayerStore>((set, get) => {
     clearUserQueue: emptyUserQueue,
 
     setSourceQueue: (queue: UnifiedTrack[], startIndex = 0) => {
+      invalidateQueueRequests();
       const list = Array.isArray(queue) ? queue : [];
       set({
         sourceQueue: list,
@@ -1110,6 +1136,7 @@ export const usePlayerStore = create<PlayerStore>((set, get) => {
 
     // Wave & Radio actions
     setQueueMode: (mode: QueueMode) => {
+      invalidateQueueRequests();
       const isAuto = mode === 'track_radio' || mode === 'my_wave';
       set({
         queueMode: mode,
@@ -1123,6 +1150,7 @@ export const usePlayerStore = create<PlayerStore>((set, get) => {
 
     startTrackRadio: async (seedTrack: UnifiedTrack) => {
       if (!seedTrack) return;
+      invalidateQueueRequests();
       set({
         queueMode: 'track_radio',
         autoplayRadio: true,
@@ -1186,7 +1214,7 @@ export const usePlayerStore = create<PlayerStore>((set, get) => {
       await commitTrack(mixed[0], { queue: mixed, index: 0, userQueue: [] });
     },
 
-    startMyWave: async (mood?: WaveMood, genre?: string | null) => {
+    startMyWave: async (mood?: WaveMood, genre?: string | null, mode = 'continue') => {
       const previous = get();
       // Ярлык считается из регуляторов, если его не передали явно: снаружи волну
       // теперь запускают именно они.
@@ -1209,42 +1237,54 @@ export const usePlayerStore = create<PlayerStore>((set, get) => {
        */
       const seedTrack = pickWaveSeed(previous.waveSeedKind, previous.currentTrack || previous.activeSeedTrack);
 
-      set({
-        queueMode: 'my_wave',
-        autoplayRadio: true,
-        activeWaveMood: effectiveMood,
-        activeWaveGenre: effectiveGenre,
-        activeSeedTrack: seedTrack,
-        userQueue: [],
-        sourceQueue: [],
-        currentIndex: -1
-      });
-
-      set({ isReplenishingQueue: true });
-      try {
-        const config = buildWaveConfig(get(), seedTrack);
-        const recs = await recommendationEngine.getRecommendationsForWave(config, 10);
-        if (recs.length > 0) {
-          const firstTrack = recs[0];
-          await commitTrack(firstTrack, {
-            queue: recs,
-            index: 0,
-            userQueue: []
+      invalidateQueueRequests();
+      const requestGeneration = queueGeneration;
+      const playbackGeneration = commitGeneration;
+      set({ isReplenishingQueue: true, activeWaveMood: effectiveMood, activeWaveGenre: effectiveGenre });
+      const request = (async () => {
+        try {
+          const config = buildWaveConfig({ ...previous, activeWaveMood: effectiveMood, activeWaveGenre: effectiveGenre }, seedTrack);
+          const exclude = new Set(previous.currentTrack ? [previous.currentTrack.id] : []);
+          const seen = new Set(exclude);
+          const recs = (await recommendationEngine.getRecommendationsForWave(config, 10, exclude)).filter((track) => {
+            if (!track?.id || seen.has(track.id)) return false;
+            seen.add(track.id);
+            return true;
           });
+          if (requestGeneration !== queueGeneration || playbackGeneration !== commitGeneration) return;
+          if (recs.length === 0) {
+            useUIStore.getState().showToast('Пока не нашли подходящих треков. Попробуйте другой источник или настройки.', 'info');
+            return;
+          }
+          const keepCurrent = mode === 'continue' && Boolean(previous.currentTrack);
+          const queue = keepCurrent ? [previous.currentTrack!, ...recs] : recs;
+          set({
+            queueMode: 'my_wave', autoplayRadio: true,
+            activeWaveMood: effectiveMood, activeWaveGenre: effectiveGenre,
+            activeSeedTrack: seedTrack, sourceQueue: queue, currentIndex: 0,
+            // A stream already has an intentional recommendation order.
+            isShuffled: false, shuffleOrder: [],
+            userQueue: keepCurrent ? get().userQueue : []
+          });
+          if (keepCurrent) {
+            prefetchUpcoming();
+            if (previous.queueMode !== 'my_wave' && previous.playbackState === 'paused') await get().play();
+          } else {
+            await commitTrack(recs[0], { queue, index: 0, userQueue: [] });
+          }
+        } catch (err) {
+          if (requestGeneration !== queueGeneration) return;
+          console.warn('[usePlayerStore] startMyWave error:', err);
+          useUIStore.getState().showToast('Не удалось собрать Поток. Проверьте соединение.', 'error');
+        } finally {
+          if (requestGeneration === queueGeneration) {
+            waveBuildPromise = null;
+            if (!replenishPromise) set({ isReplenishingQueue: false });
+          }
         }
-      } catch (err) {
-        /*
-         * Отказ здесь молчал, и это была отдельная беда поверх поломки самого
-         * подбора: кнопка «Запустить Поток» возвращалась в исходное состояние,
-         * ничего не происходило и ничего не сообщалось. Человек видел ровно то
-         * же, что при пустом ответе, и не мог отличить «сеть отвалилась» от
-         * «нечего играть».
-         */
-        console.warn('[usePlayerStore] startMyWave error:', err);
-        useUIStore.getState().showToast('Не удалось собрать Поток. Проверьте соединение.', 'error');
-      } finally {
-        set({ isReplenishingQueue: false });
-      }
+      })();
+      waveBuildPromise = request;
+      await request;
     },
 
     startWave: async (configOrMood?: WaveConfig | WaveMood) => {
@@ -1305,6 +1345,7 @@ export const usePlayerStore = create<PlayerStore>((set, get) => {
     },
 
     replenishAutoplayQueue: async () => {
+      if (waveBuildPromise) return waveBuildPromise;
       const state = get();
       if (state.queueMode === 'sequential' && !state.autoplayRadio) return;
 
@@ -1312,6 +1353,7 @@ export const usePlayerStore = create<PlayerStore>((set, get) => {
       if (!hasSeed) return;
 
       if (replenishPromise) return replenishPromise;
+      const requestGeneration = queueGeneration;
 
       set({ isReplenishingQueue: true });
       replenishPromise = (async () => {
@@ -1353,6 +1395,7 @@ export const usePlayerStore = create<PlayerStore>((set, get) => {
             newTracks = await recommendationEngine.getRecommendationsForWave(config, 10, excludeIds);
           }
 
+          if (requestGeneration !== queueGeneration) return;
           if (newTracks && newTracks.length > 0) {
             const freshState = get();
             const currentIds = new Set<string>([
@@ -1360,7 +1403,11 @@ export const usePlayerStore = create<PlayerStore>((set, get) => {
               ...freshState.sourceQueue.map((t) => t.id),
               ...freshState.userQueue.map((t) => t.id)
             ]);
-            const filteredNew = newTracks.filter((t) => t && t.id && !currentIds.has(t.id));
+            const filteredNew = newTracks.filter((t) => {
+              if (!t?.id || currentIds.has(t.id)) return false;
+              currentIds.add(t.id);
+              return true;
+            });
             if (filteredNew.length > 0) {
               const base = freshState.sourceQueue.length;
               const updatedSourceQueue = [...freshState.sourceQueue, ...filteredNew];
@@ -1375,13 +1422,16 @@ export const usePlayerStore = create<PlayerStore>((set, get) => {
             }
           }
         } catch (err) {
+          if (requestGeneration !== queueGeneration) return;
           // Без этого «Поток закончился» показывалось одинаково и когда
           // похожего честно не нашлось, и когда запрос вовсе не дошёл.
           console.warn('[usePlayerStore] replenishAutoplayQueue error:', err);
           useUIStore.getState().showToast('Не удалось продолжить подбор похожего.', 'error');
         } finally {
-          set({ isReplenishingQueue: false });
-          replenishPromise = null;
+          if (requestGeneration === queueGeneration) {
+            set({ isReplenishingQueue: false });
+            replenishPromise = null;
+          }
         }
       })();
 

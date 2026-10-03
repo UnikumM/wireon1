@@ -190,7 +190,7 @@ export const Button: React.FC<ButtonProps> = ({
       ) : (
         <>
           {icon && iconPosition === 'left' && <span style={SLOT_STYLE}>{icon}</span>}
-          {children ? <span style={SLOT_STYLE}>{children}</span> : null}
+          {children ? <span style={{ ...SLOT_STYLE, minWidth: 0, flexShrink: 1, lineHeight: 'inherit' }}>{children}</span> : null}
           {icon && iconPosition === 'right' && <span style={SLOT_STYLE}>{icon}</span>}
         </>
       )}

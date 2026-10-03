@@ -33,6 +33,7 @@ import { useLibraryStore } from './store/useLibraryStore';
 import { useAuthStore } from './store/useAuthStore';
 import { usePlayerStore } from './store/usePlayerStore';
 import { useThemeStore } from './store/useThemeStore';
+import { useAppLayoutStore } from './store/useAppLayoutStore';
 import { cloudSyncEngine } from './services/cloudSync';
 import { onBackgroundAudioCommand, stopBackgroundAudio } from './services/backgroundAudio';
 import { migrateLegacyDatabase } from './services/db';
@@ -60,6 +61,7 @@ export const App: React.FC = () => {
     // окно показывает значения по умолчанию из CSS, и выбранная тема въезжает
     // вспышкой. Здесь только чтение базы, всё остальное ждать не заставляет.
     void useThemeStore.getState().hydrateTheme();
+    void useAppLayoutStore.getState().hydrate();
     // The rename from VireonMusic to Wireon moved both the userData folder and
     // the database name, so a pre-rename library has to be pulled across before
     // anything reads it — otherwise the user sees an empty library and reloads.
@@ -130,7 +132,8 @@ export const App: React.FC = () => {
      */
     const unsubscribeBackground = onBackgroundAudioCommand((command) => {
       const player = usePlayerStore.getState();
-      if (command === 'play' || command === 'pause') player.togglePlayPause();
+      if (command === 'play') void player.play();
+      else if (command === 'pause') player.pause();
       else if (command === 'next') void player.nextTrack();
       else if (command === 'prev') void player.prevTrack();
     });

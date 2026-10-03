@@ -11,6 +11,7 @@ import { CreatePlaylistModal } from '../library/CreatePlaylistModal';
 import { QueueDrawer } from '../player/QueueDrawer';
 import { ArtistHubView } from '../artist/ArtistHubView';
 import { ForYouView } from '../foryou/ForYouView';
+import { CollectionView } from '../collection/CollectionView';
 import { MobileHomeView } from './MobileHomeView';
 import { MobileLibraryView } from './MobileLibraryView';
 import { MobileSearchView } from './MobileSearchView';
@@ -22,6 +23,9 @@ import { MobileNavBar } from './MobileNavBar';
 import { MobilePlayerBar } from './MobilePlayerBar';
 import { TrackActionsSheet } from './TrackActionsSheet';
 import { checkForUpdate } from '../../services/androidUpdater';
+import { useAppLayoutStore } from '../../store/useAppLayoutStore';
+import { CustomAppFrame } from '../layout/CustomAppFrame';
+import { SidePlayer } from '../player/SidePlayer';
 
 /**
  * Всё приложение на телефоне.
@@ -45,6 +49,8 @@ import { checkForUpdate } from '../../services/androidUpdater';
  * краем.
  */
 export const MobileApp: React.FC = () => {
+  const layout = useAppLayoutStore((s) => s.mobile);
+  const sidePlayer = layout.playerPosition === 'left' || layout.playerPosition === 'right';
   /**
    * Проверка обновлений при запуске.
    *
@@ -96,6 +102,8 @@ export const MobileApp: React.FC = () => {
         return <MobileSettingsView />;
       case 'artist':
         return <ArtistHubView scrollSelf={false} />;
+      case 'collection':
+        return <CollectionView />;
       case 'search':
       default:
         return <MobileSearchView />;
@@ -114,6 +122,8 @@ export const MobileApp: React.FC = () => {
       }}
       data-testid="mobile-app"
     >
+      <CustomAppFrame layout={layout} platform="mobile" navigation={<MobileNavBar />}
+        player={sidePlayer ? <SidePlayer /> : <MobilePlayerBar />}>
       <main
         style={{
           flex: 1,
@@ -122,9 +132,10 @@ export const MobileApp: React.FC = () => {
           overflowX: 'hidden',
           // Безопасная зона сверху — часть отступа содержимого, а не отдельной
           // шапки: своей шапки у телефона нет, каждый экран рисует верх сам.
-          paddingTop: 'calc(var(--safe-top) + var(--space-4))',
-          paddingLeft: 'calc(var(--safe-left) + var(--space-4))',
-          paddingRight: 'calc(var(--safe-right) + var(--space-4))',
+          paddingTop: layout.navigationPosition === 'top' || layout.playerPosition === 'top'
+            ? 'var(--space-4)' : 'calc(var(--safe-top) + var(--space-4))',
+          paddingLeft: 'calc(var(--safe-left) + var(--mobile-content-pad, var(--space-4)))',
+          paddingRight: 'calc(var(--safe-right) + var(--mobile-content-pad, var(--space-4)))',
           paddingBottom: 'var(--space-6)'
         }}
         data-testid="main-content"
@@ -132,8 +143,7 @@ export const MobileApp: React.FC = () => {
         <ErrorBoundary key={activeView}>{renderActiveView()}</ErrorBoundary>
       </main>
 
-      <MobilePlayerBar />
-      <MobileNavBar />
+      </CustomAppFrame>
 
       {/*
         * Слои поверх приложения. Лист действий живёт здесь, а не внутри строки

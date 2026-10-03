@@ -1,4 +1,5 @@
 import React, { useMemo, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { GripVertical, ListMusic, Music2, Play, Shuffle, Sparkles, Trash2, X } from 'lucide-react';
 import { useUIStore } from '../../store/useUIStore';
 import { usePlayerStore } from '../../store/usePlayerStore';
@@ -220,8 +221,8 @@ export const QueueDrawer: React.FC<QueueDrawerProps> = ({ className = '' }) => {
     setAnnouncement(`Из очереди убрано ${pluralize(count, 'трек', 'трека', 'треков')}`);
   };
 
-  return (
-    <div style={{ position: 'fixed', inset: 0, zIndex: 'var(--z-drawer)' }}>
+  return createPortal(
+    <div style={{ position: 'fixed', inset: 0, zIndex: 'calc(var(--z-overlay) + 1)' }}>
       <div
         {...backdropProps}
         className="animate-fade-in"
@@ -265,7 +266,7 @@ export const QueueDrawer: React.FC<QueueDrawerProps> = ({ className = '' }) => {
             alignItems: 'center',
             justifyContent: 'space-between',
             gap: 'var(--space-3)',
-            padding: 'var(--space-4) var(--space-4) var(--space-3)',
+            padding: 'calc(var(--safe-top) + var(--space-4)) calc(var(--safe-right) + var(--space-4)) var(--space-3) calc(var(--safe-left) + var(--space-4))',
             borderBottom: '1px solid var(--border-subtle)'
           }}
         >
@@ -308,7 +309,7 @@ export const QueueDrawer: React.FC<QueueDrawerProps> = ({ className = '' }) => {
             flex: 1,
             minHeight: 0,
             overflowY: 'auto',
-            padding: 'var(--space-4)',
+            padding: 'var(--space-4) calc(var(--safe-right) + var(--space-4)) calc(var(--safe-bottom) + var(--space-4)) calc(var(--safe-left) + var(--space-4))',
             display: 'flex',
             flexDirection: 'column',
             gap: 'var(--space-5)'
@@ -644,6 +645,6 @@ export const QueueDrawer: React.FC<QueueDrawerProps> = ({ className = '' }) => {
           </section>
         </div>
       </aside>
-    </div>
+    </div>, document.body
   );
 };

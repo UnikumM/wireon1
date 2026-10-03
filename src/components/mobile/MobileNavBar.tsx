@@ -1,7 +1,8 @@
 import React from 'react';
-import { Home, Search, ListMusic } from 'lucide-react';
+import { Home, Search, ListMusic, Radio, Sparkles } from 'lucide-react';
 import { useUIStore } from '../../store/useUIStore';
 import { ICON } from '../../styles/icons';
+import { useAppLayoutStore, type LayoutTab } from '../../store/useAppLayoutStore';
 
 /**
  * Нижняя панель телефона: Главная, Поиск, Медиатека.
@@ -22,7 +23,7 @@ import { ICON } from '../../styles/icons';
  * чтения с экрана они представлялись просто «кнопка».
  */
 
-type MobileTabId = 'home' | 'search' | 'library';
+type MobileTabId = LayoutTab;
 
 interface MobileTab {
   id: MobileTabId;
@@ -33,7 +34,9 @@ interface MobileTab {
 const TABS: MobileTab[] = [
   { id: 'home', label: 'Главная', icon: <Home size={ICON.lg} /> },
   { id: 'search', label: 'Поиск', icon: <Search size={ICON.lg} /> },
-  { id: 'library', label: 'Медиатека', icon: <ListMusic size={ICON.lg} /> }
+  { id: 'library', label: 'Медиатека', icon: <ListMusic size={ICON.lg} /> },
+  { id: 'wave', label: 'Поток', icon: <Radio size={ICON.lg} /> },
+  { id: 'foryou', label: 'Для вас', icon: <Sparkles size={ICON.lg} /> }
 ];
 
 /** Какая вкладка считается выбранной для каждого маршрута. */
@@ -54,8 +57,10 @@ export const MobileNavBar: React.FC = () => {
   const activeView = useUIStore((s) => s.activeView);
   const setActiveView = useUIStore((s) => s.setActiveView);
   const setActivePlaylistId = useUIStore((s) => s.setActivePlaylistId);
+  const layout = useAppLayoutStore((s) => s.mobile);
+  const tabs = layout.tabs.filter((id) => !layout.hiddenTabs.includes(id)).map((id) => TABS.find((tab) => tab.id === id)!);
 
-  const activeTab = TAB_FOR_VIEW[activeView];
+  const activeTab = tabs.some((tab) => tab.id === activeView) ? activeView : TAB_FOR_VIEW[activeView];
 
   const handleTabClick = (tabId: MobileTabId) => {
     setActivePlaylistId(null);
@@ -82,7 +87,7 @@ export const MobileNavBar: React.FC = () => {
       }}
       data-testid="mobile-nav"
     >
-      {TABS.map((tab) => {
+      {tabs.map((tab) => {
         const isActive = activeTab === tab.id;
         return (
           <button
@@ -111,7 +116,7 @@ export const MobileNavBar: React.FC = () => {
             {tab.icon}
             <span
               style={{
-                fontSize: 'var(--text-xs)',
+              fontSize: 'min(var(--text-xs), var(--mobile-nav-text-size, var(--text-xs)))',
                 lineHeight: 'var(--leading-xs)',
                 letterSpacing: 'var(--tracking-xs)',
                 fontWeight: isActive ? 'var(--weight-semibold)' : 'var(--weight-normal)'

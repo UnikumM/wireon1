@@ -7,6 +7,10 @@ import { UpdateBanner } from '../common/UpdateBanner';
 import { ParticleField } from '../fx';
 import { useThemeStore } from '../../store/useThemeStore';
 import { resolveParticles } from '../../styles/presets';
+import { useAppLayoutStore } from '../../store/useAppLayoutStore';
+import { CustomAppFrame } from './CustomAppFrame';
+import { TopNav } from './TopNav';
+import { SidePlayer } from '../player/SidePlayer';
 
 export interface AppShellProps {
   children: React.ReactNode;
@@ -21,9 +25,7 @@ export interface AppShellProps {
  * and the global overlay mounts. The grain layer and the toast region live here
  * so they exist exactly once, whatever the active view is.
  *
- * Боковой панели здесь больше нет: разделы переехали в шапку. Ширина, которую
- * панель держала под собой, ушла содержимому — в витринном направлении самое
- * крупное на экране должно быть самой музыкой, а не навигацией.
+ * Navigation and player edges follow the independently saved desktop layout.
  */
 export const AppShell: React.FC<AppShellProps> = ({
   children,
@@ -32,6 +34,8 @@ export const AppShell: React.FC<AppShellProps> = ({
   fullscreenPlayerSlot,
   modalSlot
 }) => {
+  const layout = useAppLayoutStore((s) => s.desktop);
+  const sidePlayer = layout.playerPosition === 'left' || layout.playerPosition === 'right';
   /*
    * Профиль частиц выбирается пресетом, а ручка настроек его перебивает —
    * `resolveParticles` знает этот порядок. Подписка идёт на готовое значение, а
@@ -84,10 +88,14 @@ export const AppShell: React.FC<AppShellProps> = ({
             position: 'relative'
           }}
         >
-          <Header />
+          <Header showNavigation={layout.navigationPosition === 'top'} />
 
           {/* Тонкая полоса «обновление готово». Сама решает, показываться ли. */}
           <UpdateBanner />
+
+          <CustomAppFrame layout={layout} platform="desktop"
+            navigation={layout.navigationPosition === 'top' ? null : <TopNav />}
+            player={sidePlayer ? <SidePlayer /> : playerBarSlot}>
 
           <main
             className="scrollbar-thin"
@@ -96,17 +104,8 @@ export const AppShell: React.FC<AppShellProps> = ({
               overflowY: 'auto',
               overflowX: 'hidden',
               padding: 'var(--space-6) var(--content-pad-x)',
-              // Под полосой плеера и — на узком окне — под нижней навигацией
-              // должно оставаться место, иначе последний трек списка не
-              // доскроллить: обе панели фиксированы и лежат поверх содержимого.
-              // На широком окне `--mobile-nav-height` равна нулю.
-              // `--safe-bottom` здесь не для красоты: нижняя навигация
-              // добавляет его к своей высоте, чтобы кнопки не попали под
-              // полосу жеста, — значит и место под ней надо считать вместе с
-              // ним, иначе последняя строка списка прячется ровно на эту
-              // величину.
-              paddingBottom:
-                'calc(var(--player-bar-space) + var(--mobile-nav-height) + var(--safe-bottom) + var(--space-6))',
+              // Panels occupy their own frame space; only the content gutter remains.
+              paddingBottom: 'var(--space-6)',
               position: 'relative'
             }}
             data-testid="main-content"
@@ -114,9 +113,8 @@ export const AppShell: React.FC<AppShellProps> = ({
             {children}
           </main>
 
-          {playerBarSlot}
-
           <MobileNav />
+          </CustomAppFrame>
         </div>
 
         {queueDrawerSlot}

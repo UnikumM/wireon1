@@ -193,8 +193,8 @@ describe('Поток: несколько очагов вкуса, а не оди
     );
 
     expect(asked.length).toBeGreaterThan(1);
-    // Играющая песня — только запас: при непустой библиотеке очаги берутся из неё.
-    expect(asked).not.toContain('seed123');
+    // Even with a library, the playing song anchors the default stream.
+    expect(asked[0]).toBe('seed123');
     expect(asked).toEqual(expect.arrayContaining(['fav1', 'hist1']));
   });
 

@@ -76,6 +76,7 @@ export const TrackRow: React.FC<TrackRowProps> = ({
 
   return (
     <div
+      className="mobile-track-row"
       style={{
         display: 'flex',
         alignItems: 'center',

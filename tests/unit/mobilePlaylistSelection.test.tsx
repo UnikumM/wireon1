@@ -17,6 +17,7 @@ import '../setup';
 import { MobilePlaylistView } from '../../src/components/mobile/MobilePlaylistView';
 import { useLibraryStore } from '../../src/store/useLibraryStore';
 import { useUIStore } from '../../src/store/useUIStore';
+import { usePlayerStore } from '../../src/store/usePlayerStore';
 import { Playlist, UnifiedTrack } from '../../src/types/music';
 
 function track(id: string): UnifiedTrack {
@@ -79,6 +80,19 @@ describe('выбор треков на телефоне', () => {
 
     expect(screen.queryByTestId('mobile-playlist-selection-bar')).toBeNull();
     expect(screen.getByTestId('mobile-playlist-play')).toBeTruthy();
+  });
+
+  it('shuffle play stays enabled on repeated clicks and normal play turns it off', () => {
+    const play = vi.spyOn(usePlayerStore.getState(), 'playTrack').mockResolvedValue();
+    usePlayerStore.setState({ isShuffled: false });
+    render(<MobilePlaylistView />);
+    fireEvent.click(screen.getByTestId('mobile-playlist-shuffle'));
+    expect(usePlayerStore.getState().isShuffled).toBe(true);
+    fireEvent.click(screen.getByTestId('mobile-playlist-shuffle'));
+    expect(usePlayerStore.getState().isShuffled).toBe(true);
+    fireEvent.click(screen.getByTestId('mobile-playlist-play'));
+    expect(usePlayerStore.getState().isShuffled).toBe(false);
+    expect(play).toHaveBeenCalledTimes(3);
   });
 
   it('отмеченное видно и считается', async () => {

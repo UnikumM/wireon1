@@ -8,6 +8,7 @@ import { buildDailyMixes, dailyMixDateKey, DailyMix } from '../../services/daily
 import { normalizeArtist } from '../../services/recommendationEngine';
 import { ICON } from '../../styles/icons';
 import type { UnifiedTrack } from '../../types/music';
+import { HomeLayout } from '../home/HomeLayout';
 
 /**
  * Главная — то, что человек видит, открыв приложение.
@@ -125,7 +126,7 @@ export const MobileHomeView: React.FC = () => {
   );
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-6)' }} data-testid="mobile-home">
+    <HomeLayout platform="mobile" testId="mobile-home">
       <header style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-3)' }}>
         {/*
           * Слова «Wireon» здесь больше нет.
@@ -165,7 +166,7 @@ export const MobileHomeView: React.FC = () => {
       {/* --- Герой: то, на чём остановились ------------------------------- */}
       <section
         style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-4)' }}
-        data-testid="mobile-home-hero"
+        data-testid="mobile-home-hero" data-home-block="hero"
       >
         <div
           style={{
@@ -175,7 +176,7 @@ export const MobileHomeView: React.FC = () => {
             overflow: 'hidden',
             background: 'var(--surface-2)',
             boxShadow: 'var(--shadow-lg)',
-            display: 'flex',
+            display: heroTrack ? 'flex' : 'none',
             alignItems: 'center',
             justifyContent: 'center',
             color: 'var(--text-faint)'
@@ -248,7 +249,7 @@ export const MobileHomeView: React.FC = () => {
       </section>
 
       {recent.length > 0 && (
-        <section data-testid="mobile-home-recent">
+        <section data-testid="mobile-home-recent" data-home-block="recent">
           <SectionTitle>Продолжить слушать</SectionTitle>
           {/*
             * Сетка два на три с обложкой 64 — приём, которым телефонные плееры
@@ -320,7 +321,7 @@ export const MobileHomeView: React.FC = () => {
         * Поток одной карточкой во всю ширину. Прежде под него была отведена
         * целая вкладка нижней панели ради единственной кнопки «Запустить».
         */}
-      <section>
+      <section data-home-block="wave">
         <button
           type="button"
           className="press card-interactive"
@@ -387,7 +388,7 @@ export const MobileHomeView: React.FC = () => {
         * на экране «Для вас», до которого с телефона было не добраться вовсе.
         * Полки Главной взяли оттуда миксы, а счётчики остались без входа.
         */}
-      <section>
+      <section data-home-block="stats">
         <button
           type="button"
           className="press card-interactive"
@@ -448,7 +449,7 @@ export const MobileHomeView: React.FC = () => {
       </section>
 
       {mixes.length > 0 && (
-        <section data-testid="mobile-home-mixes">
+        <section data-testid="mobile-home-mixes" data-home-block="mixes">
           <SectionTitle>Миксы дня</SectionTitle>
           <Shelf>
             {mixes.map((mix) => (
@@ -466,7 +467,7 @@ export const MobileHomeView: React.FC = () => {
       )}
 
       {topArtists.length > 0 && (
-        <section data-testid="mobile-home-artists">
+        <section data-testid="mobile-home-artists" data-home-block="artists">
           <SectionTitle>В духе тех, кого слушаете</SectionTitle>
           <Shelf>
             {topArtists.map((track) => (
@@ -498,7 +499,7 @@ export const MobileHomeView: React.FC = () => {
           Здесь появится то, что вы слушали. Начните с поиска или запустите Поток — он соберёт музыку сам.
         </p>
       )}
-    </div>
+    </HomeLayout>
   );
 };
 
@@ -560,8 +561,8 @@ const Shelf: React.FC<{ children: React.ReactNode }> = ({ children }) => (
        * иначе первая и последняя выглядят обрезанными ровно по отступу
        * содержимого, и полка читается как ошибка вёрстки.
        */
-      margin: '0 calc(var(--space-4) * -1)',
-      padding: '0 var(--space-4)'
+      margin: '0 calc(var(--mobile-content-pad, var(--space-4)) * -1)',
+      padding: '0 var(--mobile-content-pad, var(--space-4))'
       /*
        * Привязки прокрутки здесь нет намеренно. `scroll-snap-align: start`
        * притягивал первую карточку к началу области прокрутки, а не к краю

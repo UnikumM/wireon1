@@ -67,9 +67,10 @@ function normalizeMaximized(value: unknown): boolean {
 
 export interface HeaderProps {
   className?: string;
+  showNavigation?: boolean;
 }
 
-export const Header: React.FC<HeaderProps> = ({ className = '' }) => {
+export const Header: React.FC<HeaderProps> = ({ className = '', showNavigation = true }) => {
   const activeView = useUIStore((s) => s.activeView);
   const setActiveView = useUIStore((s) => s.setActiveView);
   const toggleCommandPalette = useUIStore((s) => s.toggleCommandPalette);
@@ -163,7 +164,7 @@ export const Header: React.FC<HeaderProps> = ({ className = '' }) => {
         */}
       <div style={{ display: 'flex', alignItems: 'center', minWidth: 0, flex: 1, ...noDragRegion }}>
         <div className="hide-on-mobile" style={{ minWidth: 0, width: '100%' }}>
-          <TopNav />
+          {showNavigation ? <TopNav /> : <button className="chip" onClick={() => setActiveView('home')}>Wireon</button>}
         </div>
         <h2
           className="text-truncate show-on-mobile"

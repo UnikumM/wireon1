@@ -89,7 +89,7 @@ const AxisSlider: React.FC<AxisSliderProps> = ({
   onChange
 }) => (
   <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' }}>
-    <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>
+    <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 'var(--space-2)' }}>
       <span style={{ display: 'inline-flex', color: 'var(--text-secondary)' }}>{icon}</span>
       <span
         style={{
@@ -170,7 +170,10 @@ export const WaveTuner: React.FC<WaveTunerProps> = ({ className = '', restartOnC
 
   useEffect(
     () => () => {
-      if (restartTimer.current) clearTimeout(restartTimer.current);
+      if (restartTimer.current) {
+        clearTimeout(restartTimer.current);
+        if (usePlayerStore.getState().queueMode === 'my_wave') void usePlayerStore.getState().startMyWave();
+      }
     },
     []
   );
@@ -180,7 +183,7 @@ export const WaveTuner: React.FC<WaveTunerProps> = ({ className = '', restartOnC
     if (restartTimer.current) clearTimeout(restartTimer.current);
     restartTimer.current = setTimeout(() => {
       restartTimer.current = null;
-      void startMyWave();
+      if (usePlayerStore.getState().queueMode === 'my_wave') void startMyWave();
     }, WAVE_RESTART_DEBOUNCE_MS);
   };
 
@@ -215,7 +218,7 @@ export const WaveTuner: React.FC<WaveTunerProps> = ({ className = '', restartOnC
       <div
         style={{
           display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))',
+          gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 240px), 1fr))',
           gap: 'var(--space-5)'
         }}
       >

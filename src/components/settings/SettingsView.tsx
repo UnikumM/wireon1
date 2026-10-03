@@ -10,6 +10,7 @@ import { DesktopSettings } from './DesktopSettings';
 import { DiagnosticsSettings } from './DiagnosticsSettings';
 import { ShortcutsSettings } from './ShortcutsSettings';
 import { AboutSettings } from './AboutSettings';
+import { AppLayoutSettings } from './AppLayoutSettings';
 import { useMediaQuery } from '../../hooks/useMediaQuery';
 
 interface SectionEntry {
@@ -45,6 +46,7 @@ export const SettingsView: React.FC<{ className?: string }> = ({ className }) =>
     const entries: SectionEntry[] = [
       { id: 'playback', label: 'Воспроизведение', render: () => <PlaybackSettings /> },
       { id: 'player', label: 'Плеер', render: () => <PlayerLayoutSettings /> },
+      { id: 'layout', label: 'Конструктор', render: () => <AppLayoutSettings /> },
       { id: 'appearance', label: 'Внешний вид', render: () => <AppearanceSettings /> },
       { id: 'design', label: 'Оформление', render: () => <DesignSettings /> },
       { id: 'library', label: 'Медиатека', render: () => <LibrarySettings /> },

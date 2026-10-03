@@ -78,6 +78,7 @@ const CONNECTION_COPY: Record<
 export const GroupListenModal: React.FC<GroupListenModalProps> = ({ isOpen, onClose }) => {
   const roomId = useGroupListenStore((s) => s.roomId);
   const isHost = useGroupListenStore((s) => s.isHost);
+  const hostId = useGroupListenStore((s) => s.hostId);
   const isConnected = useGroupListenStore((s) => s.isConnected);
   const connectionStatus = useGroupListenStore((s) => s.connectionStatus);
   const connectionError = useGroupListenStore((s) => s.connectionError);
@@ -114,7 +115,12 @@ export const GroupListenModal: React.FC<GroupListenModalProps> = ({ isOpen, onCl
   const [chatInput, setChatInput] = useState('');
   const [showChat, setShowChat] = useState(false);
 
-  const connection = CONNECTION_COPY[connectionStatus] ?? CONNECTION_COPY.offline;
+  const awaitingHost = isConnected && !isHost && !hostId && !participants.some((participant) => participant.isHost);
+  const connection = awaitingHost && connectionStatus === 'online' ? {
+    badge: 'Ждём ведущего', title: 'Синхронизация приостановлена',
+    hint: 'Ведущий пока не подключён. Музыка играет только у вас.',
+    color: 'var(--warning)', soft: 'var(--warning-soft)'
+  } : CONNECTION_COPY[connectionStatus] ?? CONNECTION_COPY.offline;
 
   useEffect(() => {
     if (!isOpen) {
@@ -216,7 +222,7 @@ export const GroupListenModal: React.FC<GroupListenModalProps> = ({ isOpen, onCl
       onClose={onClose}
       maxWidth="540px"
       title={
-        <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>
+        <div className="group-listen-title" style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>
           <Radio size={ICON.lg} style={{ color: 'var(--text-secondary)' }} />
           <span>Слушать вместе</span>
           {isConnected && (
@@ -268,7 +274,7 @@ export const GroupListenModal: React.FC<GroupListenModalProps> = ({ isOpen, onCl
                 gap: 'var(--space-3)'
               }}
             >
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <div className="group-listen-room-row" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                 <div>
                   <div className="section-label">Код комнаты</div>
                   <div
@@ -288,7 +294,7 @@ export const GroupListenModal: React.FC<GroupListenModalProps> = ({ isOpen, onCl
                   </div>
                 </div>
 
-                <div style={{ display: 'flex', gap: 'var(--space-2)' }}>
+                <div className="group-listen-room-actions" style={{ display: 'flex', gap: 'var(--space-2)' }}>
                   <Button
                     size="sm"
                     variant="secondary"
@@ -381,7 +387,7 @@ export const GroupListenModal: React.FC<GroupListenModalProps> = ({ isOpen, onCl
                   }}
                 >
                   <Wifi size={ICON.xs} />
-                  {isSyncing ? 'Подстраиваемся…' : 'Совпадает'}
+                  {awaitingHost ? 'Нет ведущего' : isSyncing ? 'Подстраиваемся…' : 'Совпадает'}
                 </span>
               </div>
             </div>
@@ -433,6 +439,7 @@ export const GroupListenModal: React.FC<GroupListenModalProps> = ({ isOpen, onCl
                 * самой подписи.
                 */}
               <div
+                className="group-listen-participants-heading"
                 style={{
                   display: 'flex',
                   alignItems: 'center',
@@ -501,15 +508,17 @@ export const GroupListenModal: React.FC<GroupListenModalProps> = ({ isOpen, onCl
                         fontSize: 'var(--text-xs)'
                       }}
                     >
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>
+                      <div className="group-listen-participant-identity" style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>
                         {p.avatarUrl ? (
                           <img
+                            className="group-listen-participant-avatar"
                             src={p.avatarUrl}
                             alt=""
                             style={{ width: '20px', height: '20px', borderRadius: '50%' }}
                           />
                         ) : (
                           <div
+                            className="group-listen-participant-avatar"
                             style={{
                               width: '20px',
                               height: '20px',
@@ -526,11 +535,12 @@ export const GroupListenModal: React.FC<GroupListenModalProps> = ({ isOpen, onCl
                             {p.username.charAt(0).toUpperCase()}
                           </div>
                         )}
-                        <span style={{ fontWeight: 'var(--weight-medium)', color: 'var(--text-primary)' }}>{p.username}</span>
+                        <span className="group-listen-participant-name" style={{ fontWeight: 'var(--weight-medium)', color: 'var(--text-primary)' }}>{p.username}</span>
                       </div>
 
                       {p.isHost && (
                         <span
+                          className="group-listen-host-badge"
                           style={{
                             display: 'inline-flex',
                             alignItems: 'center',
@@ -601,7 +611,7 @@ export const GroupListenModal: React.FC<GroupListenModalProps> = ({ isOpen, onCl
                   )}
                 </div>
 
-                <form onSubmit={handleSendChat} style={{ display: 'flex', gap: 'var(--space-2)' }}>
+                <form className="group-listen-chat-form" onSubmit={handleSendChat} style={{ display: 'flex', gap: 'var(--space-2)' }}>
                   <input
                     type="text"
                     value={chatInput}

@@ -165,7 +165,7 @@ describe('Adversarial Empirical Stress Testing — Поток & Track Radio', ()
       await store.startMyWave('chill', 'ambient');
 
       const updated = usePlayerStore.getState();
-      expect(updated.queueMode).toBe('my_wave');
+      expect(updated.queueMode).toBe('sequential');
       expect(updated.isReplenishingQueue).toBe(false);
       expect(updated.sourceQueue).toEqual([]);
       expect(updated.currentIndex).toBe(-1);

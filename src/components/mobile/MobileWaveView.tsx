@@ -18,6 +18,7 @@ import { useUIStore } from '../../store/useUIStore';
 import { recommendationEngine } from '../../services/recommendationEngine';
 import { WaveVisualizerOrb } from '../wave/WaveVisualizerOrb';
 import { WaveTuner, describeWaveAxes } from '../wave/WaveTuner';
+import { WaveSourcePicker } from '../wave/WaveSourcePicker';
 import { ICON } from '../../styles/icons';
 import type { WaveSeedKind } from '../../types/store';
 import { Button } from '../common/Button';
@@ -74,7 +75,6 @@ export const MobileWaveView: React.FC = () => {
   const energy = usePlayerStore((s) => s.waveEnergy);
   const seedKind = usePlayerStore((s) => s.waveSeedKind);
   const seedArtist = usePlayerStore((s) => s.waveSeedArtist);
-  const setWaveSeed = usePlayerStore((s) => s.setWaveSeed);
   const playTrack = usePlayerStore((s) => s.playTrack);
 
   const showToast = useUIStore((s) => s.showToast);
@@ -96,9 +96,8 @@ export const MobileWaveView: React.FC = () => {
       if (!currentTrack) return;
       try {
         if (kind === 'dislike') {
-          await recommendationEngine.recordFeedback(currentTrack, 'dislike');
+          await usePlayerStore.getState().dislikeAndSkipCurrentTrack();
           showToast(`«${currentTrack.title}» убран из Потока`, 'info');
-          await usePlayerStore.getState().nextTrack();
           return;
         }
         await recommendationEngine.recordFeedback(currentTrack, kind === 'like' ? 'like' : 'more_like_this');
@@ -197,6 +196,11 @@ export const MobileWaveView: React.FC = () => {
         >
           {isReplenishing ? 'Собираем…' : isWaveActive ? 'Пересобрать Поток' : 'Запустить Поток'}
         </Button>
+        {currentTrack && (
+          <Button variant="ghost" fullWidth disabled={isReplenishing}
+            onClick={() => void usePlayerStore.getState().startMyWave(undefined, undefined, 'new')}
+            data-testid="mobile-wave-new-start">С нового трека</Button>
+        )}
       </section>
 
       {/*
@@ -235,7 +239,7 @@ export const MobileWaveView: React.FC = () => {
         * стояли всегда — погашенные, безымянные и ни с чем не связанные.
         */}
       {currentTrack && isWaveActive && (
-        <section style={{ display: 'flex', gap: 'var(--space-2)' }}>
+        <section style={{ display: 'flex', flexWrap: 'wrap', gap: 'var(--space-2)' }}>
           <FeedbackButton
             icon={<ThumbsDown size={ICON.md} aria-hidden="true" />}
             label="Не это"
@@ -283,29 +287,9 @@ export const MobileWaveView: React.FC = () => {
         title="Откуда собирать Поток"
         data-testid="mobile-wave-source-sheet"
       >
-        {SOURCES.map((source) => (
-          <SheetRow
-            key={source.id}
-            icon={source.icon}
-            label={source.label}
-            /*
-             * «От этой песни» без играющей песни раньше молча ничего не делала
-             * — плитка гасла, нажатие не давало ответа. Теперь строка честно
-             * говорит, чего не хватает, и остаётся выбираемой: как только
-             * что-то заиграет, выбор сработает.
-             */
-            hint={
-              source.id === 'track' && !currentTrack
-                ? 'Пока ничего не играет — включите трек'
-                : source.hint
-            }
-            onClick={() => {
-              setWaveSeed(source.id);
-              setSourceSheetOpen(false);
-            }}
-            data-testid={`mobile-wave-source-${source.id}`}
-          />
-        ))}
+        <div style={{ padding: '0 var(--space-4) var(--space-4)', minWidth: 0 }}>
+          <WaveSourcePicker restartOnChange={isWaveActive} />
+        </div>
       </Sheet>
 
       <Sheet
@@ -337,10 +321,12 @@ const FeedbackButton: React.FC<FeedbackButtonProps> = ({ icon, label, onClick, t
     onClick={onClick}
     style={{
       display: 'flex',
+      flexWrap: 'wrap',
       alignItems: 'center',
       justifyContent: 'center',
       gap: 'var(--space-2)',
-      flex: 1,
+      flex: '1 1 120px',
+      minWidth: 0,
       minHeight: '44px',
       borderRadius: 'var(--radius-pill)',
       border: '1px solid var(--border)',

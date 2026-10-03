@@ -127,6 +127,28 @@ describe('RecommendationEngineService', () => {
     engine.resetSessionBoosts();
   });
 
+  it('forgotten source only returns old history and never searches for new songs', async () => {
+    vi.spyOn(engine, 'collectForgottenTracks').mockResolvedValue([mockYtTrack1]);
+    const result = await engine.getRecommendationsForWave({ mood: 'favorite', seedKind: 'forgotten', novelty: 0.8 }, 10);
+    expect(result.map((track) => track.id)).toEqual([mockYtTrack1.id]);
+    expect(mockYtService.search).not.toHaveBeenCalled();
+    expect(mockScService.search).not.toHaveBeenCalled();
+  });
+
+  it('artist source does not ask for radio from unrelated library songs', async () => {
+    await addFavorite(mockYtTrack1);
+    await engine.getRecommendationsForWave({ mood: 'favorite', seedKind: 'artist', seedArtist: 'Another Artist', novelty: 0.35 }, 10);
+    expect(mockYtService.getRelatedVideos).not.toHaveBeenCalled();
+    expect(mockYtService.search).toHaveBeenCalledWith(expect.stringContaining('Another Artist'), expect.any(Number));
+  });
+
+  it('discovery source excludes already familiar artists', async () => {
+    await addFavorite(mockYtTrack1);
+    const result = await engine.getRecommendationsForWave({ mood: 'discovery', seedKind: 'discovery', novelty: 1 }, 10);
+    expect(result.length).toBeGreaterThan(0);
+    expect(result.some((track) => track.artist === mockYtTrack1.artist)).toBe(false);
+  });
+
   it('«только знакомое» не пускает незнакомых исполнителей и добирает из своей истории', async () => {
     /*
      * Живой случай: регулятор на «только знакомое», а в очереди у всех треков

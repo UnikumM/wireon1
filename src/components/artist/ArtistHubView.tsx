@@ -445,7 +445,8 @@ export const ArtistHubView: React.FC<ArtistHubViewProps> = ({
           <div
             style={{
               width: '128px',
-              height: '128px',
+              maxWidth: '100%',
+              aspectRatio: '1 / 1',
               borderRadius: 'var(--radius-full)',
               overflow: 'hidden',
               flexShrink: 0,
@@ -473,7 +474,7 @@ export const ArtistHubView: React.FC<ArtistHubViewProps> = ({
           </div>
 
           {/* Name & Listener Stats */}
-          <div style={{ flex: 1, minWidth: '240px', display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' }}>
+          <div style={{ flex: '1 1 240px', minWidth: 0, display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' }}>
             <h1
               style={{
                 margin: 0,
@@ -487,7 +488,8 @@ export const ArtistHubView: React.FC<ArtistHubViewProps> = ({
                 lineHeight: 'var(--leading-3xl)',
                 letterSpacing: 'var(--tracking-3xl)',
                 color: 'var(--text-primary)',
-                textShadow: 'var(--text-shadow-md)'
+                textShadow: 'var(--text-shadow-md)',
+                overflowWrap: 'anywhere'
               }}
               data-testid="artist-name-heading"
             >
@@ -514,6 +516,7 @@ export const ArtistHubView: React.FC<ArtistHubViewProps> = ({
             <div
               style={{
                 display: 'flex',
+                flexWrap: 'wrap',
                 alignItems: 'center',
                 gap: 'var(--space-3)',
                 marginTop: 'var(--space-3)'

@@ -972,7 +972,8 @@ describe('Player Store (usePlayerStore & 2-Tier Queue)', () => {
           energy: expect.any(Number),
           seedKind: 'library'
         }),
-        10
+        10,
+        expect.any(Set)
       );
       expect(state.currentTrack?.id).toBe('sc_track_2');
       expect(state.sourceQueue).toHaveLength(2);
@@ -991,7 +992,8 @@ describe('Player Store (usePlayerStore & 2-Tier Queue)', () => {
       // всегда, и движок уходил в поиск по жанру.
       expect(waveSpy).toHaveBeenCalledWith(
         expect.objectContaining({ seedKind: 'track', seedTrack: mockTracks[0] }),
-        10
+        10,
+        new Set([mockTracks[0].id])
       );
       expect(usePlayerStore.getState().activeSeedTrack?.id).toBe(mockTracks[0].id);
     });
@@ -1007,7 +1009,8 @@ describe('Player Store (usePlayerStore & 2-Tier Queue)', () => {
 
       expect(waveSpy).toHaveBeenCalledWith(
         expect.objectContaining({ seedTrack: undefined }),
-        10
+        10,
+        expect.any(Set)
       );
     });
 

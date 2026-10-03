@@ -1,4 +1,4 @@
-import React, { useCallback, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import {
   ChevronDown,
   Heart,
@@ -19,6 +19,7 @@ import { usePlayerStore } from '../../store/usePlayerStore';
 import { useLibraryStore } from '../../store/useLibraryStore';
 import { useUIStore } from '../../store/useUIStore';
 import { useSwipeDismiss } from '../../hooks/useSwipeDismiss';
+import { useDismissable } from '../../hooks/useDismissable';
 import { useDominantColor } from '../../hooks/useDominantColor';
 import { Button } from '../common/Button';
 import { SeekBar } from '../player/SeekBar';
@@ -74,11 +75,14 @@ export const MobileFullscreenPlayer: React.FC = () => {
   const [artworkFailed, setArtworkFailed] = useState(false);
   const [isTempoOpen, setTempoOpen] = useState(false);
 
+  useEffect(() => setArtworkFailed(false), [currentTrack?.artworkUrl]);
+
   // Изменённая скорость видна прямо на кнопке: забытые 0.65× иначе остаются
   // загадкой — «почему песня звучит не так» без единой подсказки на экране.
   const isTempoModified = Math.abs(playbackRate - 1) > 0.001;
 
   const close = useCallback(() => setOpen(false), [setOpen]);
+  const { containerRef } = useDismissable({ isOpen: isOpen && Boolean(currentTrack), onDismiss: close });
   const { offset, isDragging, handlers } = useSwipeDismiss({ enabled: isOpen, onDismiss: close });
 
   // Свечение под обложкой берётся из неё же: экран приобретает цвет того, что
@@ -89,6 +93,7 @@ export const MobileFullscreenPlayer: React.FC = () => {
 
   return (
     <div
+      ref={containerRef}
       role="dialog"
       aria-modal="true"
       aria-label="Плеер"
@@ -106,13 +111,14 @@ export const MobileFullscreenPlayer: React.FC = () => {
         paddingRight: 'calc(var(--safe-right) + var(--space-5))',
         transform: offset > 0 ? `translate3d(0, ${offset}px, 0)` : undefined,
         transition: isDragging ? 'none' : undefined,
-        touchAction: 'none'
+        overflowY: 'auto',
+        overscrollBehavior: 'contain',
+        touchAction: 'pan-y'
       }}
       data-testid="mobile-fullscreen-player"
-      {...handlers}
     >
       {/* Ухватка: сообщает, что экран смахивается, до того как это попробуют. */}
-      <div style={{ display: 'flex', justifyContent: 'center', flexShrink: 0 }}>
+      <div {...handlers} style={{ display: 'flex', justifyContent: 'center', flexShrink: 0, touchAction: 'none', padding: 'var(--space-2) 0' }}>
         <div
           aria-hidden="true"
           style={{
@@ -125,12 +131,14 @@ export const MobileFullscreenPlayer: React.FC = () => {
       </div>
 
       <header
+        {...handlers}
         style={{
           display: 'flex',
           alignItems: 'center',
           gap: 'var(--space-2)',
           flexShrink: 0,
-          padding: 'var(--space-2) 0'
+          padding: 'var(--space-2) 0',
+          touchAction: 'none'
         }}
       >
         <RoundButton label="Свернуть плеер" onClick={close} testId="mobile-fullscreen-close">
@@ -156,7 +164,7 @@ export const MobileFullscreenPlayer: React.FC = () => {
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
-          flex: '1 1 auto',
+          flex: '1 0 auto',
           minHeight: 0,
           padding: 'var(--space-4) 0'
         }}
@@ -331,6 +339,7 @@ export const MobileFullscreenPlayer: React.FC = () => {
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'space-around',
+          flexWrap: 'wrap',
           flexShrink: 0,
           gap: 'var(--space-2)'
         }}

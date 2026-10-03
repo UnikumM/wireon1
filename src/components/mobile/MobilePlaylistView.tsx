@@ -61,6 +61,7 @@ export const MobilePlaylistView: React.FC = () => {
 
   const playTrack = usePlayerStore((s) => s.playTrack);
   const currentTrack = usePlayerStore((s) => s.currentTrack);
+  const isShuffled = usePlayerStore((s) => s.isShuffled);
   const toggleShuffle = usePlayerStore((s) => s.toggleShuffle);
 
   const [isMenuOpen, setMenuOpen] = useState(false);
@@ -385,18 +386,21 @@ export const MobilePlaylistView: React.FC = () => {
       </div>
 
       {tracks.length > 0 && selected === null && (
-        <div style={{ display: 'flex', gap: 'var(--space-2)' }}>
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 'var(--space-2)' }}>
           <ActionButton
             icon={<Play size={ICON.md} fill="currentColor" aria-hidden="true" />}
             label="Слушать"
-            onClick={() => void playTrack(tracks[0], tracks, 0)}
+            onClick={() => {
+              if (isShuffled) toggleShuffle();
+              void playTrack(tracks[0], tracks, 0);
+            }}
             testId="mobile-playlist-play"
           />
           <ActionButton
             icon={<Shuffle size={ICON.md} aria-hidden="true" />}
             label="Вперемешку"
             onClick={() => {
-              toggleShuffle();
+              if (!isShuffled) toggleShuffle();
               void playTrack(tracks[0], tracks, 0);
             }}
             testId="mobile-playlist-shuffle"
@@ -649,7 +653,7 @@ const ActionButton: React.FC<{
       alignItems: 'center',
       justifyContent: 'center',
       gap: stacked ? '2px' : 'var(--space-2)',
-      flex: 1,
+      flex: '1 1 120px',
       minWidth: 0,
       minHeight: '44px',
       padding: stacked ? 'var(--space-2) var(--space-1)' : undefined,

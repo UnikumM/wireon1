@@ -39,6 +39,9 @@ export const CollectionView: React.FC = () => {
       .then((found) => {
         if (!cancelled) setTracks(found);
       })
+      .catch(() => {
+        if (!cancelled) useUIStore.getState().showToast('Не удалось загрузить подборку. Попробуйте ещё раз.', 'error');
+      })
       .finally(() => {
         if (!cancelled) setIsLoading(false);
       });
@@ -51,7 +54,7 @@ export const CollectionView: React.FC = () => {
   const handlePlay = useCallback(
     (shuffle: boolean) => {
       if (tracks.length === 0) return;
-      if (shuffle && !isShuffled) toggleShuffle();
+      if (shuffle !== isShuffled) toggleShuffle();
       void playTrack(tracks[0], tracks, 0);
     },
     [tracks, isShuffled, toggleShuffle, playTrack]
@@ -90,8 +93,8 @@ export const CollectionView: React.FC = () => {
       <div style={{ display: 'flex', gap: 'var(--space-5)', flexWrap: 'wrap' }}>
         <div
           style={{
-            width: '200px',
-            height: '200px',
+            width: 'min(200px, 100%)',
+            aspectRatio: '1',
             flexShrink: 0,
             borderRadius: 'var(--radius-lg)',
             overflow: 'hidden',
@@ -120,7 +123,8 @@ export const CollectionView: React.FC = () => {
               lineHeight: 'var(--leading-2xl)',
               letterSpacing: 'var(--tracking-2xl)',
               fontWeight: 'var(--weight-semibold)',
-              color: 'var(--text-primary)'
+              color: 'var(--text-primary)',
+              overflowWrap: 'anywhere'
             }}
             data-testid="collection-title"
           >

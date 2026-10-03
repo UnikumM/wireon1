@@ -528,8 +528,7 @@ describe('Wave Components Unit Tests', () => {
         fireEvent.click(screen.getByTestId('wave-btn-restart'));
       });
 
-      expect(startWaveSpy).toHaveBeenCalled();
-      expect(useUIStore.getState().toastMessage?.text).toContain('пересобран');
+      expect(startWaveSpy).toHaveBeenCalledWith(undefined, undefined, 'new');
     });
 
     it('не показывает «Пересобрать», пока волна не запущена', () => {

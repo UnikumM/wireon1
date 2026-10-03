@@ -29,6 +29,7 @@ import { ResolveLogSettings } from '../settings/ResolveLogSettings';
 import { ShortcutsSettings } from '../settings/ShortcutsSettings';
 import { MobileUpdateSection } from '../settings/MobileUpdateSection';
 import { AboutSettings } from '../settings/AboutSettings';
+import { AppLayoutSettings } from '../settings/AppLayoutSettings';
 import { ICON } from '../../styles/icons';
 
 /**
@@ -82,6 +83,7 @@ export const MobileSettingsView: React.FC = () => {
 
   const sections = useMemo<SectionEntry[]>(() => {
     const entries: SectionEntry[] = [
+      { id: 'layout', label: 'Конструктор главной', hint: 'Панели, вкладки и блоки', icon: <SlidersHorizontal size={ICON.lg} />, render: () => <AppLayoutSettings /> },
       {
         id: 'playback',
         label: 'Воспроизведение',

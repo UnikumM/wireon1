@@ -2,6 +2,7 @@ import React from 'react';
 import { Home, Library, Radio, Search, Sparkles } from 'lucide-react';
 import { useUIStore } from '../../store/useUIStore';
 import { ICON } from '../../styles/icons';
+import { useAppLayoutStore } from '../../store/useAppLayoutStore';
 
 /**
  * Главная навигация — поперёк верха окна.
@@ -59,6 +60,8 @@ export const TopNav: React.FC<TopNavProps> = ({ className = '' }) => {
   const activeView = useUIStore((s) => s.activeView);
   const setActiveView = useUIStore((s) => s.setActiveView);
   const setActivePlaylistId = useUIStore((s) => s.setActivePlaylistId);
+  const layout = useAppLayoutStore((s) => s.desktop);
+  const items = layout.tabs.filter((id) => !layout.hiddenTabs.includes(id)).map((id) => NAV_ITEMS.find((item) => item.id === id)!);
 
   const handleNavClick = (viewId: NavViewId) => {
     setActivePlaylistId(null);
@@ -99,7 +102,7 @@ export const TopNav: React.FC<TopNavProps> = ({ className = '' }) => {
       </button>
 
       <div className="topnav-items">
-        {NAV_ITEMS.map((item) => (
+        {items.map((item) => (
           <button
             key={item.id}
             type="button"

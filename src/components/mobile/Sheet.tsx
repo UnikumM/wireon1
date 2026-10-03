@@ -1,6 +1,8 @@
 import React from 'react';
+import { createPortal } from 'react-dom';
 import { useDismissable } from '../../hooks/useDismissable';
 import { useSwipeDismiss } from '../../hooks/useSwipeDismiss';
+import '../../styles/overlays.css';
 
 /**
  * Лист снизу — способ показать что-то поверх экрана на телефоне.
@@ -65,9 +67,9 @@ export const Sheet: React.FC<SheetProps> = ({
 
   const titleId = title ? `${testId ?? 'sheet'}-title` : undefined;
 
-  return (
+  return createPortal(
     <div
-      className="animate-fade-in"
+      className="wireon-sheet-backdrop animate-fade-in"
       style={
         {
           position: 'fixed',
@@ -80,6 +82,10 @@ export const Sheet: React.FC<SheetProps> = ({
         } as React.CSSProperties
       }
       {...backdropProps}
+      onClick={(event) => {
+        event.stopPropagation();
+        backdropProps.onClick(event);
+      }}
       data-testid={testId ? `${testId}-overlay` : undefined}
     >
       <div
@@ -88,10 +94,14 @@ export const Sheet: React.FC<SheetProps> = ({
         aria-modal="true"
         aria-labelledby={titleId}
         aria-label={titleId ? undefined : ariaLabel}
-        className="animate-sheet-up"
+        className="wireon-sheet-panel animate-sheet-up"
         style={{
-          maxHeight: `calc(var(--app-height) * ${maxHeightRatio})`,
+          maxHeight: `min(calc(var(--app-height) * ${maxHeightRatio}), calc(var(--app-height) - var(--safe-top) - var(--space-2)))`,
           width: '100%',
+          minHeight: 0,
+          minWidth: 0,
+          paddingLeft: 'var(--safe-left)',
+          paddingRight: 'var(--safe-right)',
           background: 'var(--surface-3)',
           borderTop: '1px solid var(--border)',
           borderTopLeftRadius: 'var(--radius-xl)',
@@ -103,24 +113,25 @@ export const Sheet: React.FC<SheetProps> = ({
           // Лист едет за пальцем один к одному; во время перетаскивания
           // переход выключен, иначе он тянулся бы следом с задержкой.
           transform: offset > 0 ? `translate3d(0, ${offset}px, 0)` : undefined,
-          transition: isDragging ? 'none' : undefined,
-          touchAction: 'none'
+          transition: isDragging ? 'none' : undefined
         }}
         data-testid={testId}
         data-closing={isClosing ? 'true' : undefined}
-        {...handlers}
       >
         {/*
           * Полоска-ухватка. Не орган управления, а подпись: она сообщает, что
           * лист можно смахнуть, до того как человек это попробует.
           */}
         <div
+          // Disabling touch on the panel also disables native scrolling in its children.
+          {...handlers}
           style={{
             display: 'flex',
             justifyContent: 'center',
             paddingTop: 'var(--space-3)',
             paddingBottom: header || title ? 0 : 'var(--space-2)',
-            flexShrink: 0
+            flexShrink: 0,
+            touchAction: 'none'
           }}
         >
           <div
@@ -136,12 +147,16 @@ export const Sheet: React.FC<SheetProps> = ({
         </div>
 
         {header ? (
-          <div style={{ flexShrink: 0, padding: 'var(--space-4) var(--space-4) var(--space-2)' }}>{header}</div>
+          <div {...handlers} style={{ flexShrink: 0, minWidth: 0, touchAction: 'none', padding: 'var(--space-4) var(--space-4) var(--space-2)' }}>{header}</div>
         ) : title ? (
           <h2
+            {...handlers}
             id={titleId}
             style={{
               flexShrink: 0,
+              minWidth: 0,
+              overflowWrap: 'anywhere',
+              touchAction: 'none',
               margin: 0,
               padding: 'var(--space-4) var(--space-4) var(--space-2)',
               fontSize: 'var(--text-lg)',
@@ -160,9 +175,12 @@ export const Sheet: React.FC<SheetProps> = ({
           * иначе жест закрытия и прокрутка списка ловили бы одно движение.
           */}
         <div
-          className="scrollbar-thin"
+          className="wireon-sheet-content scrollbar-thin"
+          data-swipe-ignore
           style={{
             overflowY: 'auto',
+            minHeight: 0,
+            minWidth: 0,
             overscrollBehavior: 'contain',
             paddingBottom: 'calc(max(var(--safe-bottom), var(--space-2)) + var(--space-2))',
             touchAction: 'pan-y'
@@ -171,7 +189,8 @@ export const Sheet: React.FC<SheetProps> = ({
           {children}
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 };
 

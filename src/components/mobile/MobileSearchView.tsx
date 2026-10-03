@@ -366,7 +366,7 @@ export const MobileSearchView: React.FC = () => {
                 display: 'flex',
                 gap: 'var(--space-2)',
                 overflowX: 'auto',
-                margin: '0 calc(var(--space-4) * -1)',
+                margin: '0 calc(var(--mobile-content-pad, var(--space-4)) * -1)',
                 padding: '0 var(--space-4)'
               }}
             >

@@ -407,6 +407,18 @@ describe('Unit: GroupListenModal & Header Component UI', () => {
       expect(screen.getByTestId('group-listen-badge')).toHaveTextContent('В эфире');
     });
 
+    it('keeps the missing host visible after the transient notice disappears', () => {
+      enterRoom('online');
+      act(() => useGroupListenStore.setState({ isHost: false, hostId: 'host', participants: [] }));
+      expect(screen.getByTestId('group-listen-connection')).toHaveTextContent('Синхронизация активна');
+      act(() => useGroupListenStore.setState({ hostId: null, notice: null }));
+      expect(screen.getByTestId('group-listen-badge')).toHaveTextContent('Ждём ведущего');
+      expect(screen.getByTestId('group-listen-connection')).toHaveTextContent('Синхронизация приостановлена');
+      expect(screen.getByTestId('group-listen-sync-badge')).toHaveTextContent('Нет ведущего');
+      act(() => useGroupListenStore.setState({ hostId: 'new-host' }));
+      expect(screen.getByTestId('group-listen-connection')).toHaveTextContent('Синхронизация активна');
+    });
+
     it('показывает «подключение», пока брокер ещё не ответил', () => {
       enterRoom('connecting');
 

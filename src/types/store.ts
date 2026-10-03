@@ -163,7 +163,7 @@ export interface PlayerStoreActions {
    * подобранные по его составу. Пустой список тихо ничего не делает.
    */
   smartShuffle: (tracks: UnifiedTrack[]) => Promise<void>;
-  startMyWave: (mood?: WaveMood, genre?: string | null) => Promise<void>;
+  startMyWave: (mood?: WaveMood, genre?: string | null, mode?: 'continue' | 'new') => Promise<void>;
   startWave: (configOrMood?: WaveConfig | WaveMood) => Promise<void>;
   dislikeAndSkipCurrentTrack: () => Promise<void>;
   replenishAutoplayQueue: () => Promise<void>;

@@ -11,6 +11,8 @@ import { DiscoverShelf, getCharts, getNewReleases } from '../../services/discove
 import { ICON } from '../../styles/icons';
 import { CoverCard } from '../common/CoverCard';
 import { formatDuration } from '../../utils/time';
+import { HomeLayout } from './HomeLayout';
+import { HomeBlockId } from '../../store/useAppLayoutStore';
 
 /**
  * Главная страница.
@@ -122,9 +124,9 @@ export const HomeView: React.FC = () => {
         : 'Начните слушать';
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-8)' }} data-testid="home-view">
+    <HomeLayout platform="desktop" testId="home-view">
       {/* --- Герой: продолжить слушать ------------------------------------ */}
-      <section style={{ display: 'flex', gap: 'var(--space-7)', alignItems: 'stretch' }}>
+      <section data-home-block="hero" style={{ display: 'flex', gap: 'var(--space-7)', alignItems: 'stretch' }}>
         <div
           style={{
             width: HERO_ART,
@@ -246,7 +248,7 @@ export const HomeView: React.FC = () => {
       </section>
 
       {/* --- Собрано для тебя --------------------------------------------- */}
-      <Shelf title="Собрано для тебя" note="обновляется каждый день" testId="home-daily">
+      <Shelf title="Поток" testId="home-wave" homeBlock="wave">
           <CoverCard
             title="Поток"
             subtitle="бесконечный подбор"
@@ -258,6 +260,8 @@ export const HomeView: React.FC = () => {
             }}
           />
 
+      </Shelf>
+      <Shelf title="Собрано для тебя" note="обновляется каждый день" testId="home-daily" homeBlock="mixes">
           {mixes.map((mix) => (
             <CoverCard
               key={mix.id}
@@ -274,7 +278,7 @@ export const HomeView: React.FC = () => {
 
       {/* --- Новое у исполнителей ------------------------------------------ */}
       {releases.length > 0 && (
-        <Shelf title="Новое у исполнителей" note="у тех, на кого вы подписаны" testId="home-releases">
+        <Shelf title="Новое у исполнителей" note="у тех, на кого вы подписаны" testId="home-releases" homeBlock="releases">
           {releases.slice(0, 8).map(({ artist, album }) => (
             <CoverCard
               key={`${artist}_${album.browseId || album.id}`}
@@ -300,7 +304,7 @@ export const HomeView: React.FC = () => {
 
       {/* --- Чарты и новинки площадки --------------------------------------- */}
       {shelves.map((shelf) => (
-        <Shelf key={shelf.title} title={shelf.title} testId={`home-shelf-${shelf.title}`}>
+        <Shelf key={shelf.title} title={shelf.title} testId={`home-shelf-${shelf.title}`} homeBlock="discover">
           {shelf.items.slice(0, 8).map((item: SearchCollection) => (
             <CoverCard
               key={item.id}
@@ -313,11 +317,12 @@ export const HomeView: React.FC = () => {
           ))}
         </Shelf>
       ))}
-    </div>
+    </HomeLayout>
   );
 };
 
 interface ShelfProps {
+  homeBlock?: HomeBlockId;
   title: string;
   note?: string;
   testId: string;
