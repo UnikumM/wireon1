@@ -26,6 +26,8 @@ import { saveTextFile } from '../../utils/download';
 import { Sheet, SheetRow } from './Sheet';
 import { usePinnedStore, MAX_PINNED } from '../../store/usePinnedStore';
 import { TrackRow } from './TrackRow';
+import { useVirtualRows, TRACK_ROW_PITCH } from '../../hooks/useVirtualRows';
+import { PLAYLIST_SORT_LABELS, PlaylistSortKey, viewEntries } from '../../services/playlistTools';
 import { TrackSelectionBar } from './TrackSelectionBar';
 import { offlineMode } from '../../services/offlineMode';
 import { prepareCoverImage } from '../../services/playlistCover';
@@ -80,6 +82,21 @@ export const MobilePlaylistView: React.FC = () => {
     [activePlaylistId, playlists]
   );
   const tracks = playlist?.tracks ?? [];
+  /*
+   * Поиск и сортировка — как на компьютере. Сортировка здесь только вид:
+   * порядок самого плейлиста меняется на компьютере («Сохранить порядок»).
+   */
+  const [query, setQuery] = useState('');
+  const [sortKey, setSortKey] = useState<PlaylistSortKey>('custom');
+  const viewTracks = useMemo(
+    () => viewEntries(tracks, query, sortKey).map((entry) => entry.track),
+    [tracks, query, sortKey]
+  );
+  const isCustomView = sortKey === 'custom' && query.trim() === '';
+  const listTracks = isCustomView ? tracks : viewTracks;
+  // Импортированный плейлист бывает на тысячу треков: в DOM — только видимое.
+  const virtual = useVirtualRows({ itemCount: listTracks.length, rowPitch: TRACK_ROW_PITCH });
+
   const isPinned = usePinnedStore((s) => (playlist ? s.pinnedIds.includes(playlist.id) : false));
   const duplicateCount = useMemo(() => countDuplicates(tracks), [tracks]);
   const removeDuplicatesFromPlaylist = useLibraryStore((s) => s.removeDuplicatesFromPlaylist);
@@ -423,7 +440,7 @@ export const MobilePlaylistView: React.FC = () => {
             label="Слушать"
             onClick={() => {
               if (isShuffled) toggleShuffle();
-              void playTrack(tracks[0], tracks, 0);
+              if (listTracks.length > 0) void playTrack(listTracks[0], listTracks, 0);
             }}
             testId="mobile-playlist-play"
           />
@@ -432,10 +449,37 @@ export const MobilePlaylistView: React.FC = () => {
             label="Вперемешку"
             onClick={() => {
               if (!isShuffled) toggleShuffle();
-              void playTrack(tracks[0], tracks, 0);
+              if (listTracks.length > 0) void playTrack(listTracks[0], listTracks, 0);
             }}
             testId="mobile-playlist-shuffle"
           />
+        </div>
+      )}
+
+      {tracks.length > 8 && selected === null && (
+        <div style={{ display: 'flex', gap: 'var(--space-2)', alignItems: 'center' }} data-testid="mobile-playlist-toolbar">
+          <input
+            type="search"
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder="Найти в плейлисте"
+            aria-label="Найти в плейлисте"
+            style={{ flex: 1, minWidth: 0 }}
+            data-testid="mobile-playlist-filter"
+          />
+          <select
+            value={sortKey}
+            onChange={(e) => setSortKey(e.target.value as PlaylistSortKey)}
+            aria-label="Сортировка"
+            style={{ width: 'auto', flex: '0 0 auto', maxWidth: '45%' }}
+            data-testid="mobile-playlist-sort"
+          >
+            {(Object.keys(PLAYLIST_SORT_LABELS) as PlaylistSortKey[]).map((key) => (
+              <option key={key} value={key}>
+                {PLAYLIST_SORT_LABELS[key]}
+              </option>
+            ))}
+          </select>
         </div>
       )}
 
@@ -479,21 +523,31 @@ export const MobilePlaylistView: React.FC = () => {
         >
           Плейлист пуст. Треки добавляются из листа действий — нажмите на песню и подержите.
         </p>
+      ) : listTracks.length === 0 ? (
+        <p
+          style={{ margin: 0, padding: 'var(--space-5) 0', fontSize: 'var(--text-sm)', color: 'var(--text-muted)' }}
+          data-testid="mobile-playlist-filter-empty"
+        >
+          Ничего не нашлось.
+        </p>
       ) : (
-        <div>
-          {tracks.map((track, index) => (
+        <div ref={virtual.containerRef} style={{ paddingTop: virtual.paddingTop, paddingBottom: virtual.paddingBottom }}>
+          {listTracks.slice(virtual.startIndex, virtual.endIndex).map((track, offset) => {
+            const index = virtual.startIndex + offset;
+            return (
             <TrackRow
               key={`${track.id}-${index}`}
               track={track}
               isCurrent={currentTrack?.id === track.id}
-              onPlay={() => void playTrack(track, tracks, index)}
+              onPlay={() => void playTrack(track, listTracks, index)}
               onOpenActions={() => openTrackActions(track)}
               isSelectable={selected !== null}
               isSelected={selected?.has(track.id) ?? false}
               onToggleSelect={() => toggleSelected(track.id)}
               data-testid={`mobile-playlist-track-${track.id}`}
             />
-          ))}
+            );
+          })}
         </div>
       )}
 

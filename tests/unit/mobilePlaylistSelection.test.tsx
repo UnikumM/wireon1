@@ -166,3 +166,34 @@ describe('выбор треков на телефоне', () => {
     });
   });
 });
+
+describe('3.0: поиск и сортировка плейлиста на телефоне', () => {
+  afterEach(() => {
+    cleanup();
+    vi.restoreAllMocks();
+  });
+
+  it('ищет, сортирует и играет то, что видно', async () => {
+    const many = playlist(
+      'pl_many',
+      'Большой',
+      ['Яблоко', 'Абрикос', 'Груша', 'Банан', 'Вишня', 'Дыня', 'Ежевика', 'Жимолость', 'Земляника'].map((title, i) => ({
+        ...track(`m${i}`),
+        title
+      }))
+    );
+    useLibraryStore.setState({ playlists: [many] } as never);
+    useUIStore.setState({ activePlaylistId: 'pl_many' });
+    const play = vi.spyOn(usePlayerStore.getState(), 'playTrack').mockResolvedValue();
+    render(<MobilePlaylistView />);
+
+    fireEvent.change(screen.getByTestId('mobile-playlist-filter'), { target: { value: 'груш' } });
+    expect(screen.getByTestId('mobile-playlist-track-m2')).toBeTruthy();
+    expect(screen.queryByTestId('mobile-playlist-track-m0')).toBeNull();
+
+    fireEvent.change(screen.getByTestId('mobile-playlist-filter'), { target: { value: '' } });
+    fireEvent.change(screen.getByTestId('mobile-playlist-sort'), { target: { value: 'title' } });
+    fireEvent.click(screen.getByTestId('mobile-playlist-play'));
+    expect(play.mock.calls[0][0].title).toBe('Абрикос');
+  });
+});
