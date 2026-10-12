@@ -19,7 +19,7 @@
 import { UnifiedTrack } from '../types/music';
 import { HistoryRecord, PlayEventRecord } from './db';
 
-export type AutoMixKind = 'on-repeat' | 'time-machine' | 'daypart' | 'fresh';
+export type AutoMixKind = 'on-repeat' | 'time-machine' | 'daypart' | 'fresh' | 'discover';
 
 export interface AutoMix {
   id: string;
