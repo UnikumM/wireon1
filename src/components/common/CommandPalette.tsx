@@ -21,6 +21,7 @@ import {
 } from 'lucide-react';
 import { useDismissable } from '../../hooks/useDismissable';
 import { useLibraryStore } from '../../store/useLibraryStore';
+import { useSmartPlaylistStore } from '../../store/useSmartPlaylistStore';
 import { usePlayerStore } from '../../store/usePlayerStore';
 import { useUIStore } from '../../store/useUIStore';
 import { pluralize } from '../../utils/plural';
@@ -80,6 +81,7 @@ function fuzzyScore(haystack: string, needle: string): number | null {
 
 function useCommands(): Command[] {
   const playlists = useLibraryStore((s) => s.playlists);
+  const smartPlaylists = useSmartPlaylistStore((s) => s.playlists);
   const isPlaying = usePlayerStore((s) => s.isPlaying);
   const isShuffled = usePlayerStore((s) => s.isShuffled);
   const repeatMode = usePlayerStore((s) => s.repeatMode);
@@ -235,9 +237,51 @@ function useCommands(): Command[] {
       }
     }));
 
-    return [...navigation, ...playback, ...view, ...sleep, ...playlistCommands];
+    const smartCommands: Command[] = smartPlaylists.map((smart) => ({
+      id: `smart-${smart.id}`,
+      label: `Открыть умный плейлист: ${smart.title}`,
+      hint: 'по правилам',
+      group: 'Плейлисты',
+      icon: <Music size={ICON.md} />,
+      keywords: 'smart умный правила',
+      run: () => useUIStore.getState().openSmartPlaylist(smart.id)
+    }));
+
+    const queueCommands: Command[] = [
+      {
+        id: 'queue-save-playlist',
+        label: 'Сохранить очередь плейлистом',
+        group: 'Плейлисты',
+        icon: <Music size={ICON.md} />,
+        keywords: 'queue save playlist очередь сохранить',
+        run: () => {
+          const player = usePlayerStore.getState();
+          const order =
+            player.isShuffled && player.shuffleOrder.length > 0
+              ? player.shuffleOrder
+              : player.sourceQueue.map((_, i) => i);
+          const pos = order.indexOf(player.currentIndex);
+          const upcoming = (pos === -1 ? order : order.slice(pos + 1)).map((i) => player.sourceQueue[i]).filter(Boolean);
+          const list = [...(player.currentTrack ? [player.currentTrack] : []), ...player.userQueue, ...upcoming];
+          if (list.length === 0) {
+            useUIStore.getState().showToast('Очередь пуста', 'info');
+            return;
+          }
+          const date = new Date().toLocaleDateString('ru-RU', { day: 'numeric', month: 'short' });
+          void useLibraryStore
+            .getState()
+            .createPlaylistWithTracks(`Очередь · ${date}`, list)
+            .then((created) => {
+              if (created) useUIStore.getState().showToast(`Сохранено в «${created.title}»`, 'success');
+            });
+        }
+      }
+    ];
+
+    return [...navigation, ...playback, ...view, ...sleep, ...playlistCommands, ...smartCommands, ...queueCommands];
   }, [
     playlists,
+    smartPlaylists,
     isPlaying,
     isShuffled,
     repeatMode,
