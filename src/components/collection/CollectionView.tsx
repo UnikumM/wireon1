@@ -1,5 +1,8 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { ArrowLeft, Disc3, ListMusic, Play, Shuffle, User } from 'lucide-react';
+import { ArrowLeft, Disc3, ListMusic, ListPlus, Play, Shuffle, User } from 'lucide-react';
+import { useLibraryStore } from '../../store/useLibraryStore';
+import { refusedForAccount } from '../../store/useUIStore';
+import { useVirtualRows, TRACK_ROW_PITCH } from '../../hooks/useVirtualRows';
 import { UnifiedTrack } from '../../types/music';
 import { useUIStore } from '../../store/useUIStore';
 import { usePlayerStore } from '../../store/usePlayerStore';
@@ -28,6 +31,27 @@ export const CollectionView: React.FC = () => {
 
   const [tracks, setTracks] = useState<UnifiedTrack[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [isSaving, setIsSaving] = useState(false);
+  const createPlaylistWithTracks = useLibraryStore((s) => s.createPlaylistWithTracks);
+  // Плейлисты YouTube бывают на сотни треков: в DOM — только видимое.
+  const virtual = useVirtualRows({ itemCount: tracks.length, rowPitch: TRACK_ROW_PITCH });
+
+  /*
+   * «В медиатеку» — как «Сохранить» у альбома в Spotify: найденный альбом или
+   * чужой плейлист становится своим плейлистом и едет на другие устройства.
+   */
+  const handleSave = useCallback(async () => {
+    if (!collection || tracks.length === 0 || isSaving) return;
+    setIsSaving(true);
+    const created = await createPlaylistWithTracks(collection.title, tracks);
+    setIsSaving(false);
+    const ui = useUIStore.getState();
+    if (!created) {
+      if (!refusedForAccount()) ui.showToast(useLibraryStore.getState().error ?? 'Не удалось сохранить', 'error');
+      return;
+    }
+    ui.showToast(`«${created.title}» теперь в ваших плейлистах`, 'success');
+  }, [collection, createPlaylistWithTracks, isSaving, tracks]);
 
   useEffect(() => {
     if (!collection) return;
@@ -165,6 +189,17 @@ export const CollectionView: React.FC = () => {
             >
               Вперемешку
             </Button>
+            <Button
+              variant="ghost"
+              size="md"
+              icon={<ListPlus size={ICON.md} />}
+              onClick={() => void handleSave()}
+              disabled={tracks.length === 0 || isSaving}
+              title="Сохранить подборку своим плейлистом"
+              data-testid="collection-save"
+            >
+              В медиатеку
+            </Button>
           </div>
         </div>
       </div>
@@ -182,19 +217,29 @@ export const CollectionView: React.FC = () => {
 
       {!isLoading && tracks.length > 0 && (
         <div
+          ref={virtual.containerRef}
           role="list"
-          style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}
+          style={{
+            display: 'flex',
+            flexDirection: 'column',
+            gap: '2px',
+            paddingTop: virtual.paddingTop,
+            paddingBottom: virtual.paddingBottom
+          }}
           data-testid="collection-track-list"
         >
-          {tracks.map((track, index) => (
-            <TrackCard
-              key={`${track.id}_${index}`}
-              track={track}
-              index={index}
-              layout="row"
-              contextQueue={tracks}
-            />
-          ))}
+          {tracks.slice(virtual.startIndex, virtual.endIndex).map((track, offset) => {
+            const index = virtual.startIndex + offset;
+            return (
+              <TrackCard
+                key={`${track.id}_${index}`}
+                track={track}
+                index={index}
+                layout="row"
+                contextQueue={tracks}
+              />
+            );
+          })}
         </div>
       )}
     </div>
