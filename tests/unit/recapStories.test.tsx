@@ -130,3 +130,31 @@ describe('3.0: Итоги', () => {
     }
   });
 });
+
+describe('3.0: Итоги не трогают музыку клавишами', () => {
+  beforeEach(async () => {
+    await dbService.clearAllData();
+    resetUIStore();
+    resetPlayerStore();
+  });
+
+  it('пробел в историях не ставит музыку на паузу', async () => {
+    const { useKeyboardShortcuts } = await import('../../src/hooks/useKeyboardShortcuts');
+    const Host = () => {
+      useKeyboardShortcuts();
+      return null;
+    };
+    const toggle = vi.spyOn(usePlayerStore.getState(), 'togglePlayPause').mockResolvedValue();
+    render(
+      <>
+        <Host />
+        <RecapStories />
+      </>
+    );
+    act(() => useUIStore.getState().openRecap('month'));
+    await screen.findByTestId('recap-stories');
+    // Настоящие нажатия приходят в элемент с фокусом, а не в само окно.
+    fireEvent.keyDown(document.body, { key: ' ', code: 'Space' });
+    expect(toggle).not.toHaveBeenCalled();
+  });
+});

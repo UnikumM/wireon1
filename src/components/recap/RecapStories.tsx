@@ -300,17 +300,25 @@ export const RecapStories: React.FC = () => {
 
   useEffect(() => {
     if (!period) return;
+    /*
+     * В фазе захвата и с остановкой: иначе те же клавиши ловили бы общие
+     * сочетания плеера — пробел ставил бы музыку на паузу, а стрелки
+     * перематывали трек вместе с перелистыванием слайда.
+     */
     const onKey = (event: KeyboardEvent) => {
+      let handled = true;
       if (event.key === 'Escape') closeRecap();
       else if (event.key === 'ArrowRight') next();
       else if (event.key === 'ArrowLeft') prev();
-      else if (event.key === ' ') {
+      else if (event.key === ' ') setPaused((p) => !p);
+      else handled = false;
+      if (handled) {
         event.preventDefault();
-        setPaused((p) => !p);
+        event.stopImmediatePropagation();
       }
     };
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
+    window.addEventListener('keydown', onKey, true);
+    return () => window.removeEventListener('keydown', onKey, true);
   }, [closeRecap, next, period, prev]);
 
   // Автолистание: таймер, а не конец CSS-анимации — у части WebView события
