@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { SmartPlaylistsShelf } from '../smart/SmartPlaylistsShelf';
 import {
   ListMusic,
   Heart,
@@ -884,6 +885,9 @@ export const LibraryView: React.FC<LibraryViewProps> = ({
                 ))}
               </div>
             )}
+
+            {/* Умные плейлисты — под обычными: те же «Плейлисты», только по правилам. */}
+            <SmartPlaylistsShelf />
           </div>
         )}
 

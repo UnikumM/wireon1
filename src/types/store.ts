@@ -243,7 +243,9 @@ export interface UIStoreState {
   // `home` — лента, с которой открывается телефон. На широком окне отдельного
   // экрана под неё нет, и маршрут ведёт в «Для вас»: содержимое то же, просто
   // собранное для мыши.
-  activeView: 'home' | 'search' | 'library' | 'favorites' | 'playlists' | 'offline' | 'playlist' | 'settings' | 'wave' | 'artist' | 'foryou' | 'collection';
+  activeView: 'home' | 'search' | 'library' | 'favorites' | 'playlists' | 'offline' | 'playlist' | 'settings' | 'wave' | 'artist' | 'foryou' | 'collection' | 'smart';
+  /** Открытый умный плейлист (маршрут `smart`). */
+  activeSmartPlaylistId: string | null;
   /** Открытая подборка: альбом, чужой плейлист или сеты человека с SoundCloud. */
   activeCollection: SearchCollection | null;
   /** Трек, для которого открыт лист действий на телефоне. */
@@ -282,6 +284,7 @@ export interface UIStoreState {
 export interface UIStoreActions {
   setActiveView: (view: UIStoreState['activeView']) => void;
   openRecap: (period: 'month' | 'year') => void;
+  openSmartPlaylist: (id: string) => void;
   closeRecap: () => void;
   openCollection: (collection: SearchCollection) => void;
   setActiveWaveMood: (mood: WaveMood) => void;

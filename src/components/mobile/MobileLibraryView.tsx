@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { SmartPlaylistsShelf } from '../smart/SmartPlaylistsShelf';
 import {
   Clock,
   Download,
@@ -423,6 +424,12 @@ export const MobileLibraryView: React.FC<MobileLibraryViewProps> = ({ onCreatePl
             : [])
         ]}
       />
+
+      {tab === 'playlists' && !needle && (
+        <div style={{ marginBottom: 'var(--space-5)' }}>
+          <SmartPlaylistsShelf compact />
+        </div>
+      )}
 
       {tab === 'playlists' ? (
         visiblePlaylists.length === 0 ? (

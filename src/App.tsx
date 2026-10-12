@@ -23,6 +23,7 @@ import { AccountPrompt } from './components/auth/AccountPrompt';
 import { WhatsNewGate } from './components/common/WhatsNewGate';
 import { MobileApp } from './components/mobile/MobileApp';
 import { RecapStories } from './components/recap/RecapStories';
+import { SmartPlaylistView } from './components/smart/SmartPlaylistView';
 
 import { useKeyboardShortcuts } from './hooks/useKeyboardShortcuts';
 import { useMediaKeys } from './hooks/useMediaKeys';
@@ -183,6 +184,8 @@ export const App: React.FC = () => {
         return <ArtistHubView />;
       case 'collection':
         return <CollectionView />;
+      case 'smart':
+        return <SmartPlaylistView />;
       default:
         return <SearchResults />;
     }

@@ -27,7 +27,7 @@ import { useAppLayoutStore } from '../../store/useAppLayoutStore';
 type NavViewId = 'home' | 'search' | 'wave' | 'foryou' | 'library';
 
 /** Вкладки «Медиатеки» — пункт «Медиатека» остаётся выбранным на любой из них. */
-const LIBRARY_VIEWS = new Set(['library', 'favorites', 'playlists', 'offline']);
+const LIBRARY_VIEWS = new Set(['library', 'favorites', 'playlists', 'offline', 'smart']);
 
 interface NavItem {
   id: NavViewId;
