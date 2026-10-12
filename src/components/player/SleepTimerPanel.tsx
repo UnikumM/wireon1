@@ -46,7 +46,7 @@ export const SleepTimerPanel: React.FC<SleepTimerPanelProps> = ({ onPicked }) =>
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }} data-testid="sleep-timer-panel">
       <p
-        style={{ margin: 0, color: active ? 'var(--accent)' : 'var(--text-tertiary)', fontSize: 'var(--text-sm)' }}
+        style={{ margin: 0, color: active ? 'var(--accent)' : 'var(--text-muted)', fontSize: 'var(--text-sm)' }}
         data-testid="sleep-timer-status"
       >
         {sleepAtTrackEnd

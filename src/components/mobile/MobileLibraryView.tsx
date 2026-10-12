@@ -99,7 +99,7 @@ export const MobileLibraryView: React.FC<MobileLibraryViewProps> = ({ onCreatePl
   const toggleSelected = useUIStore((s) => s.toggleSelected);
   const clearSelection = useUIStore((s) => s.clearSelection);
   const showToast = useUIStore((s) => s.showToast);
-  const addTrackToPlaylist = useLibraryStore((s) => s.addTrackToPlaylist);
+  const addTracksToPlaylist = useLibraryStore((s) => s.addTracksToPlaylist);
   const toggleFavorite = useLibraryStore((s) => s.toggleFavorite);
 
   const [isMoveOpen, setMoveOpen] = useState(false);
@@ -176,25 +176,34 @@ export const MobileLibraryView: React.FC<MobileLibraryViewProps> = ({ onCreatePl
   const handleMoveSelected = useCallback(
     async (targetId: string) => {
       if (selectedTracks.length === 0) return;
-      // Считаем удачи, а не длину списка: пополнение отказывает без аккаунта,
-      // и отчёт по длине отправил бы человека искать треки в чужом плейлисте.
-      let moved = 0;
-      for (const track of selectedTracks) {
-        if (await addTrackToPlaylist(targetId, track)) moved += 1;
-      }
+      /*
+       * Считаем удачи, а не длину списка: пополнение отказывает без аккаунта,
+       * и отчёт по длине отправил бы человека искать треки в чужом плейлисте.
+       * Пачка уходит одной записью, повторы пропускаются и называются.
+       */
+      const result = await addTracksToPlaylist(targetId, selectedTracks);
+      const moved = result?.added ?? 0;
+      const skipped = result?.skipped ?? 0;
+
       setMoveOpen(false);
+      if (result && moved === 0 && skipped > 0) {
+        showToast('Всё выбранное уже в этом плейлисте', 'info');
+        clearSelection();
+        return;
+      }
       if (moved === 0) {
         if (!refusedForAccount()) showToast('Не удалось перенести треки', 'error');
         return;
       }
       const target = playlists.find((item) => item.id === targetId);
       showToast(
-        `${pluralize(moved, 'трек', 'трека', 'треков')} в «${target?.title ?? 'плейлист'}»`,
+        `${pluralize(moved, 'трек', 'трека', 'треков')} в «${target?.title ?? 'плейлист'}»` +
+          (skipped > 0 ? ` · повторы пропущены` : ''),
         'success'
       );
       clearSelection();
     },
-    [addTrackToPlaylist, clearSelection, playlists, selectedTracks, showToast]
+    [addTracksToPlaylist, clearSelection, playlists, selectedTracks, showToast]
   );
 
   const handleUnfavouriteSelected = useCallback(async () => {

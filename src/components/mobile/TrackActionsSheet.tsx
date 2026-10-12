@@ -194,6 +194,13 @@ export const TrackActionsSheet: React.FC<TrackActionsSheetProps> = ({ track, onC
   const handleAddToPlaylist = useCallback(
     async (playlistId: string, playlistTitle: string) => {
       if (!track) return;
+      // Как на компьютере: второй раз тот же трек в плейлист не кладём.
+      const target = useLibraryStore.getState().playlists.find((p) => p.id === playlistId);
+      if (target?.tracks.some((t) => t.id === track.id)) {
+        showToast(`«${track.title}» уже в «${playlistTitle}»`, 'info');
+        close();
+        return;
+      }
       const ok = await addTrackToPlaylist(playlistId, track);
       if (!ok) {
         if (refusedForAccount()) return;

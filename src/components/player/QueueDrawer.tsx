@@ -1,8 +1,10 @@
 import React, { useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { GripVertical, ListMusic, Music2, Play, Shuffle, Sparkles, Trash2, X } from 'lucide-react';
+import { GripVertical, ListMusic, ListPlus, Music2, Play, Shuffle, Sparkles, Trash2, X } from 'lucide-react';
 import { useUIStore } from '../../store/useUIStore';
 import { usePlayerStore } from '../../store/usePlayerStore';
+import { useLibraryStore } from '../../store/useLibraryStore';
+import { refusedForAccount } from '../../store/useUIStore';
 import { useDismissable } from '../../hooks';
 import { Button } from '../common/Button';
 import { EmptyState } from '../common/EmptyState';
@@ -117,6 +119,9 @@ export const QueueDrawer: React.FC<QueueDrawerProps> = ({ className = '' }) => {
   const clearUserQueue = usePlayerStore((s) => s.clearUserQueue);
   const jumpToUserQueueTrack = usePlayerStore((s) => s.jumpToUserQueueTrack);
   const playTrack = usePlayerStore((s) => s.playTrack);
+  const createPlaylistWithTracks = useLibraryStore((s) => s.createPlaylistWithTracks);
+  const showToast = useUIStore((s) => s.showToast);
+  const [isSaving, setIsSaving] = useState(false);
 
   const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
   const [dropTargetIndex, setDropTargetIndex] = useState<number | null>(null);
@@ -151,6 +156,30 @@ export const QueueDrawer: React.FC<QueueDrawerProps> = ({ className = '' }) => {
     itemCount: upcomingFromSource.length,
     rowPitch: QUEUE_ROW_PITCH
   });
+
+  /*
+   * «Сохранить очередь как плейлист» — как в Apple Music и YouTube Music:
+   * удачно сложившийся вечер (Поток, радио, ручная очередь) остаётся в
+   * медиатеке, а не пропадает со следующим «играть».
+   */
+  const handleSaveAsPlaylist = async () => {
+    if (isSaving) return;
+    const tracks = [
+      ...(currentTrack ? [currentTrack] : []),
+      ...userQueue,
+      ...upcomingFromSource.map((entry) => entry.track)
+    ];
+    if (tracks.length === 0) return;
+    setIsSaving(true);
+    const date = new Date().toLocaleDateString('ru-RU', { day: 'numeric', month: 'short' });
+    const created = await createPlaylistWithTracks(`Очередь · ${date}`, tracks);
+    setIsSaving(false);
+    if (!created) {
+      if (!refusedForAccount()) showToast(useLibraryStore.getState().error ?? 'Не удалось сохранить очередь', 'error');
+      return;
+    }
+    showToast(`Сохранено в «${created.title}» — ${pluralize(created.tracks.length, 'трек', 'трека', 'треков')}`, 'success');
+  };
 
   if (!isQueueOpen) return null;
 
@@ -286,6 +315,20 @@ export const QueueDrawer: React.FC<QueueDrawerProps> = ({ className = '' }) => {
             <ListMusic size={ICON.lg} aria-hidden="true" style={{ color: 'var(--text-muted)' }} />
             Очередь
           </h2>
+          <span style={{ flex: 1 }} />
+          {(currentTrack || userQueue.length > 0 || upcomingFromSource.length > 0) && (
+            <Button
+              variant="ghost"
+              size="sm"
+              icon={<ListPlus size={ICON.sm} />}
+              onClick={() => void handleSaveAsPlaylist()}
+              disabled={isSaving}
+              title="Сохранить всю очередь новым плейлистом"
+              data-testid="queue-save-playlist-btn"
+            >
+              В плейлист
+            </Button>
+          )}
           <Button
             variant="ghost"
             size="icon"

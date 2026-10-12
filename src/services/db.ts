@@ -552,6 +552,110 @@ export async function addTrackToPlaylist(playlistId: string, track: UnifiedTrack
   }
 }
 
+export interface AddTracksResult {
+  playlist: Playlist;
+  /** Сколько треков действительно легло в плейлист. */
+  added: number;
+  /** Сколько пропущено как уже лежащие там (или повторённые в самой пачке). */
+  skipped: number;
+}
+
+/**
+ * Кладёт пачку треков одной записью.
+ *
+ * До 3.0 пачка («перенести выбранные», «сохранить очередь») шла по треку:
+ * сто транзакций, сто перерисовок и сто поводов для синхронизации отправить
+ * медиатеку целиком. И дубликаты ложились молча — как у Spotify, только без
+ * его вопроса «уже в плейлисте». Теперь повторы по умолчанию пропускаются, а
+ * сколько их было, возвращается вызывающему, чтобы он мог сказать.
+ */
+export async function addTracksToPlaylist(
+  playlistId: string,
+  tracks: ReadonlyArray<UnifiedTrack>,
+  options: { allowDuplicates?: boolean } = {}
+): Promise<AddTracksResult> {
+  try {
+    return await db.transaction('rw', db.playlists, async () => {
+      const playlist = await db.playlists.get(playlistId);
+      if (!playlist) throw new Error(`Плейлист не найден: ${playlistId}`);
+
+      const present = new Set(playlist.tracks.map((t) => t.id));
+      const now = Date.now();
+      const additions: UnifiedTrack[] = [];
+      let skipped = 0;
+      tracks.forEach((track, i) => {
+        if (!track || !track.id) return;
+        if (!options.allowDuplicates && present.has(track.id)) {
+          skipped += 1;
+          return;
+        }
+        present.add(track.id);
+        // Поштучная отметка «когда добавлен»: пачка сохраняет свой порядок и
+        // при сортировке по дате добавления.
+        additions.push({ ...track, addedAt: now + i });
+      });
+
+      if (additions.length === 0) return { playlist, added: 0, skipped };
+
+      const updated: Playlist = {
+        ...playlist,
+        tracks: [...playlist.tracks, ...additions],
+        updatedAt: now
+      };
+      await db.playlists.put(updated);
+      return { playlist: updated, added: additions.length, skipped };
+    });
+  } catch (err) {
+    console.error('[DB] addTracksToPlaylist error:', err);
+    throw err;
+  }
+}
+
+/**
+ * Убирает повторы, оставляя первое вхождение каждого трека.
+ *
+ * Возвращает плейлист и число убранных. Ноль убранных — не правка: запись не
+ * трогается, `updatedAt` не растёт, синхронизации нечего отправлять.
+ */
+export async function removeDuplicateTracks(playlistId: string): Promise<{ playlist: Playlist; removed: number }> {
+  try {
+    return await db.transaction('rw', db.playlists, async () => {
+      const playlist = await db.playlists.get(playlistId);
+      if (!playlist) throw new Error(`Плейлист не найден: ${playlistId}`);
+      const seen = new Set<string>();
+      const unique = playlist.tracks.filter((track) => {
+        if (!track?.id || seen.has(track.id)) return false;
+        seen.add(track.id);
+        return true;
+      });
+      const removed = playlist.tracks.length - unique.length;
+      if (removed === 0) return { playlist, removed: 0 };
+      const updated: Playlist = { ...playlist, tracks: unique, updatedAt: Date.now() };
+      await db.playlists.put(updated);
+      return { playlist: updated, removed };
+    });
+  } catch (err) {
+    console.error('[DB] removeDuplicateTracks error:', err);
+    throw err;
+  }
+}
+
+/** Заменяет состав плейлиста целиком — для сортировки «навсегда». */
+export async function setPlaylistTracks(playlistId: string, tracks: UnifiedTrack[]): Promise<Playlist> {
+  try {
+    return await db.transaction('rw', db.playlists, async () => {
+      const playlist = await db.playlists.get(playlistId);
+      if (!playlist) throw new Error(`Плейлист не найден: ${playlistId}`);
+      const updated: Playlist = { ...playlist, tracks: [...tracks], updatedAt: Date.now() };
+      await db.playlists.put(updated);
+      return updated;
+    });
+  } catch (err) {
+    console.error('[DB] setPlaylistTracks error:', err);
+    throw err;
+  }
+}
+
 export async function removeTrackFromPlaylist(playlistId: string, trackIndex: number): Promise<Playlist> {
   try {
     return await db.transaction('rw', db.playlists, async () => {
@@ -1188,6 +1292,9 @@ export const dbService = {
   renamePlaylist,
   deletePlaylist,
   addTrackToPlaylist,
+  addTracksToPlaylist,
+  removeDuplicateTracks,
+  setPlaylistTracks,
   removeTrackFromPlaylist,
   reorderPlaylistTracks,
   clearPlaylists,
