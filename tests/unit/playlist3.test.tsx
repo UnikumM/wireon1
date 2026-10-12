@@ -162,3 +162,25 @@ describe('3.0: очередь сохраняется плейлистом', () =
     expect(useUIStore.getState().toastMessage?.type).toBe('success');
   });
 });
+
+describe('3.0: «Недавно играло» в очереди', () => {
+  beforeEach(() => {
+    resetPlayerStore();
+    resetUIStore();
+  });
+
+  it('показывает прошлые треки и возвращает выбранный, не трогая основную очередь', async () => {
+    const jump = vi.spyOn(usePlayerStore.getState(), 'jumpToUserQueueTrack').mockResolvedValue();
+    usePlayerStore.setState({ currentTrack: C, history: [A, B, A], sourceQueue: [C], currentIndex: 0 });
+    useUIStore.setState({ isQueueOpen: true });
+    render(<QueueDrawer />);
+    // Свежие сверху и без повторов.
+    expect(screen.getByTestId('queue-recent-0')).toHaveTextContent(A.title);
+    expect(screen.getByTestId('queue-recent-1')).toHaveTextContent(B.title);
+    expect(screen.queryByTestId('queue-recent-2')).toBeNull();
+    fireEvent.click(screen.getByTestId('queue-recent-1'));
+    expect(usePlayerStore.getState().userQueue[0].id).toBe(B.id);
+    expect(jump).toHaveBeenCalledWith(0);
+    expect(usePlayerStore.getState().sourceQueue).toEqual([C]);
+  });
+});

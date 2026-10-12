@@ -1,6 +1,6 @@
 import React, { useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { GripVertical, ListMusic, ListPlus, Music2, Play, Shuffle, Sparkles, Trash2, X } from 'lucide-react';
+import { GripVertical, History, ListMusic, ListPlus, Music2, Play, Shuffle, Sparkles, Trash2, X } from 'lucide-react';
 import { useUIStore } from '../../store/useUIStore';
 import { usePlayerStore } from '../../store/usePlayerStore';
 import { useLibraryStore } from '../../store/useLibraryStore';
@@ -119,6 +119,8 @@ export const QueueDrawer: React.FC<QueueDrawerProps> = ({ className = '' }) => {
   const clearUserQueue = usePlayerStore((s) => s.clearUserQueue);
   const jumpToUserQueueTrack = usePlayerStore((s) => s.jumpToUserQueueTrack);
   const playTrack = usePlayerStore((s) => s.playTrack);
+  const playedHistory = usePlayerStore((s) => s.history);
+  const addToQueueNext = usePlayerStore((s) => s.addToQueueNext);
   const createPlaylistWithTracks = useLibraryStore((s) => s.createPlaylistWithTracks);
   const showToast = useUIStore((s) => s.showToast);
   const [isSaving, setIsSaving] = useState(false);
@@ -179,6 +181,28 @@ export const QueueDrawer: React.FC<QueueDrawerProps> = ({ className = '' }) => {
       return;
     }
     showToast(`Сохранено в «${created.title}» — ${pluralize(created.tracks.length, 'трек', 'трека', 'треков')}`, 'success');
+  };
+
+  /*
+   * «Недавно играло» — как в очереди Spotify: последние треки этой сессии,
+   * самые свежие сверху. Вернуть трек — значит поставить его «следующим» и
+   * сразу включить, не трогая ни основную очередь, ни её позицию.
+   */
+  const recentlyPlayed = useMemo(() => {
+    const seen = new Set<string>(currentTrack ? [currentTrack.id] : []);
+    const out: UnifiedTrack[] = [];
+    for (let i = playedHistory.length - 1; i >= 0 && out.length < 10; i -= 1) {
+      const track = playedHistory[i];
+      if (!track?.id || seen.has(track.id)) continue;
+      seen.add(track.id);
+      out.push(track);
+    }
+    return out;
+  }, [playedHistory, currentTrack]);
+
+  const replayRecent = (track: UnifiedTrack) => {
+    addToQueueNext(track);
+    void jumpToUserQueueTrack(0);
   };
 
   if (!isQueueOpen) return null;
@@ -686,6 +710,40 @@ export const QueueDrawer: React.FC<QueueDrawerProps> = ({ className = '' }) => {
               </ul>
             )}
           </section>
+
+          {recentlyPlayed.length > 0 && (
+            <section aria-labelledby="queue-recent-label" data-testid="queue-recent">
+              <div style={SECTION_LABEL} id="queue-recent-label">
+                <span className="section-label" style={{ display: 'inline-flex', alignItems: 'center', gap: 'var(--space-1)' }}>
+                  <History size={ICON.xs} aria-hidden="true" /> Недавно играло
+                </span>
+              </div>
+              <ul style={{ listStyle: 'none', margin: 0, padding: 0, display: 'flex', flexDirection: 'column' }}>
+                {recentlyPlayed.map((track, index) => (
+                  <li key={`${track.id}_recent`}>
+                    <button
+                      type="button"
+                      onClick={() => replayRecent(track)}
+                      aria-label={`Снова включить «${track.title}»`}
+                      className="menu-item-hover"
+                      style={{ gap: 'var(--space-2)', padding: 'var(--space-1) var(--space-2)', opacity: 0.72 }}
+                      data-testid={`queue-recent-${index}`}
+                    >
+                      <RowArtwork track={track} />
+                      <span style={{ flex: 1, minWidth: 0, display: 'block' }}>
+                        <span className="text-truncate" style={{ display: 'block', fontSize: 'var(--text-sm)', color: 'var(--text-primary)' }}>
+                          {track.title}
+                        </span>
+                        <span className="text-truncate" style={{ display: 'block', fontSize: 'var(--text-xs)', color: 'var(--text-secondary)' }}>
+                          {track.artist}
+                        </span>
+                      </span>
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            </section>
+          )}
         </div>
       </aside>
     </div>, document.body
