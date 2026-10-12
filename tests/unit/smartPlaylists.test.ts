@@ -165,3 +165,19 @@ describe('умные плейлисты: стор', () => {
     expect(useSmartPlaylistStore.getState().playlists).toHaveLength(0);
   });
 });
+
+describe('умные плейлисты: резервная копия', () => {
+  it('правила уходят в копию, а кэши устройства — нет', async () => {
+    const { exportLibrary } = await import('../../src/services/backup');
+    await dbService.clearAllData();
+    await dbService.setSetting(SMART_PLAYLISTS_KEY, [{ id: 'smart_x', title: 'X', match: 'all', rules: [], sort: 'title', limit: 0, createdAt: 1, updatedAt: 1 }]);
+    await dbService.setSetting('pinnedPlaylists', ['pl_1']);
+    await dbService.setSetting('lastQueue', { sourceQueue: [] });
+    await dbService.setSetting('discoverWeekly', { weekKey: 'w', tracks: [] });
+    const backup = await exportLibrary();
+    expect(backup.settings[SMART_PLAYLISTS_KEY]).toBeTruthy();
+    expect(backup.settings.pinnedPlaylists).toEqual(['pl_1']);
+    expect(backup.settings.lastQueue).toBeUndefined();
+    expect(backup.settings.discoverWeekly).toBeUndefined();
+  });
+});
