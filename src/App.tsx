@@ -22,6 +22,7 @@ import { WelcomeGate } from './components/auth/WelcomeGate';
 import { AccountPrompt } from './components/auth/AccountPrompt';
 import { WhatsNewGate } from './components/common/WhatsNewGate';
 import { MobileApp } from './components/mobile/MobileApp';
+import { RecapStories } from './components/recap/RecapStories';
 
 import { useKeyboardShortcuts } from './hooks/useKeyboardShortcuts';
 import { useMediaKeys } from './hooks/useMediaKeys';
@@ -231,6 +232,8 @@ export const App: React.FC = () => {
             <AccountPrompt />
             {/* Список изменений после обновления — тоже сам решает. */}
             <WhatsNewGate />
+            {/* «Итоги» — истории на весь экран; сами решают, показываться ли. */}
+            <RecapStories />
             {/*
               Текст песни живёт здесь, а не внутри полосы плеера.
               У полосы стоит `backdrop-filter` на стеклянных обликах, а он

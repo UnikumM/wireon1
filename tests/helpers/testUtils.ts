@@ -312,7 +312,8 @@ export function resetUIStore(): void {
     isCommandPaletteOpen: false,
     searchQuery: '',
     searchFilter: 'all',
-    toastMessage: null
+    toastMessage: null,
+    recapPeriod: null
   });
 }
 

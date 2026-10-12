@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { BarChart3, Disc3, Music2, RefreshCw } from 'lucide-react';
+import { BarChart3, Disc3, Music2, RefreshCw, Sparkles } from 'lucide-react';
 import { Button } from '../common/Button';
 import { EmptyState } from '../common/EmptyState';
 import { Skeleton } from '../common/Skeleton';
@@ -98,6 +98,7 @@ export const ForYouView: React.FC<ForYouViewProps> = ({ className = '' }) => {
   const playlists = useLibraryStore((s) => s.playlists);
   const setActiveView = useUIStore((s) => s.setActiveView);
   const autoMixes = useAutoMixes();
+  const openRecap = useUIStore((s) => s.openRecap);
 
   // Медиатека для миксов — это всё, что человек сложил себе сам: плейлисты и
   // избранное. Таблица `tracks` в базе не наполняется, брать оттуда нечего.
@@ -310,6 +311,46 @@ export const ForYouView: React.FC<ForYouViewProps> = ({ className = '' }) => {
       data-testid="foryou-view"
     >
       {header}
+
+      {/*
+        * «Итоги» — своя версия Wrapped. Баннер, а не строка в списке: это
+        * единственное место, где статистика превращается в историю, которой
+        * хочется поделиться.
+        */}
+      {hasHistory && (
+        <section
+          className="card"
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: 'var(--space-4)',
+            flexWrap: 'wrap',
+            padding: 'var(--space-5)',
+            background:
+              'linear-gradient(120deg, color-mix(in oklab, var(--accent) 38%, var(--surface-2)), var(--surface-2) 70%)',
+            border: '1px solid var(--border-accent)'
+          }}
+          data-testid="foryou-recap-banner"
+        >
+          <Sparkles size={ICON.xl} aria-hidden="true" style={{ color: 'var(--accent)', flexShrink: 0 }} />
+          <div style={{ flex: '1 1 220px', minWidth: 0 }}>
+            <h2 style={{ margin: 0, fontSize: 'var(--text-lg)', fontWeight: 'var(--weight-semibold)', color: 'var(--text-primary)' }}>
+              Ваши итоги
+            </h2>
+            <p style={{ margin: '2px 0 0', fontSize: 'var(--text-sm)', color: 'var(--text-secondary)' }}>
+              Минуты, главный исполнитель, любимые песни и ваш тип слушателя — историями на весь экран.
+            </p>
+          </div>
+          <div style={{ display: 'flex', gap: 'var(--space-2)', flexWrap: 'wrap' }}>
+            <Button variant="primary" size="sm" onClick={() => openRecap('year')} data-testid="foryou-recap-year">
+              Итоги {new Date().getFullYear()}
+            </Button>
+            <Button variant="secondary" size="sm" onClick={() => openRecap('month')} data-testid="foryou-recap-month">
+              Этот месяц
+            </Button>
+          </div>
+        </section>
+      )}
 
       {autoMixes.length > 0 && (
         <section style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }} data-testid="foryou-auto-mixes">

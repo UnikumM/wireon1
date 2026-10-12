@@ -81,3 +81,50 @@ export async function saveTextFile(
     };
   }
 }
+
+/**
+ * Сохраняет картинку (data URL) — карточку «Итогов».
+ *
+ * Та же развилка, что у текстовых файлов: на ПК обычная загрузка, на телефоне
+ * запись в кэш приложения и системный лист «Поделиться» — картинку итогов
+ * почти всегда отправляют дальше, а не хранят.
+ */
+export async function saveImageFile(
+  filename: string,
+  dataUrl: string
+): Promise<{ ok: boolean; where: 'download' | 'shared' | 'documents'; detail?: string }> {
+  const comma = dataUrl.indexOf(',');
+  if (!dataUrl.startsWith('data:') || comma === -1) return { ok: false, where: 'download', detail: 'не картинка' };
+
+  if (detectPlatform() !== 'mobile') {
+    if (typeof document === 'undefined') return { ok: false, where: 'download' };
+    const anchor = document.createElement('a');
+    anchor.href = dataUrl;
+    anchor.download = filename;
+    document.body.appendChild(anchor);
+    anchor.click();
+    anchor.remove();
+    return { ok: true, where: 'download' };
+  }
+
+  try {
+    const [{ Filesystem, Directory }, { Share }] = await Promise.all([
+      import('@capacitor/filesystem'),
+      import('@capacitor/share')
+    ]);
+    const written = await Filesystem.writeFile({
+      path: filename,
+      data: dataUrl.slice(comma + 1),
+      directory: Directory.Cache,
+      recursive: true
+    });
+    try {
+      await Share.share({ title: 'Мои итоги в Wireon', url: written.uri, dialogTitle: 'Поделиться итогами' });
+      return { ok: true, where: 'shared' };
+    } catch {
+      return { ok: true, where: 'documents' };
+    }
+  } catch (err) {
+    return { ok: false, where: 'documents', detail: err instanceof Error ? err.message : String(err) };
+  }
+}

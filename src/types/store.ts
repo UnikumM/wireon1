@@ -275,10 +275,14 @@ export interface UIStoreState {
   searchFilter: 'all' | 'youtube' | 'soundcloud';
   toastMessage: ToastInfo | null;
   isLyricsOpen: boolean;
+  /** Открытые «Итоги» и их окно; `null` — закрыты. */
+  recapPeriod: 'month' | 'year' | null;
 }
 
 export interface UIStoreActions {
   setActiveView: (view: UIStoreState['activeView']) => void;
+  openRecap: (period: 'month' | 'year') => void;
+  closeRecap: () => void;
   openCollection: (collection: SearchCollection) => void;
   setActiveWaveMood: (mood: WaveMood) => void;
   setActiveWaveGenre: (genre: string | null) => void;

@@ -38,6 +38,15 @@ export const useUIStore = create<UIStore>((set, get) => ({
   actionsTrack: null,
   selectedTrackIds: null,
   accountPrompt: null,
+  recapPeriod: null,
+
+  openRecap: (period) => {
+    set({ recapPeriod: period, isFullscreenPlayerOpen: false, isQueueOpen: false });
+  },
+
+  closeRecap: () => {
+    set({ recapPeriod: null });
+  },
 
   setActiveView: (view: UIStoreState['activeView']) => {
     set({ activeView: view });
