@@ -17,6 +17,8 @@ import { UnifiedTrack } from '../../src/types/music';
 import { YouTubeService } from '../../src/services/youtube';
 import { SoundCloudService } from '../../src/services/soundcloud';
 import { usePlayerStore } from '../../src/store/usePlayerStore';
+import { recommendationEngine } from '../../src/services/recommendationEngine';
+import { audioEngine } from '../../src/services/audioEngine';
 import { normalizeArtistKey } from '../../src/services/tasteProfile';
 import { normalizeArtistKey as normalizeSimilarKey } from '../../src/services/similarArtists';
 
@@ -102,9 +104,28 @@ describe('Adversarial Empirical Stress Testing — Поток & Track Radio', ()
     } as unknown as SoundCloudService;
 
     engine = new RecommendationEngineService(mockYtService, mockScService);
+
+    /*
+     * Стор ходит в общий движок рекомендаций и в настоящий звуковой движок.
+     * Без подмены проверки стора уходили в живую сеть (YouTube, Invidious):
+     * в окружении с сетью «холодный старт без рекомендаций» находил настоящие
+     * треки, а сотня переключений упиралась в секундные отказы разбора ссылок.
+     * Здесь проверяется логика очереди под нагрузкой, а не сеть — поэтому стор
+     * получает тот же подменённый движок, что и проверки выше.
+     */
+    vi.spyOn(recommendationEngine, 'getRecommendationsForWave').mockImplementation(
+      (config, count, exclude) => engine.getRecommendationsForWave(config, count, exclude)
+    );
+    vi.spyOn(recommendationEngine, 'getTrackRadio').mockImplementation(
+      (seed, count, exclude) => engine.getTrackRadio(seed, count, exclude)
+    );
+    vi.spyOn(recommendationEngine, 'recordFeedback').mockResolvedValue(undefined as never);
+    vi.spyOn(audioEngine, 'load').mockResolvedValue(undefined);
+    vi.spyOn(audioEngine, 'play').mockResolvedValue(undefined);
   });
 
   afterEach(async () => {
+    vi.restoreAllMocks();
     await clearAllData();
   });
 

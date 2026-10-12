@@ -73,12 +73,14 @@ export const PlayerBar: React.FC<PlayerBarProps> = ({ className = '' }) => {
   const visualizerEnabled = usePlayerStore((s) => s.visualizerEnabled);
   const visualizerPreset = usePlayerStore((s) => s.visualizerPreset);
   const sleepTimerEndsAt = usePlayerStore((s) => s.sleepTimerEndsAt);
+  const sleepAtTrackEnd = usePlayerStore((s) => s.sleepAtTrackEnd);
   const autoplayRadio = usePlayerStore((s) => s.autoplayRadio);
 
   const setVolume = usePlayerStore((s) => s.setVolume);
 
   const toggleMute = usePlayerStore((s) => s.toggleMute);
   const setSleepTimer = usePlayerStore((s) => s.setSleepTimer);
+  const setSleepAtTrackEnd = usePlayerStore((s) => s.setSleepAtTrackEnd);
   const setAutoplayRadio = usePlayerStore((s) => s.setAutoplayRadio);
   const setVisualizerEnabled = usePlayerStore((s) => s.setVisualizerEnabled);
 
@@ -182,7 +184,8 @@ export const PlayerBar: React.FC<PlayerBarProps> = ({ className = '' }) => {
    * даёт двойную паузу между соседями. Отсюда флаги: сначала считаем, есть ли в
    * группе хоть что-то, и только потом рисуем обёртку.
    */
-  const showSleepBadge = modules.sleepTimer && sleepTimerEndsAt !== null;
+  const showSleepBadge = modules.sleepTimer && (sleepTimerEndsAt !== null || sleepAtTrackEnd);
+  const sleepActive = sleepTimerEndsAt !== null || sleepAtTrackEnd;
   // Без трека спектру нечего рисовать, и на полосе оставалась пустая рамка
   // 46×28 — по виду кнопка с потерянным значком. Она и была тем «съехавшим
   // значком» слева от громкости: не значок, а холст без звука.
@@ -780,12 +783,16 @@ export const PlayerBar: React.FC<PlayerBarProps> = ({ className = '' }) => {
               <span
                 className="badge"
                 data-numeric
-                title={`Воспроизведение остановится через ${formatDuration(sleepRemaining)}`}
+                title={
+                  sleepAtTrackEnd
+                    ? 'Воспроизведение остановится в конце трека'
+                    : `Воспроизведение остановится через ${formatDuration(sleepRemaining)}`
+                }
                 style={{ color: 'var(--accent)', borderColor: 'var(--border-accent)', flexShrink: 0 }}
                 data-testid="player-sleep-remaining"
               >
                 <Moon size={ICON.xs} aria-hidden="true" />
-                {formatDuration(sleepRemaining)}
+                {sleepAtTrackEnd ? 'конец трека' : formatDuration(sleepRemaining)}
               </span>
             )}
 
@@ -940,7 +947,7 @@ export const PlayerBar: React.FC<PlayerBarProps> = ({ className = '' }) => {
             <Button
               variant="ghost"
               size="icon"
-              isActive={isMenuOpen || sleepTimerEndsAt !== null || autoplayRadio}
+              isActive={isMenuOpen || sleepActive || autoplayRadio}
               onClick={() => setIsMenuOpen((open) => !open)}
               title="Ещё"
               aria-label="Другие настройки плеера"
@@ -988,6 +995,9 @@ export const PlayerBar: React.FC<PlayerBarProps> = ({ className = '' }) => {
                             осталось {formatDuration(sleepRemaining)}
                           </span>
                         )}
+                        {sleepAtTrackEnd && (
+                          <span style={{ color: 'var(--accent)' }}>в конце трека</span>
+                        )}
                       </div>
 
                       <div
@@ -1002,8 +1012,8 @@ export const PlayerBar: React.FC<PlayerBarProps> = ({ className = '' }) => {
                       >
                         <button
                           role="menuitemradio"
-                          aria-checked={sleepTimerEndsAt === null}
-                          data-active={sleepTimerEndsAt === null}
+                          aria-checked={!sleepActive}
+                          data-active={!sleepActive}
                           className="chip"
                           onClick={() => setSleepTimer(null)}
                           style={{ justifyContent: 'center' }}
@@ -1030,6 +1040,21 @@ export const PlayerBar: React.FC<PlayerBarProps> = ({ className = '' }) => {
                             <span style={{ color: 'var(--text-faint)' }}>мин</span>
                           </button>
                         ))}
+                        <button
+                          role="menuitemradio"
+                          aria-checked={sleepAtTrackEnd}
+                          data-active={sleepAtTrackEnd}
+                          className="chip"
+                          onClick={() => {
+                            setSleepMinutes(null);
+                            setSleepAtTrackEnd(true);
+                            setIsMenuOpen(false);
+                          }}
+                          style={{ justifyContent: 'center', gridColumn: '1 / -1' }}
+                          data-testid="sleep-timer-track-end"
+                        >
+                          До конца трека
+                        </button>
                       </div>
 
                       <div className="divider" role="separator" />

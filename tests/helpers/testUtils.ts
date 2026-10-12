@@ -231,6 +231,8 @@ export function resetPlayerStore(): void {
     visualizerEnabled: true,
     visualizerPreset: 'CYBER_BARS',
     sleepTimerEndsAt: null,
+    sleepAtTrackEnd: false,
+    suggestedTrackIds: [],
     autoplayRadio: false,
     eq: { bass: 0, mid: 0, treble: 0 },
     crossfadeEnabled: false,

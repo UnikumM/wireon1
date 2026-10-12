@@ -50,6 +50,8 @@ export const PlaybackSettings: React.FC = () => {
   const loudnessNormalization = usePlayerStore((s) => s.loudnessNormalization);
   const autoplayRadio = usePlayerStore((s) => s.autoplayRadio);
   const sleepTimerEndsAt = usePlayerStore((s) => s.sleepTimerEndsAt);
+  const sleepAtTrackEnd = usePlayerStore((s) => s.sleepAtTrackEnd);
+  const setSleepAtTrackEnd = usePlayerStore((s) => s.setSleepAtTrackEnd);
   const setVolume = usePlayerStore((s) => s.setVolume);
   const setEq = usePlayerStore((s) => s.setEq);
   const setCrossfadeEnabled = usePlayerStore((s) => s.setCrossfadeEnabled);
@@ -70,8 +72,9 @@ export const PlaybackSettings: React.FC = () => {
   const [selectedSleepOption, setSelectedSleepOption] = useState('');
 
   useEffect(() => {
-    if (sleepTimerEndsAt === null) setSelectedSleepOption('');
-  }, [sleepTimerEndsAt]);
+    if (sleepAtTrackEnd) setSelectedSleepOption('end');
+    else if (sleepTimerEndsAt === null) setSelectedSleepOption('');
+  }, [sleepTimerEndsAt, sleepAtTrackEnd]);
 
   return (
     <SettingsSection
@@ -232,9 +235,11 @@ export const PlaybackSettings: React.FC = () => {
         label="Таймер сна"
         controlId="setting-sleep-timer"
         description={
-          remainingSeconds !== null
-            ? `Музыка встанет на паузу через ${formatDuration(remainingSeconds)}.`
-            : 'Поставить музыку на паузу через заданное время.'
+          sleepAtTrackEnd
+            ? 'Музыка встанет на паузу, когда доиграет текущий трек.'
+            : remainingSeconds !== null
+              ? `Музыка встанет на паузу через ${formatDuration(remainingSeconds)}.`
+              : 'Поставить музыку на паузу через заданное время.'
         }
       >
         <select
@@ -244,7 +249,8 @@ export const PlaybackSettings: React.FC = () => {
           onChange={(e) => {
             const raw = e.target.value;
             setSelectedSleepOption(raw);
-            setSleepTimer(raw === '' ? null : Number(raw));
+            if (raw === 'end') setSleepAtTrackEnd(true);
+            else setSleepTimer(raw === '' ? null : Number(raw));
           }}
           data-testid="settings-sleep-timer"
         >
@@ -253,6 +259,7 @@ export const PlaybackSettings: React.FC = () => {
               {option.label}
             </option>
           ))}
+          <option value="end">До конца трека</option>
         </select>
       </SettingRow>
     </SettingsSection>

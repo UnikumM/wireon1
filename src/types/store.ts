@@ -105,6 +105,8 @@ export interface PlayerStoreState {
 
   // Playback extras
   sleepTimerEndsAt: number | null; // epoch ms
+  /** Таймер сна «до конца трека»: остановиться, когда текущая песня доиграет. */
+  sleepAtTrackEnd: boolean;
   autoplayRadio: boolean; // continue with related tracks when the queue ends
   eq: EqSettings; // dB, -12..+12
   crossfadeEnabled: boolean;
@@ -182,6 +184,7 @@ export interface PlayerStoreActions {
   // Settings & extras
   hydrateSettings: () => Promise<void>;
   setSleepTimer: (minutes: number | null) => void;
+  setSleepAtTrackEnd: (enabled: boolean) => void;
   setAutoplayRadio: (enabled: boolean) => void;
   setEq: (partial: Partial<EqSettings>) => void;
   setCrossfadeEnabled: (enabled: boolean) => void;

@@ -54,6 +54,7 @@ export const PLAYER_SETTING_KEYS = {
   waveSeedKind: 'waveSeedKind',
   waveSeedArtist: 'waveSeedArtist',
   lastSession: 'lastSession',
+  lastQueue: 'lastQueue',
   globalHotkeysEnabled: 'globalHotkeysEnabled',
   globalHotkeys: 'globalHotkeys'
 } as const;
@@ -223,6 +224,118 @@ export function generateShuffledIndices(length: number, firstIndex?: number): nu
   return indices;
 }
 
+/**
+ * Переносит порядок перемешивания на изменившийся список.
+ *
+ * Раньше любая правка очереди — дизлайк, удаление из плейлиста, новый трек в
+ * нём — либо оставляла старые номера (и они начинали указывать мимо, вплоть до
+ * несуществующих позиций), либо перемешивала всё заново, и уже сыгранные треки
+ * возвращались. Здесь порядок сохраняется по самим трекам: что было впереди,
+ * остаётся впереди, исчезнувшее выпадает, а новое ложится в случайные места
+ * ещё не сыгранной части.
+ */
+export function remapShuffleOrder(
+  oldQueue: readonly UnifiedTrack[],
+  order: readonly number[],
+  newQueue: readonly UnifiedTrack[],
+  currentIndex: number,
+  random: () => number = Math.random
+): number[] {
+  if (newQueue.length === 0) return [];
+  // id -> свободные позиции в новом списке (дубликаты разбираются по очереди)
+  const free = new Map<string, number[]>();
+  newQueue.forEach((track, i) => {
+    const list = free.get(track.id);
+    if (list) list.push(i);
+    else free.set(track.id, [i]);
+  });
+
+  const result: number[] = [];
+  for (const oldIndex of order) {
+    const id = oldQueue[oldIndex]?.id;
+    if (!id) continue;
+    const slots = free.get(id);
+    if (!slots || slots.length === 0) continue;
+    result.push(slots.shift()!);
+  }
+
+  const leftovers: number[] = [];
+  free.forEach((slots) => leftovers.push(...slots));
+  if (leftovers.length > 0) {
+    const pos = result.indexOf(currentIndex);
+    for (const index of leftovers) {
+      // Новое — только в ещё не сыгранную часть, после играющего трека.
+      const from = pos + 1;
+      const at = from + Math.floor(random() * (result.length - from + 1));
+      result.splice(at, 0, index);
+    }
+  }
+  return result;
+}
+
+/** Ссылка на звук живёт часы — сохранённой очереди она ни к чему. */
+function stripStream(track: UnifiedTrack): UnifiedTrack {
+  if (!track) return track;
+  const { streamUrl: _url, streamExpiry: _exp, ...rest } = track;
+  return rest;
+}
+
+/** Столько очереди переживает перезапуск: дальше человек всё равно не дойдёт. */
+const SAVED_QUEUE_LIMIT = 500;
+
+export interface SavedQueue {
+  sourceQueue: UnifiedTrack[];
+  userQueue: UnifiedTrack[];
+  currentIndex: number;
+  shuffleOrder: number[];
+  queueMode: QueueMode;
+  activeSeedTrack: UnifiedTrack | null;
+  currentTrackId: string | null;
+  savedAt: number;
+}
+
+/**
+ * Снимок очереди для следующего запуска.
+ *
+ * До 3.0 перезапуск сохранял только играющий трек: человек открывал
+ * приложение посреди альбома, жал «дальше» — и ничего не происходило, очередь
+ * была пуста. Теперь очередь переживает перезапуск так же, как позиция.
+ */
+export function snapshotQueue(state: PlayerStoreState, now: number = Date.now()): SavedQueue | null {
+  if (!state.currentTrack && state.sourceQueue.length === 0 && state.userQueue.length === 0) return null;
+  let sourceQueue = state.sourceQueue;
+  let currentIndex = state.currentIndex;
+  let shuffleOrder = state.shuffleOrder;
+  if (sourceQueue.length > SAVED_QUEUE_LIMIT) {
+    // Окно вокруг играющего: немного позади (для «назад»), остальное — впереди.
+    const start = Math.max(0, Math.min(currentIndex - 20, sourceQueue.length - SAVED_QUEUE_LIMIT));
+    sourceQueue = sourceQueue.slice(start, start + SAVED_QUEUE_LIMIT);
+    currentIndex = currentIndex - start;
+    shuffleOrder = [];
+  }
+  return {
+    sourceQueue: sourceQueue.map(stripStream),
+    userQueue: state.userQueue.slice(0, SAVED_QUEUE_LIMIT).map(stripStream),
+    currentIndex,
+    shuffleOrder: state.isShuffled ? shuffleOrder : [],
+    queueMode: state.queueMode,
+    activeSeedTrack: state.activeSeedTrack ? stripStream(state.activeSeedTrack) : null,
+    currentTrackId: state.currentTrack?.id ?? null,
+    savedAt: now
+  };
+}
+
+/** Проверяет, что сохранённый порядок перемешивания — перестановка списка. */
+function isValidShuffleOrder(order: unknown, length: number): order is number[] {
+  if (!Array.isArray(order) || order.length !== length) return false;
+  const seen = new Set<number>();
+  for (const i of order) {
+    if (typeof i !== 'number' || !Number.isInteger(i) || i < 0 || i >= length || seen.has(i)) return false;
+    seen.add(i);
+  }
+  return true;
+}
+
 /** Persisting preferences must never surface as an error to the UI. */
 function persistSetting(key: string, value: unknown): void {
   try {
@@ -363,7 +476,8 @@ export const usePlayerStore = create<PlayerStore>((set, get) => {
       const pos = order.indexOf(state.currentIndex);
       for (let step = 1; step <= order.length && result.length < count; step++) {
         const raw = pos + step;
-        const inRange = pos !== -1 && raw < order.length;
+        // pos === -1: играющего нет в порядке, и `nextTrack` начнёт его сначала.
+        const inRange = raw < order.length;
         // За край выходим только на repeat all — иначе очередь просто кончилась.
         if (!inRange && !wraps) break;
         const at = inRange ? raw : ((raw % order.length) + order.length) % order.length;
@@ -552,6 +666,62 @@ export const usePlayerStore = create<PlayerStore>((set, get) => {
     MediaSessionService.updatePlaybackState('paused');
   };
 
+  /**
+   * Ставит следующий трек на паузе, не открывая его в движке.
+   *
+   * Тот же приём, что у трека с прошлого запуска: карточка на месте, а звук
+   * откроется по «играть» (`play` видит, что в движке другой трек).
+   */
+  const cueNextTrack = (): void => {
+    const state = get();
+    audioEngine.pause();
+    const ended = state.currentTrack;
+    const history = ended ? [...state.history.slice(-HISTORY_LIMIT), ended] : state.history;
+    const cue = (track: UnifiedTrack, patch: Partial<PlayerStoreState>): void => {
+      commitGeneration += 1;
+      set({
+        ...patch,
+        currentTrack: track,
+        history,
+        currentTime: 0,
+        duration: finiteDuration(track.duration),
+        buffered: 0,
+        resumePosition: null,
+        playbackState: 'paused',
+        isPlaying: false,
+        isLoading: false,
+        ...NO_ERROR
+      });
+      MediaSessionService.updateMetadata(track);
+      MediaSessionService.updatePlaybackState('paused');
+      rememberSession(true);
+    };
+
+    if (state.userQueue.length > 0) {
+      const [next, ...rest] = state.userQueue;
+      cue(next, { userQueue: rest });
+      return;
+    }
+    const len = state.sourceQueue.length;
+    if (len > 0) {
+      let nextIndex = -1;
+      if (state.isShuffled && state.shuffleOrder.length > 0) {
+        const pos = state.shuffleOrder.indexOf(state.currentIndex);
+        if (pos + 1 < state.shuffleOrder.length) nextIndex = state.shuffleOrder[pos + 1];
+        else if (state.repeatMode === 'all') nextIndex = state.shuffleOrder[0];
+      } else if (state.currentIndex + 1 < len) {
+        nextIndex = state.currentIndex + 1;
+      } else if (state.repeatMode === 'all') {
+        nextIndex = 0;
+      }
+      if (nextIndex >= 0 && state.sourceQueue[nextIndex]) {
+        cue(state.sourceQueue[nextIndex], { currentIndex: nextIndex });
+        return;
+      }
+    }
+    stopAtQueueEnd();
+  };
+
   const applyMuted = (muted: boolean, restoreVolume?: number): void => {
     if (muted) {
       audioEngine.setMuted(true);
@@ -650,6 +820,7 @@ export const usePlayerStore = create<PlayerStore>((set, get) => {
 
     // Playback extras
     sleepTimerEndsAt: null,
+    sleepAtTrackEnd: false,
     autoplayRadio: false,
     eq: { bass: 0, mid: 0, treble: 0 },
     crossfadeEnabled: false,
@@ -669,7 +840,8 @@ export const usePlayerStore = create<PlayerStore>((set, get) => {
       // Selecting within the active stream keeps it; selecting another list leaves it.
       if (newSourceQueue && newSourceQueue !== state.sourceQueue) {
         invalidateQueueRequests();
-        set({ queueMode: 'sequential', activeSeedTrack: null });
+        // Пометки «подобрано» принадлежали прошлому списку.
+        set({ queueMode: 'sequential', activeSeedTrack: null, suggestedTrackIds: [] });
       } else if (waveBuildPromise) {
         invalidateQueueRequests();
       }
@@ -737,6 +909,7 @@ export const usePlayerStore = create<PlayerStore>((set, get) => {
           // никогда. Открываем трек заново: `load` сам возьмёт свежую ссылку.
           if (!loaded || loaded.id !== state.currentTrack.id || state.playbackState === 'error') {
             const resumeAt = state.resumePosition ?? state.currentTime ?? 0;
+            const commitId = commitGeneration;
             set({ playbackState: 'loading', isLoading: true });
             await audioEngine.load(state.currentTrack, true);
             if (resumeAt > 1) {
@@ -744,6 +917,18 @@ export const usePlayerStore = create<PlayerStore>((set, get) => {
               set({ currentTime: resumeAt });
             }
             set({ resumePosition: null });
+            // Трек с прошлого запуска и трек, поставленный таймером сна, не
+            // проходили через `commitTrack` — и потому не попадали ни в историю,
+            // ни в статистику: вечер, начатый с «продолжить», не считался вовсе.
+            if (commitId === commitGeneration && !playbackTracker.isTracking(state.currentTrack.id)) {
+              useLibraryStore
+                .getState()
+                .addToHistory(state.currentTrack, { count: false })
+                .catch(() => {});
+              playbackTracker.beginPlay(state.currentTrack);
+              offlineMode.noteListened(state.currentTrack);
+              prefetchUpcoming();
+            }
           }
 
           await audioEngine.play();
@@ -848,7 +1033,8 @@ export const usePlayerStore = create<PlayerStore>((set, get) => {
       if (sourceLen > 0) {
         if (state.isShuffled && state.shuffleOrder.length > 0) {
           const pos = state.shuffleOrder.indexOf(state.currentIndex);
-          if (pos !== -1 && pos + 1 < state.shuffleOrder.length) {
+          // Играющего нет в порядке (его убрали) — начинаем порядок сначала.
+          if (pos + 1 < state.shuffleOrder.length) {
             const nextIndex = state.shuffleOrder[pos + 1];
             await commitTrack(state.sourceQueue[nextIndex], { index: nextIndex, history: nextHistory });
             return;
@@ -1093,9 +1279,12 @@ export const usePlayerStore = create<PlayerStore>((set, get) => {
         shuffleOrder: [],
         queueMode: 'sequential',
         activeSeedTrack: null,
-        isReplenishingQueue: false
+        isReplenishingQueue: false,
+        suggestedTrackIds: [],
+        sleepAtTrackEnd: false
       });
       persistSetting(PLAYER_SETTING_KEYS.lastSession, null);
+      persistSetting(PLAYER_SETTING_KEYS.lastQueue, null);
       MediaSessionService.clear();
     },
 
@@ -1108,7 +1297,8 @@ export const usePlayerStore = create<PlayerStore>((set, get) => {
         sourceQueue: list,
         currentIndex: startIndex >= 0 && startIndex < list.length ? startIndex : 0,
         isShuffled: false,
-        shuffleOrder: []
+        shuffleOrder: [],
+        suggestedTrackIds: []
       });
     },
 
@@ -1128,8 +1318,12 @@ export const usePlayerStore = create<PlayerStore>((set, get) => {
       set({
         sourceQueue: list,
         currentIndex: nextIndex,
+        // Правка плейлиста не повод перемешивать заново: уже сыгранное вернулось
+        // бы в очередь. Порядок переносится по трекам.
         shuffleOrder: state.isShuffled
-          ? generateShuffledIndices(list.length, nextIndex >= 0 ? nextIndex : undefined)
+          ? state.shuffleOrder.length > 0
+            ? remapShuffleOrder(state.sourceQueue, state.shuffleOrder, list, nextIndex)
+            : generateShuffledIndices(list.length, nextIndex >= 0 ? nextIndex : undefined)
           : []
       });
     },
@@ -1155,6 +1349,7 @@ export const usePlayerStore = create<PlayerStore>((set, get) => {
         queueMode: 'track_radio',
         autoplayRadio: true,
         activeSeedTrack: seedTrack,
+        suggestedTrackIds: [],
         userQueue: [],
         sourceQueue: [seedTrack],
         currentIndex: 0,
@@ -1183,6 +1378,12 @@ export const usePlayerStore = create<PlayerStore>((set, get) => {
 
       const seeds = pickSeeds(own);
       const exclude = new Set(own.map((track) => track.id));
+      // Идущее пополнение Потока иначе дописало бы свои треки в перемешанный
+      // плейлист, а поздний ответ радио перебил бы то, что человек включил,
+      // пока подбор ещё шёл.
+      invalidateQueueRequests();
+      const requestGeneration = queueGeneration;
+      const playbackGeneration = commitGeneration;
 
       const found = await Promise.all(
         seeds.map((seed) =>
@@ -1197,6 +1398,7 @@ export const usePlayerStore = create<PlayerStore>((set, get) => {
         if (track?.id && !exclude.has(track.id)) byId.set(track.id, track);
       }
 
+      if (requestGeneration !== queueGeneration || playbackGeneration !== commitGeneration) return;
       const { tracks: mixed, suggestedIds } = mixSuggestions(own, Array.from(byId.values()));
 
       set({
@@ -1262,6 +1464,7 @@ export const usePlayerStore = create<PlayerStore>((set, get) => {
             queueMode: 'my_wave', autoplayRadio: true,
             activeWaveMood: effectiveMood, activeWaveGenre: effectiveGenre,
             activeSeedTrack: seedTrack, sourceQueue: queue, currentIndex: 0,
+            suggestedTrackIds: [],
             // A stream already has an intentional recommendation order.
             isShuffled: false, shuffleOrder: [],
             userQueue: keepCurrent ? get().userQueue : []
@@ -1326,11 +1529,24 @@ export const usePlayerStore = create<PlayerStore>((set, get) => {
         if (currentPosInSource !== -1 && currentPosInSource <= state.currentIndex) {
           nextIndex = state.currentIndex - 1;
         }
+        let nextShuffleOrder = state.shuffleOrder;
+        if (state.isShuffled && state.shuffleOrder.length > 0) {
+          nextShuffleOrder = remapShuffleOrder(state.sourceQueue, state.shuffleOrder, filteredSourceQueue, -1);
+          // В перемешанном порядке «предыдущий» — тот, кто стоял перед убранным
+          // в самом порядке, а не по номеру в списке: иначе следующим играл бы
+          // случайный трек вместо того, что был на очереди.
+          const pos = state.shuffleOrder.indexOf(state.currentIndex);
+          const before = pos > 0 ? state.sourceQueue[state.shuffleOrder[pos - 1]] : null;
+          nextIndex = before ? filteredSourceQueue.findIndex((t) => t.id === before.id) : -1;
+        }
 
         set({
           userQueue: filteredUserQueue,
           sourceQueue: filteredSourceQueue,
-          currentIndex: nextIndex
+          currentIndex: nextIndex,
+          // Номера перемешивания указывали на старый список: после удаления
+          // трека они сдвигались на соседей, а последние — за край очереди.
+          shuffleOrder: nextShuffleOrder
         });
       }
 
@@ -1533,7 +1749,8 @@ export const usePlayerStore = create<PlayerStore>((set, get) => {
             globalHotkeys,
             waveSeedKind,
             waveSeedArtist,
-            mobileAudioFx
+            mobileAudioFx,
+            lastQueue
           ] = await Promise.all([
             dbService.getSetting<number>(PLAYER_SETTING_KEYS.volume, current.volume),
             dbService.getSetting<boolean>(PLAYER_SETTING_KEYS.isMuted, current.isMuted),
@@ -1556,7 +1773,8 @@ export const usePlayerStore = create<PlayerStore>((set, get) => {
             dbService.getSetting<Record<string, string>>(PLAYER_SETTING_KEYS.globalHotkeys, current.globalHotkeys),
             dbService.getSetting<WaveSeedKind>(PLAYER_SETTING_KEYS.waveSeedKind, current.waveSeedKind),
             dbService.getSetting<string | null>(PLAYER_SETTING_KEYS.waveSeedArtist, current.waveSeedArtist),
-            dbService.getSetting<boolean>(PLAYER_SETTING_KEYS.mobileAudioFx, current.mobileAudioFx)
+            dbService.getSetting<boolean>(PLAYER_SETTING_KEYS.mobileAudioFx, current.mobileAudioFx),
+            dbService.getSetting<SavedQueue | null>(PLAYER_SETTING_KEYS.lastQueue, null)
           ]);
 
           const nextVolume = typeof volume === 'number' && Number.isFinite(volume) ? clampVolume(volume) : current.volume;
@@ -1653,9 +1871,42 @@ export const usePlayerStore = create<PlayerStore>((set, get) => {
               playbackState: 'paused'
             });
             MediaSessionService.updateMetadata(saved.track);
+
+            // Очередь — только если она про тот же трек: снимок и позиция
+            // пишутся раздельно, и чужая очередь под этим треком была бы
+            // хуже пустой.
+            const queue = lastQueue;
+            if (
+              queue &&
+              queue.currentTrackId === saved.track.id &&
+              Array.isArray(queue.sourceQueue) &&
+              Array.isArray(queue.userQueue) &&
+              get().sourceQueue.length === 0 &&
+              get().userQueue.length === 0
+            ) {
+              const sourceQueue = queue.sourceQueue.filter((t) => t && t.id);
+              const userQueue = queue.userQueue.filter((t) => t && t.id);
+              const index =
+                Number.isInteger(queue.currentIndex) && queue.currentIndex >= -1 && queue.currentIndex < sourceQueue.length
+                  ? queue.currentIndex
+                  : sourceQueue.findIndex((t) => t.id === saved.track.id);
+              const mode: QueueMode =
+                queue.queueMode === 'my_wave' || queue.queueMode === 'track_radio' ? queue.queueMode : 'sequential';
+              set({
+                sourceQueue,
+                userQueue,
+                currentIndex: index,
+                queueMode: mode,
+                activeSeedTrack: queue.activeSeedTrack ?? null,
+                shuffleOrder:
+                  get().isShuffled && isValidShuffleOrder(queue.shuffleOrder, sourceQueue.length)
+                    ? queue.shuffleOrder
+                    : []
+              });
+            }
           }
 
-          if (get().isShuffled && get().sourceQueue.length > 0) {
+          if (get().isShuffled && get().sourceQueue.length > 0 && get().shuffleOrder.length === 0) {
             set({
               shuffleOrder: generateShuffledIndices(
                 get().sourceQueue.length,
@@ -1679,7 +1930,7 @@ export const usePlayerStore = create<PlayerStore>((set, get) => {
       audioEngine.cancelVolumeFade();
 
       if (minutes === null || typeof minutes !== 'number' || !Number.isFinite(minutes) || minutes <= 0) {
-        set({ sleepTimerEndsAt: null });
+        set({ sleepTimerEndsAt: null, sleepAtTrackEnd: false });
         return;
       }
 
@@ -1689,7 +1940,22 @@ export const usePlayerStore = create<PlayerStore>((set, get) => {
         void runSleepTimer();
       }, durationMs);
 
-      set({ sleepTimerEndsAt: Date.now() + durationMs });
+      set({ sleepTimerEndsAt: Date.now() + durationMs, sleepAtTrackEnd: false });
+    },
+
+    /*
+     * «До конца трека» — как у Spotify: музыка останавливается, когда текущая
+     * песня доиграет, а не посреди куплета. Отдельный флаг, а не минуты: длина
+     * трека заранее не известна точно (скорость, перемотка, кроссфейд).
+     */
+    setSleepAtTrackEnd: (enabled: boolean) => {
+      if (enabled) {
+        clearSleepTimerHandle();
+        audioEngine.cancelVolumeFade();
+        set({ sleepAtTrackEnd: true, sleepTimerEndsAt: null });
+      } else {
+        set({ sleepAtTrackEnd: false });
+      }
     },
 
     setAutoplayRadio: (enabled: boolean) => {
@@ -1842,6 +2108,9 @@ export const usePlayerStore = create<PlayerStore>((set, get) => {
       if (
         state.crossfadeEnabled &&
         state.crossfadeDuration > 0 &&
+        // Таймер «до конца трека» ждёт настоящего конца: кроссфейд начал бы
+        // следующую песню и тут же её оборвал.
+        !state.sleepAtTrackEnd &&
         state.isPlaying &&
         !state.isLoading &&
         safeDuration > state.crossfadeDuration * 1.5 &&
@@ -1858,6 +2127,14 @@ export const usePlayerStore = create<PlayerStore>((set, get) => {
     },
 
     onTrackEnded: async () => {
+      if (get().sleepAtTrackEnd) {
+        set({ sleepAtTrackEnd: false });
+        // Трек доиграл — дальше тишина, но очередь на месте: следующее «играть»
+        // начнёт следующую песню. Её только ставим на место, не открывая: иначе
+        // первые полсекунды прозвучали бы в уже уснувшей комнате.
+        cueNextTrack();
+        return;
+      }
       // Дослушивание больше не отмечается отсюда: его считает playbackTracker по
       // достигнутой точке. Так оно одинаково работает и при кроссфейде, где это
       // событие не приходит вовсе, и при переключении на исходе трека.
@@ -1947,5 +2224,38 @@ if (typeof window !== 'undefined') {
 
   registerMediaSessionHandlers();
 
-  window.addEventListener('pagehide', destroyPlayerRuntime);
+  /*
+   * Очередь пишется не по таймеру, а когда меняется — и с выдержкой: пачка
+   * правок подряд (перемешать, добавить десять треков) даёт одну запись.
+   */
+  let queueSaveTimer: ReturnType<typeof setTimeout> | null = null;
+  const flushQueue = (): void => {
+    if (queueSaveTimer !== null) {
+      clearTimeout(queueSaveTimer);
+      queueSaveTimer = null;
+    }
+    const state = usePlayerStore.getState();
+    if (!state.settingsHydrated) return;
+    persistSetting(PLAYER_SETTING_KEYS.lastQueue, snapshotQueue(state));
+  };
+  usePlayerStore.subscribe((state, prev) => {
+    if (
+      state.sourceQueue === prev.sourceQueue &&
+      state.userQueue === prev.userQueue &&
+      state.currentIndex === prev.currentIndex &&
+      state.shuffleOrder === prev.shuffleOrder &&
+      state.queueMode === prev.queueMode &&
+      state.currentTrack?.id === prev.currentTrack?.id
+    ) {
+      return;
+    }
+    if (!state.settingsHydrated) return;
+    if (queueSaveTimer !== null) clearTimeout(queueSaveTimer);
+    queueSaveTimer = setTimeout(flushQueue, 1500);
+  });
+
+  window.addEventListener('pagehide', () => {
+    flushQueue();
+    destroyPlayerRuntime();
+  });
 }

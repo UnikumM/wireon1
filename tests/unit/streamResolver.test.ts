@@ -432,7 +432,11 @@ describe('StreamResolver Service', () => {
         .mockRejectedValue(new Error('yt-dlp exploded'));
 
       resolver.prefetch(mockYtTrack);
-      await vi.waitFor(() => expect(warn).toHaveBeenCalled());
+      // Ждём именно отказ предзагрузки: до него успевает предупредить поиск
+      // замены на SoundCloud, и по первому же `warn` разбор ещё шёл.
+      await vi.waitFor(() =>
+        expect(warn).toHaveBeenCalledWith(expect.stringContaining('Prefetch failed'), expect.anything())
+      , { timeout: 10000 });
       expect(spy).toHaveBeenCalledTimes(1);
 
       // Cooldown: an immediate retry must not hammer the network

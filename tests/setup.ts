@@ -555,6 +555,23 @@ function polyfillBlobReaders(): void {
       return readAs(this, 'text');
     };
   }
+  /*
+   * `stream()` нужен `new Response(blob)`: Response в Node 22 берёт тело у
+   * Blob именно через него и без него падал с «object.stream is not a
+   * function» — сеть в проверках офлайна не отвечала вовсе.
+   */
+  if (typeof proto.stream !== 'function' && typeof (globalThis as any).ReadableStream === 'function') {
+    proto.stream = function (this: Blob): ReadableStream<Uint8Array> {
+      const blob = this;
+      return new (globalThis as any).ReadableStream({
+        async start(controller: ReadableStreamDefaultController<Uint8Array>) {
+          const buffer: ArrayBuffer = await readAs(blob, 'buffer');
+          controller.enqueue(new Uint8Array(buffer));
+          controller.close();
+        }
+      });
+    };
+  }
 }
 
 export function setupTestEnvironment() {

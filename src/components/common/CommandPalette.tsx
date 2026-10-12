@@ -86,6 +86,7 @@ function useCommands(): Command[] {
   const isMuted = usePlayerStore((s) => s.isMuted);
   const visualizerEnabled = usePlayerStore((s) => s.visualizerEnabled);
   const sleepTimerEndsAt = usePlayerStore((s) => s.sleepTimerEndsAt);
+  const sleepAtTrackEnd = usePlayerStore((s) => s.sleepAtTrackEnd);
   const isQueueOpen = useUIStore((s) => s.isQueueOpen);
   const isFullscreenPlayerOpen = useUIStore((s) => s.isFullscreenPlayerOpen);
 
@@ -199,7 +200,16 @@ function useCommands(): Command[] {
       run: () => usePlayerStore.getState().setSleepTimer(minutes)
     }));
 
-    if (sleepTimerEndsAt !== null) {
+    sleep.push({
+      id: 'sleep-track-end',
+      label: 'Таймер сна: до конца трека',
+      group: 'Таймер сна',
+      icon: <Moon size={ICON.md} />,
+      keywords: 'sleep end of track конец трека доиграет',
+      run: () => usePlayerStore.getState().setSleepAtTrackEnd(true)
+    });
+
+    if (sleepTimerEndsAt !== null || sleepAtTrackEnd) {
       sleep.push({
         id: 'sleep-off',
         label: 'Отключить таймер сна',
@@ -232,6 +242,7 @@ function useCommands(): Command[] {
     isMuted,
     visualizerEnabled,
     sleepTimerEndsAt,
+    sleepAtTrackEnd,
     isQueueOpen,
     isFullscreenPlayerOpen
   ]);
