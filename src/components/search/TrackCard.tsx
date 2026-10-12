@@ -7,6 +7,7 @@ import {
   MoreHorizontal,
   ListPlus,
   ExternalLink,
+  Share2,
   Music2,
   Radio,
   CheckCircle2,
@@ -18,6 +19,7 @@ import { Button } from '../common/Button';
 import { usePlayerStore } from '../../store/usePlayerStore';
 import { useLibraryStore } from '../../store/useLibraryStore';
 import { useUIStore, refusedForAccount } from '../../store/useUIStore';
+import { shareTrack } from '../../services/shareTrack';
 import { offlineStorage } from '../../services/offlineStorage';
 import { formatDuration } from '../../utils/time';
 import { ICON } from '../../styles/icons';
@@ -339,6 +341,15 @@ export const TrackCard: React.FC<TrackCardProps> = ({
     playlistPicker.open(track);
   };
 
+  const handleShare = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    closeMenu();
+    const outcome = await shareTrack(track);
+    const ui = useUIStore.getState();
+    if (outcome === 'copied') ui.showToast('Ссылка на трек скопирована', 'success');
+    else if (outcome === 'failed') ui.showToast('Не удалось поделиться — буфер обмена недоступен', 'error');
+  };
+
   const handleOpenSource = (e: React.MouseEvent) => {
     e.stopPropagation();
     closeMenu();
@@ -460,6 +471,17 @@ export const TrackCard: React.FC<TrackCardProps> = ({
               style={{ color: isFavorite ? 'var(--danger)' : undefined }}
             />
             <span className="text-truncate">{isFavorite ? 'Убрать из избранного' : 'В избранное'}</span>
+          </button>
+
+          <button
+            type="button"
+            role="menuitem"
+            className="menu-item-hover"
+            onClick={(e) => void handleShare(e)}
+            data-testid={`menu-share-${track.id}`}
+          >
+            <Share2 size={ICON.md} aria-hidden="true" />
+            <span className="text-truncate">Поделиться</span>
           </button>
 
           {track.sourceUrl && (
