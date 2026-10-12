@@ -63,6 +63,8 @@ describe('recap', () => {
     expect(recap.longestStreak).toBe(3);
     expect(recap.biggestDay?.minutes).toBe(5);
     expect(recap.topGenres).toContain('house');
+    // «Daft Punk» в имени артиста не делает слушателя панком.
+    expect(recap.topGenres).not.toContain('punk');
     expect(recap.uniqueArtists).toBe(3);
     // За год сентябрь тоже в счёт.
     expect(buildRecap({ events, history, period: 'year', now: NOW }).totalPlays).toBe(7);

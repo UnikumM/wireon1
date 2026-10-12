@@ -185,7 +185,11 @@ export function buildRecap(input: RecapInput): Recap {
       as.seconds += seconds;
       if (!as.artworkUrl && track.artworkUrl) as.artworkUrl = track.artworkUrl;
       artistStats.set(key, as);
-      for (const token of extractGenreTokens(track)) genreCounts.set(token, (genreCounts.get(token) ?? 0) + 1);
+      // Только по названию: имя артиста врёт о жанре («Daft Punk» — не панк,
+      // «Metallica» — да, но таких меньше, чем ложных срабатываний).
+      for (const token of extractGenreTokens({ title: track.title, artist: '' })) {
+        genreCounts.set(token, (genreCounts.get(token) ?? 0) + 1);
+      }
     }
 
     hours[new Date(event.playedAt).getHours()] += 1;
