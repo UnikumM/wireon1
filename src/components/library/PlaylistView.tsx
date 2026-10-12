@@ -654,6 +654,7 @@ export const PlaylistView: React.FC<PlaylistViewProps> = ({ playlistId: propPlay
               value={sortKey}
               onChange={(e) => setSortKey(e.target.value as PlaylistSortKey)}
               aria-label="Сортировка"
+              style={{ width: 'auto', flex: '0 0 auto' }}
               data-testid="playlist-sort-select"
             >
               {(Object.keys(PLAYLIST_SORT_LABELS) as PlaylistSortKey[]).map((key) => (

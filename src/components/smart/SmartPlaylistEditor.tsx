@@ -41,11 +41,28 @@ const EMPTY_DRAFT: Draft = {
   limit: 50
 };
 
+/*
+ * Строка правила переносится, а не сжимается: на телефоне три списка в ряд
+ * обрезали подписи до «В избра…». Поле занимает свою строку, условие и
+ * значение — следующую.
+ */
 const rowStyle: React.CSSProperties = {
-  display: 'grid',
-  gridTemplateColumns: 'minmax(0, 1.2fr) minmax(0, 1fr) minmax(0, 1fr) auto',
+  display: 'flex',
+  flexWrap: 'wrap',
   gap: 'var(--space-2)',
   alignItems: 'center'
+};
+
+const FIELD_FLEX: React.CSSProperties = { flex: '1 1 180px', minWidth: 0, width: 'auto' };
+const OP_FLEX: React.CSSProperties = { flex: '1 1 120px', minWidth: 0, width: 'auto' };
+const VALUE_FLEX: React.CSSProperties = { flex: '1 1 90px', minWidth: 0, width: 'auto' };
+const INLINE_LABEL: React.CSSProperties = {
+  display: 'flex',
+  alignItems: 'center',
+  gap: 'var(--space-2)',
+  fontSize: 'var(--text-sm)',
+  color: 'var(--text-secondary)',
+  whiteSpace: 'nowrap'
 };
 
 const NUMERIC_FIELDS: SmartField[] = ['plays', 'skips', 'lastPlayed', 'added', 'duration'];
@@ -55,13 +72,14 @@ const RuleValue: React.FC<{ rule: SmartRule; onChange: (value: SmartRule['value'
   onChange,
   index
 }) => {
-  if (rule.op === 'never') return <span />;
+  if (rule.op === 'never') return <span style={VALUE_FLEX} />;
   if (rule.field === 'favorite') {
     return (
       <select
         value={rule.value ? 'yes' : 'no'}
         onChange={(e) => onChange(e.target.value === 'yes')}
         aria-label="Значение"
+        style={VALUE_FLEX}
         data-testid={`smart-rule-value-${index}`}
       >
         <option value="yes">да</option>
@@ -75,6 +93,7 @@ const RuleValue: React.FC<{ rule: SmartRule; onChange: (value: SmartRule['value'
         value={String(rule.value)}
         onChange={(e) => onChange(e.target.value)}
         aria-label="Источник"
+        style={VALUE_FLEX}
         data-testid={`smart-rule-value-${index}`}
       >
         <option value="youtube">YouTube</option>
@@ -91,6 +110,7 @@ const RuleValue: React.FC<{ rule: SmartRule; onChange: (value: SmartRule['value'
         value={Number(rule.value) || 0}
         onChange={(e) => onChange(Math.max(0, Number(e.target.value) || 0))}
         aria-label="Число"
+        style={VALUE_FLEX}
         data-testid={`smart-rule-value-${index}`}
       />
     );
@@ -102,6 +122,7 @@ const RuleValue: React.FC<{ rule: SmartRule; onChange: (value: SmartRule['value'
       onChange={(e) => onChange(e.target.value)}
       placeholder="текст"
       aria-label="Текст"
+      style={VALUE_FLEX}
       data-testid={`smart-rule-value-${index}`}
     />
   );
@@ -206,6 +227,7 @@ export const SmartPlaylistEditor: React.FC<SmartPlaylistEditorProps> = ({
             value={draft.match}
             onChange={(e) => setDraft((d) => ({ ...d, match: e.target.value === 'any' ? 'any' : 'all' }))}
             aria-label="Как сочетать правила"
+            style={{ width: 'auto' }}
             data-testid="smart-match-select"
           >
             <option value="all">все правила</option>
@@ -220,6 +242,7 @@ export const SmartPlaylistEditor: React.FC<SmartPlaylistEditorProps> = ({
                 value={rule.field}
                 onChange={(e) => changeField(index, e.target.value as SmartField)}
                 aria-label="Поле"
+                style={FIELD_FLEX}
                 data-testid={`smart-rule-field-${index}`}
               >
                 {(Object.keys(SMART_FIELD_LABELS) as SmartField[]).map((field) => (
@@ -232,6 +255,7 @@ export const SmartPlaylistEditor: React.FC<SmartPlaylistEditorProps> = ({
                 value={rule.op}
                 onChange={(e) => changeOp(index, e.target.value as SmartOp)}
                 aria-label="Условие"
+                style={OP_FLEX}
                 data-testid={`smart-rule-op-${index}`}
               >
                 {SMART_FIELD_OPS[rule.field].map((op) => (
@@ -267,9 +291,10 @@ export const SmartPlaylistEditor: React.FC<SmartPlaylistEditorProps> = ({
         </div>
 
         <div style={{ display: 'flex', gap: 'var(--space-3)', flexWrap: 'wrap', alignItems: 'center' }}>
-          <label style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)', fontSize: 'var(--text-sm)', color: 'var(--text-secondary)' }}>
+          <label style={INLINE_LABEL}>
             Порядок
             <select
+              style={{ width: 'auto' }}
               value={draft.sort}
               onChange={(e) => setDraft((d) => ({ ...d, sort: e.target.value as SmartSort }))}
               data-testid="smart-sort-select"
@@ -281,9 +306,10 @@ export const SmartPlaylistEditor: React.FC<SmartPlaylistEditorProps> = ({
               ))}
             </select>
           </label>
-          <label style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)', fontSize: 'var(--text-sm)', color: 'var(--text-secondary)' }}>
+          <label style={INLINE_LABEL}>
             Не больше
             <select
+              style={{ width: 'auto' }}
               value={String(draft.limit)}
               onChange={(e) => setDraft((d) => ({ ...d, limit: Number(e.target.value) }))}
               data-testid="smart-limit-select"
