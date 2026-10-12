@@ -5,6 +5,7 @@ import { useLibraryStore } from '../../store/useLibraryStore';
 import { useUIStore } from '../../store/useUIStore';
 import { getHistory, HistoryRecord } from '../../services/db';
 import { buildDailyMixes, dailyMixDateKey, DailyMix } from '../../services/dailyMixes';
+import { useAutoMixes } from '../../hooks/useAutoMixes';
 import { normalizeArtist } from '../../services/recommendationEngine';
 import { ICON } from '../../styles/icons';
 import type { UnifiedTrack } from '../../types/music';
@@ -41,6 +42,7 @@ export const MobileHomeView: React.FC = () => {
   const history = useLibraryStore((s) => s.history);
   const setActiveView = useUIStore((s) => s.setActiveView);
 
+  const autoMixes = useAutoMixes();
   const [records, setRecords] = useState<HistoryRecord[] | null>(null);
 
   useEffect(() => {
@@ -448,10 +450,20 @@ export const MobileHomeView: React.FC = () => {
         </button>
       </section>
 
-      {mixes.length > 0 && (
+      {(mixes.length > 0 || autoMixes.length > 0) && (
         <section data-testid="mobile-home-mixes" data-home-block="mixes">
           <SectionTitle>Миксы дня</SectionTitle>
           <Shelf>
+            {autoMixes.map((mix) => (
+              <ShelfCard
+                key={mix.id}
+                title={mix.title}
+                subtitle={mix.subtitle}
+                artworkUrl={mix.artworkUrl}
+                onClick={() => void playTrack(mix.tracks[0], mix.tracks, 0)}
+                testId={`mobile-home-auto-${mix.kind}`}
+              />
+            ))}
             {mixes.map((mix) => (
               <ShelfCard
                 key={mix.id}

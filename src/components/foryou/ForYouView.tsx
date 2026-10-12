@@ -29,6 +29,7 @@ import {
   STATS_PERIODS
 } from '../../services/listeningStats';
 import { pluralize } from '../../utils/plural';
+import { useAutoMixes } from '../../hooks/useAutoMixes';
 import { ICON } from '../../styles/icons';
 
 /** Сколько записей истории берём в расчёт: хватает на итоги и на миксы. */
@@ -96,6 +97,7 @@ export const ForYouView: React.FC<ForYouViewProps> = ({ className = '' }) => {
   const favorites = useLibraryStore((s) => s.favorites);
   const playlists = useLibraryStore((s) => s.playlists);
   const setActiveView = useUIStore((s) => s.setActiveView);
+  const autoMixes = useAutoMixes();
 
   // Медиатека для миксов — это всё, что человек сложил себе сам: плейлисты и
   // избранное. Таблица `tracks` в базе не наполняется, брать оттуда нечего.
@@ -308,6 +310,27 @@ export const ForYouView: React.FC<ForYouViewProps> = ({ className = '' }) => {
       data-testid="foryou-view"
     >
       {header}
+
+      {autoMixes.length > 0 && (
+        <section style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }} data-testid="foryou-auto-mixes">
+          {sectionTitle('Живые подборки')}
+          <p style={{ margin: 0, fontSize: 'var(--text-sm)', color: 'var(--text-secondary)' }}>
+            Собираются сами из того, что и когда вы слушаете: любимое этого месяца, забытое и то,
+            что звучит у вас именно в это время суток.
+          </p>
+          <div
+            style={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))',
+              gap: 'var(--space-3)'
+            }}
+          >
+            {autoMixes.map((mix, index) => (
+              <DailyMixCard key={mix.id} mix={mix} index={index} testIdPrefix={`auto-mix-${mix.kind}`} />
+            ))}
+          </div>
+        </section>
+      )}
 
       <section style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
         {sectionTitle('Миксы дня')}

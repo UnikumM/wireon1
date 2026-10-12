@@ -11,13 +11,15 @@ import { ICON } from '../../styles/icons';
 export interface DailyMixCardProps {
   mix: DailyMix;
   index: number;
+  /** Приставка `data-testid`: у живых подборок своя, чтобы не путать с миксами. */
+  testIdPrefix?: string;
 }
 
 /**
  * Карточка микса. Весь список известен заранее, поэтому нажатие сразу ставит
  * его в очередь целиком — ничего доигрывать и досчитывать не нужно.
  */
-export const DailyMixCard: React.FC<DailyMixCardProps> = ({ mix, index }) => {
+export const DailyMixCard: React.FC<DailyMixCardProps> = ({ mix, index, testIdPrefix = 'daily-mix' }) => {
   const playTrack = usePlayerStore((s) => s.playTrack);
   const currentTrack = usePlayerStore((s) => s.currentTrack);
 
@@ -48,7 +50,7 @@ export const DailyMixCard: React.FC<DailyMixCardProps> = ({ mix, index }) => {
           '--stagger': index
         } as React.CSSProperties
       }
-      data-testid={`daily-mix-${index}`}
+      data-testid={`${testIdPrefix}-${index}`}
     >
       <PlaylistCover tracks={mix.tracks} size={132} />
 
