@@ -17,10 +17,12 @@ import {
   CheckSquare,
   Search,
   CopyX,
-  Save
+  Save,
+  Pin,
+  PinOff
 } from 'lucide-react';
 import { useLibraryStore } from '../../store/useLibraryStore';
-import { usePlayerStore } from '../../store/usePlayerStore';
+import { usePlayerStore, isQueueOfTracks } from '../../store/usePlayerStore';
 import { useUIStore } from '../../store/useUIStore';
 import { Button } from '../common/Button';
 import { ConfirmDialog } from '../common/ConfirmDialog';
@@ -43,6 +45,7 @@ import {
   viewEntries
 } from '../../services/playlistTools';
 import { pluralize } from '../../utils/plural';
+import { usePinnedStore, MAX_PINNED } from '../../store/usePinnedStore';
 
 export interface PlaylistViewProps {
   playlistId?: string;
@@ -78,6 +81,8 @@ export const PlaylistView: React.FC<PlaylistViewProps> = ({ playlistId: propPlay
   const removeTrackFromPlaylist = useLibraryStore((s) => s.removeTrackFromPlaylist);
   const reorderPlaylistTracks = useLibraryStore((s) => s.reorderPlaylistTracks);
   const removeDuplicatesFromPlaylist = useLibraryStore((s) => s.removeDuplicatesFromPlaylist);
+  const pinnedIds = usePinnedStore((s) => s.pinnedIds);
+  const togglePin = usePinnedStore((s) => s.toggle);
   const setPlaylistTracks = useLibraryStore((s) => s.setPlaylistTracks);
 
   const playTrack = usePlayerStore((s) => s.playTrack);
@@ -95,6 +100,7 @@ export const PlaylistView: React.FC<PlaylistViewProps> = ({ playlistId: propPlay
   const listRef = useRef<HTMLDivElement | null>(null);
 
   const tracks = playlist?.tracks ?? [];
+  const isPinned = playlist ? pinnedIds.includes(playlist.id) : false;
   const totals = useMemo(() => describeTrackTotals(tracks), [tracks]);
 
   /*
@@ -125,9 +131,12 @@ export const PlaylistView: React.FC<PlaylistViewProps> = ({ playlistId: propPlay
   const afterMutation = useCallback(
     (playlistId: string) => {
       const updated = useLibraryStore.getState().playlists.find((p) => p.id === playlistId);
-      if (updated) syncSourceQueue(updated.tracks);
+      // `tracks` здесь — состав до правки: с ним и сверяем, играет ли этот плейлист.
+      if (updated && isQueueOfTracks(usePlayerStore.getState().sourceQueue, tracks)) {
+        syncSourceQueue(updated.tracks);
+      }
     },
-    [syncSourceQueue]
+    [syncSourceQueue, tracks]
   );
 
   const handleReorder = useCallback(
@@ -554,6 +563,20 @@ export const PlaylistView: React.FC<PlaylistViewProps> = ({ playlistId: propPlay
                 </Button>
               </>
             )}
+            <Button
+              variant="ghost"
+              size="icon"
+              title={isPinned ? 'Открепить' : 'Закрепить наверху медиатеки'}
+              aria-label={isPinned ? 'Открепить плейлист' : 'Закрепить плейлист наверху медиатеки'}
+              aria-pressed={isPinned}
+              onClick={() => {
+                void usePinnedStore.getState().hydrate();
+                if (!togglePin(playlist.id)) showToast(`Наверху помещается ${MAX_PINNED} плейлистов — открепите какой-нибудь`, 'info');
+              }}
+              data-testid="playlist-pin-btn"
+            >
+              {isPinned ? <PinOff size={ICON.md} /> : <Pin size={ICON.md} />}
+            </Button>
             <PlaylistExportMenu playlist={playlist} />
             <Button
               variant="ghost"

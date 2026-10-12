@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { usePinnedStore, orderPinned } from '../../store/usePinnedStore';
 import { SmartPlaylistsShelf } from '../smart/SmartPlaylistsShelf';
 import {
   Clock,
@@ -141,16 +142,23 @@ export const MobileLibraryView: React.FC<MobileLibraryViewProps> = ({ onCreatePl
     return source.filter((track) => matchesQuery(track, needle));
   }, [favorites, needle, offlineTracks, recent, tab]);
 
+  const pinnedIds = usePinnedStore((s) => s.pinnedIds);
+  useEffect(() => {
+    void usePinnedStore.getState().hydrate();
+  }, []);
   const visiblePlaylists = useMemo(
     () =>
-      needle
-        ? playlists.filter(
-            (playlist) =>
-              playlist.title.toLowerCase().includes(needle) ||
-              playlist.tracks.some((track) => matchesQuery(track, needle))
-          )
-        : playlists,
-    [needle, playlists]
+      orderPinned(
+        needle
+          ? playlists.filter(
+              (playlist) =>
+                playlist.title.toLowerCase().includes(needle) ||
+                playlist.tracks.some((track) => matchesQuery(track, needle))
+            )
+          : playlists,
+        pinnedIds
+      ),
+    [needle, playlists, pinnedIds]
   );
 
   // История копится годами: в разметке держим только видимую часть.
@@ -460,7 +468,10 @@ export const MobileLibraryView: React.FC<MobileLibraryViewProps> = ({ onCreatePl
               <CoverCard
                 key={playlist.id}
                 title={playlist.title}
-                subtitle={pluralize(playlist.tracks.length, 'трек', 'трека', 'треков')}
+                subtitle={
+                  (pinnedIds.includes(playlist.id) ? 'Закреплён · ' : '') +
+                  pluralize(playlist.tracks.length, 'трек', 'трека', 'треков')
+                }
                 cover={
                   <PlaylistCover
                     tracks={playlist.tracks}

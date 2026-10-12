@@ -10,16 +10,21 @@ import {
   Share2,
   Shuffle,
   Trash2,
-  X
+  X,
+  Pin,
+  PinOff,
+  CopyX
 } from 'lucide-react';
 import { useLibraryStore } from '../../store/useLibraryStore';
-import { usePlayerStore } from '../../store/usePlayerStore';
+import { usePlayerStore, isQueueOfTracks } from '../../store/usePlayerStore';
+import { countDuplicates } from '../../services/playlistTools';
 import { refusedForAccount, useUIStore } from '../../store/useUIStore';
 import { ICON } from '../../styles/icons';
 import { pluralize } from '../../utils/plural';
 import { exportPlaylist, EXPORT_FORMAT_LABELS, type ExportFormat } from '../../services/playlistTransfer';
 import { saveTextFile } from '../../utils/download';
 import { Sheet, SheetRow } from './Sheet';
+import { usePinnedStore, MAX_PINNED } from '../../store/usePinnedStore';
 import { TrackRow } from './TrackRow';
 import { TrackSelectionBar } from './TrackSelectionBar';
 import { offlineMode } from '../../services/offlineMode';
@@ -75,6 +80,29 @@ export const MobilePlaylistView: React.FC = () => {
     [activePlaylistId, playlists]
   );
   const tracks = playlist?.tracks ?? [];
+  const isPinned = usePinnedStore((s) => (playlist ? s.pinnedIds.includes(playlist.id) : false));
+  const duplicateCount = useMemo(() => countDuplicates(tracks), [tracks]);
+  const removeDuplicatesFromPlaylist = useLibraryStore((s) => s.removeDuplicatesFromPlaylist);
+
+  /** Играющая очередь сверяется с правкой — иначе убранное продолжило бы играть. */
+  const syncQueue = useCallback((playlistId: string) => {
+    const updated = useLibraryStore.getState().playlists.find((p) => p.id === playlistId);
+    const player = usePlayerStore.getState();
+    // Только если играет именно этот плейлист: чужую очередь не трогаем.
+    if (updated && isQueueOfTracks(player.sourceQueue, tracks)) player.syncSourceQueue(updated.tracks);
+  }, [tracks]);
+
+  const handleRemoveDuplicates = useCallback(async () => {
+    if (!playlist) return;
+    const removed = await removeDuplicatesFromPlaylist(playlist.id);
+    setMenuOpen(false);
+    if (removed === null) {
+      showToast('Не удалось убрать повторы', 'error');
+      return;
+    }
+    syncQueue(playlist.id);
+    showToast(`Убрано ${pluralize(removed, 'повтор', 'повтора', 'повторов')}`, 'success');
+  }, [playlist, removeDuplicatesFromPlaylist, showToast, syncQueue]);
 
   const back = useCallback(() => {
     setActivePlaylistId(null);
@@ -203,9 +231,10 @@ export const MobilePlaylistView: React.FC = () => {
       return;
     }
 
+    syncQueue(playlist.id);
     showToast(`Убрано ${pluralize(removed, 'трек', 'трека', 'треков')}`, 'success');
     clearSelection();
-  }, [clearSelection, playlist, removeTrackFromPlaylist, selected, showToast, tracks]);
+  }, [clearSelection, playlist, removeTrackFromPlaylist, selected, showToast, syncQueue, tracks]);
 
   const handleMoveSelected = useCallback(
     async (targetId: string) => {
@@ -483,6 +512,28 @@ export const MobilePlaylistView: React.FC = () => {
           }}
           data-testid="mobile-playlist-rename"
         />
+        <SheetRow
+          icon={isPinned ? <PinOff size={ICON.lg} aria-hidden="true" /> : <Pin size={ICON.lg} aria-hidden="true" />}
+          label={isPinned ? 'Открепить' : 'Закрепить наверху'}
+          hint="Закреплённые плейлисты стоят в медиатеке первыми"
+          onClick={() => {
+            void usePinnedStore.getState().hydrate();
+            if (!usePinnedStore.getState().toggle(playlist.id)) {
+              showToast(`Наверху помещается ${MAX_PINNED} плейлистов`, 'info');
+            }
+            setMenuOpen(false);
+          }}
+          data-testid="mobile-playlist-pin"
+        />
+        {duplicateCount > 0 && (
+          <SheetRow
+            icon={<CopyX size={ICON.lg} aria-hidden="true" />}
+            label={`Убрать повторы (${duplicateCount})`}
+            hint="Каждый трек останется по одному разу"
+            onClick={() => void handleRemoveDuplicates()}
+            data-testid="mobile-playlist-dedupe"
+          />
+        )}
         <SheetRow
           icon={<CheckSquare size={ICON.lg} aria-hidden="true" />}
           label="Выбрать треки"

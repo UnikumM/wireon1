@@ -275,6 +275,26 @@ export function remapShuffleOrder(
   return result;
 }
 
+/**
+ * Играет ли очередь из этого списка: те же треки в том же количестве, в любом
+ * порядке (перемешивание порядок меняет, состав — нет).
+ *
+ * Нужна правкам плейлиста: сверять очередь с плейлистом можно, только если
+ * играет именно он. Раньше сверка шла всегда, и перенос трека в одном
+ * плейлисте подменял очередь, пока играл совсем другой альбом.
+ */
+export function isQueueOfTracks(queue: readonly UnifiedTrack[], tracks: readonly UnifiedTrack[]): boolean {
+  if (queue.length === 0 || queue.length !== tracks.length) return false;
+  const counts = new Map<string, number>();
+  for (const track of tracks) counts.set(track.id, (counts.get(track.id) ?? 0) + 1);
+  for (const track of queue) {
+    const left = counts.get(track.id);
+    if (!left) return false;
+    counts.set(track.id, left - 1);
+  }
+  return true;
+}
+
 /** Ссылка на звук живёт часы — сохранённой очереди она ни к чему. */
 function stripStream(track: UnifiedTrack): UnifiedTrack {
   if (!track) return track;
