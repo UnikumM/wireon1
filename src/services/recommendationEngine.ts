@@ -934,21 +934,30 @@ export class RecommendationEngineService implements RecommendationEngine {
       // Чем больше очагов, тем меньше просим у каждого — иначе первый займёт
       // всю очередь и остальные не прозвучат.
       const want = Math.max(Math.ceil((limit * 2) / seeds.length), 15);
-      for (const seed of seeds) {
-        try {
-          if (seed.source === 'youtube') {
-            const ytRelated = await this.ytService.getRelatedVideos(seed.originalId, want);
-            ytRelated.forEach(addTrack);
-          } else if (seed.source === 'soundcloud') {
-            const scRelated = await this.scService.getRelatedTracks(seed.originalId, want);
-            scRelated.forEach(addTrack);
-          }
-        } catch (err) {
+      /*
+       * Очаги спрашиваются разом, а не по очереди: каждый ответ радио — это
+       * секунда-три, и четыре очага подряд держали запуск Потока по десять
+       * секунд. Складываются ответы всё равно в порядке очагов — первый очаг
+       * остаётся первым, и подбор не зависит от того, кто ответил быстрее.
+       */
+      const answers = await Promise.allSettled(
+        seeds.map((seed) =>
+          seed.source === 'youtube'
+            ? this.ytService.getRelatedVideos(seed.originalId, want)
+            : seed.source === 'soundcloud'
+              ? this.scService.getRelatedTracks(seed.originalId, want)
+              : Promise.resolve([] as UnifiedTrack[])
+        )
+      );
+      answers.forEach((answer, i) => {
+        if (answer.status === 'fulfilled') {
+          (Array.isArray(answer.value) ? answer.value : []).forEach(addTrack);
+        } else {
           // Отказ одного очага не отменяет остальные: раньше единственный
           // источник ронял весь подбор в поиск по ключевым словам.
-          console.warn(`[RecommendationEngine] радио от «${seed.title}» не ответило:`, err);
+          console.warn(`[RecommendationEngine] радио от «${seeds[i].title}» не ответило:`, answer.reason);
         }
-      }
+      });
       seedRadioCount = candidates.filter(isRadioFriendly).length;
     }
 
