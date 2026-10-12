@@ -48,6 +48,10 @@ export const PlaybackSettings: React.FC = () => {
   const crossfadeEnabled = usePlayerStore((s) => s.crossfadeEnabled);
   const crossfadeDuration = usePlayerStore((s) => s.crossfadeDuration);
   const loudnessNormalization = usePlayerStore((s) => s.loudnessNormalization);
+  const audioBalance = usePlayerStore((s) => s.audioBalance);
+  const audioMono = usePlayerStore((s) => s.audioMono);
+  const setAudioBalance = usePlayerStore((s) => s.setAudioBalance);
+  const setAudioMono = usePlayerStore((s) => s.setAudioMono);
   const autoplayRadio = usePlayerStore((s) => s.autoplayRadio);
   const sleepTimerEndsAt = usePlayerStore((s) => s.sleepTimerEndsAt);
   const sleepAtTrackEnd = usePlayerStore((s) => s.sleepAtTrackEnd);
@@ -123,6 +127,28 @@ export const PlaybackSettings: React.FC = () => {
         description="Сглаживает разницу в громкости между записями с разных сервисов, чтобы не тянуться к регулятору на каждом треке."
         checked={loudnessNormalization}
         onChange={setLoudnessNormalization}
+      />
+
+      <div className="divider" role="presentation" />
+
+      <SliderSetting
+        id="setting-audio-balance"
+        label="Баланс"
+        description="Сдвинуть звук к левому или правому уху — если один наушник тише или одно ухо слышит хуже."
+        min={-100}
+        max={100}
+        step={1}
+        value={Math.round(audioBalance * 100)}
+        onChange={(next) => setAudioBalance(next / 100)}
+        format={(next) => (next === 0 ? 'центр' : next < 0 ? `Л ${-next}` : `П ${next}`)}
+      />
+
+      <ToggleSetting
+        id="setting-audio-mono"
+        label="Моно"
+        description="Оба уха слышат одно и то же: удобно с одним наушником, ничего из сведения не теряется."
+        checked={audioMono}
+        onChange={setAudioMono}
       />
 
       <div className="divider" role="presentation" />

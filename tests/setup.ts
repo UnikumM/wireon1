@@ -188,6 +188,13 @@ export class MockAudioContext {
     return new MockDynamicsCompressorNode();
   }
 
+  createStereoPanner(): MockGainNode & { pan: MockAudioParam } {
+    const node = new MockGainNode() as MockGainNode & { pan: MockAudioParam };
+    node.pan = new MockAudioParam();
+    node.pan.value = 0;
+    return node;
+  }
+
   async resume(): Promise<void> {
     this.state = 'running';
   }

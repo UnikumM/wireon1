@@ -46,6 +46,8 @@ export const PLAYER_SETTING_KEYS = {
   crossfadeEnabled: 'crossfadeEnabled',
   crossfadeDuration: 'crossfadeDuration',
   loudnessNormalization: 'loudnessNormalization',
+  audioBalance: 'audioBalance',
+  audioMono: 'audioMono',
   mobileAudioFx: 'mobileAudioFx',
   playbackRate: 'playbackRate',
   preservePitch: 'preservePitch',
@@ -826,6 +828,8 @@ export const usePlayerStore = create<PlayerStore>((set, get) => {
     crossfadeEnabled: false,
     crossfadeDuration: 3,
     loudnessNormalization: false,
+    audioBalance: 0,
+    audioMono: false,
     mobileAudioFx: false,
     playbackRate: 1,
     preservePitch: false,
@@ -1750,7 +1754,9 @@ export const usePlayerStore = create<PlayerStore>((set, get) => {
             waveSeedKind,
             waveSeedArtist,
             mobileAudioFx,
-            lastQueue
+            lastQueue,
+            audioBalance,
+            audioMono
           ] = await Promise.all([
             dbService.getSetting<number>(PLAYER_SETTING_KEYS.volume, current.volume),
             dbService.getSetting<boolean>(PLAYER_SETTING_KEYS.isMuted, current.isMuted),
@@ -1774,7 +1780,9 @@ export const usePlayerStore = create<PlayerStore>((set, get) => {
             dbService.getSetting<WaveSeedKind>(PLAYER_SETTING_KEYS.waveSeedKind, current.waveSeedKind),
             dbService.getSetting<string | null>(PLAYER_SETTING_KEYS.waveSeedArtist, current.waveSeedArtist),
             dbService.getSetting<boolean>(PLAYER_SETTING_KEYS.mobileAudioFx, current.mobileAudioFx),
-            dbService.getSetting<SavedQueue | null>(PLAYER_SETTING_KEYS.lastQueue, null)
+            dbService.getSetting<SavedQueue | null>(PLAYER_SETTING_KEYS.lastQueue, null),
+            dbService.getSetting<number>(PLAYER_SETTING_KEYS.audioBalance, current.audioBalance),
+            dbService.getSetting<boolean>(PLAYER_SETTING_KEYS.audioMono, current.audioMono)
           ]);
 
           const nextVolume = typeof volume === 'number' && Number.isFinite(volume) ? clampVolume(volume) : current.volume;
@@ -1842,6 +1850,14 @@ export const usePlayerStore = create<PlayerStore>((set, get) => {
           setAudioProcessingEnabled(nextMobileFx);
           audioEngine.setLoudnessNormalization(nextLoudnessNorm);
           audioEngine.setPlaybackRate(nextRate, nextPreservePitch);
+          const nextBalance =
+            typeof audioBalance === 'number' && Number.isFinite(audioBalance)
+              ? Math.max(-1, Math.min(1, audioBalance))
+              : current.audioBalance;
+          const nextMono = typeof audioMono === 'boolean' ? audioMono : current.audioMono;
+          set({ audioBalance: nextBalance, audioMono: nextMono });
+          audioEngine.setBalance(nextBalance);
+          audioEngine.setMono(nextMono);
           const nextHotkeys =
             globalHotkeys && typeof globalHotkeys === 'object'
               ? { ...DEFAULT_GLOBAL_HOTKEYS, ...globalHotkeys }
@@ -2043,6 +2059,21 @@ export const usePlayerStore = create<PlayerStore>((set, get) => {
       set({ loudnessNormalization: enabled });
       audioEngine.setLoudnessNormalization(enabled);
       persistSetting(PLAYER_SETTING_KEYS.loudnessNormalization, enabled);
+    },
+
+    setAudioBalance: (balance: number) => {
+      const value = typeof balance === 'number' && Number.isFinite(balance) ? Math.max(-1, Math.min(1, balance)) : 0;
+      // Возле середины прилипает к центру: на ползунке иначе не попасть ровно в 0.
+      const snapped = Math.abs(value) < 0.04 ? 0 : Math.round(value * 100) / 100;
+      set({ audioBalance: snapped });
+      audioEngine.setBalance(snapped);
+      persistSetting(PLAYER_SETTING_KEYS.audioBalance, snapped);
+    },
+
+    setAudioMono: (mono: boolean) => {
+      set({ audioMono: mono });
+      audioEngine.setMono(mono);
+      persistSetting(PLAYER_SETTING_KEYS.audioMono, mono);
     },
 
     setPlaybackRate: (rate: number, preservePitch?: boolean) => {

@@ -112,6 +112,10 @@ export interface PlayerStoreState {
   crossfadeEnabled: boolean;
   crossfadeDuration: number; // 0..12 seconds
   loudnessNormalization: boolean;
+  /** Баланс −1 (левый) … 1 (правый). */
+  audioBalance: number;
+  /** Моно: обе стороны звучат одинаково. */
+  audioMono: boolean;
   /** Телефон: пропускать звук через эквалайзер и спектр. См. services/audioProcessing.ts. */
   mobileAudioFx: boolean;
   /** Playback speed, 0.5–2.0. Anything other than 1 is shown in the player bar. */
@@ -190,6 +194,8 @@ export interface PlayerStoreActions {
   setCrossfadeEnabled: (enabled: boolean) => void;
   setCrossfadeDuration: (seconds: number) => void;
   setLoudnessNormalization: (enabled: boolean) => void;
+  setAudioBalance: (balance: number) => void;
+  setAudioMono: (mono: boolean) => void;
   setMobileAudioFx: (enabled: boolean) => void;
   setPlaybackRate: (rate: number, preservePitch?: boolean) => void;
   setPreservePitch: (preserve: boolean) => void;
