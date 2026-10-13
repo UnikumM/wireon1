@@ -106,7 +106,9 @@ describe('Unit: Playlist Importer Service (M5)', () => {
       // YouTube больше не «неподдерживаемый»: его плейлист переносится точно,
       // без поиска и подбора, — см. youtubePlaylistImport.test.ts.
       expect(detectPlatform('https://youtube.com/playlist?list=PL123')).toBe('youtube');
-      expect(detectPlatform('https://soundcloud.com/user/sets/playlist')).toBeNull();
+      // SoundCloud тоже: плейлист открывается как есть, со своими записями.
+      expect(detectPlatform('https://soundcloud.com/user/sets/playlist')).toBe('soundcloud');
+      expect(detectPlatform('https://soundcloud.com/user/some-track')).toBeNull();
       expect(detectPlatform('https://google.com')).toBeNull();
       expect(detectPlatform('not-a-valid-url')).toBeNull();
       expect(detectPlatform('')).toBeNull();

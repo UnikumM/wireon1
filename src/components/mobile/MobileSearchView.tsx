@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { parseCollectionLink } from '../../services/collections';
 import { Clock, Loader2, Search as SearchIcon, X } from 'lucide-react';
 import { useUIStore } from '../../store/useUIStore';
 import { usePlayerStore } from '../../store/usePlayerStore';
@@ -111,6 +112,16 @@ export const MobileSearchView: React.FC = () => {
       setResults([]);
       setError(null);
       setLoading(false);
+      return;
+    }
+
+    // Ссылка на чужой плейлист открывается сразу — слушать и сохранять.
+    const link = parseCollectionLink(trimmed);
+    if (link) {
+      setLoading(false);
+      setDraft('');
+      setSearchQuery('');
+      useUIStore.getState().openCollection(link);
       return;
     }
 
