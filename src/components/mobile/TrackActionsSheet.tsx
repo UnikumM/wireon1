@@ -1,10 +1,12 @@
 import React, { useCallback, useEffect, useState } from 'react';
+import { shareTrack } from '../../services/shareTrack';
 import {
   Check,
   CheckSquare,
   ChevronRight,
   Download,
   ExternalLink,
+  Share2,
   FolderPlus,
   Heart,
   ListMusic,
@@ -194,6 +196,13 @@ export const TrackActionsSheet: React.FC<TrackActionsSheetProps> = ({ track, onC
   const handleAddToPlaylist = useCallback(
     async (playlistId: string, playlistTitle: string) => {
       if (!track) return;
+      // Как на компьютере: второй раз тот же трек в плейлист не кладём.
+      const target = useLibraryStore.getState().playlists.find((p) => p.id === playlistId);
+      if (target?.tracks.some((t) => t.id === track.id)) {
+        showToast(`«${track.title}» уже в «${playlistTitle}»`, 'info');
+        close();
+        return;
+      }
       const ok = await addTrackToPlaylist(playlistId, track);
       if (!ok) {
         if (refusedForAccount()) return;
@@ -374,6 +383,20 @@ export const TrackActionsSheet: React.FC<TrackActionsSheetProps> = ({ track, onC
             data-testid="track-actions-artist"
           />
         )}
+        <SheetRow
+          icon={<Share2 size={ICON.lg} aria-hidden="true" />}
+          label="Поделиться"
+          hint="Ссылка на трек — другу в мессенджер"
+          onClick={() => {
+            const target = track;
+            close();
+            void shareTrack(target).then((outcome) => {
+              if (outcome === 'copied') showToast('Ссылка на трек скопирована', 'success');
+              else if (outcome === 'failed') showToast('Не удалось поделиться', 'error');
+            });
+          }}
+          data-testid="track-actions-share"
+        />
         {track.sourceUrl && (
           <SheetRow
             icon={<ExternalLink size={ICON.lg} aria-hidden="true" />}

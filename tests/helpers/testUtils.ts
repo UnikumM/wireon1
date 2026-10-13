@@ -231,6 +231,10 @@ export function resetPlayerStore(): void {
     visualizerEnabled: true,
     visualizerPreset: 'CYBER_BARS',
     sleepTimerEndsAt: null,
+    sleepAtTrackEnd: false,
+    suggestedTrackIds: [],
+    audioBalance: 0,
+    audioMono: false,
     autoplayRadio: false,
     eq: { bass: 0, mid: 0, treble: 0 },
     crossfadeEnabled: false,
@@ -310,7 +314,8 @@ export function resetUIStore(): void {
     isCommandPaletteOpen: false,
     searchQuery: '',
     searchFilter: 'all',
-    toastMessage: null
+    toastMessage: null,
+    recapPeriod: null
   });
 }
 

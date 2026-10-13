@@ -89,3 +89,35 @@ describe('экран подборки', () => {
     expect(screen.queryByTestId('collection-view')).toBeNull();
   });
 });
+
+describe('3.0: подборка — в медиатеку', () => {
+  beforeEach(async () => {
+    const { signInForTests, resetLibraryStore } = await import('../helpers/testUtils');
+    const db = await import('../../src/services/db');
+    await db.clearAllData();
+    resetLibraryStore();
+    signInForTests();
+    useUIStore.setState({ activeCollection: album, activeView: 'collection' });
+  });
+  afterEach(() => {
+    cleanup();
+    vi.restoreAllMocks();
+  });
+
+  it('сохраняет альбом своим плейлистом', async () => {
+    const { useLibraryStore } = await import('../../src/store/useLibraryStore');
+    const tracks = [track('yt_a'), track('yt_b'), track('yt_c')];
+    vi.spyOn(collections, 'collectionTracks').mockResolvedValue(tracks);
+    await act(async () => {
+      render(<CollectionView />);
+    });
+    await waitFor(() => expect(screen.getByTestId('collection-save')).not.toBeDisabled());
+    await act(async () => {
+      fireEvent.click(screen.getByTestId('collection-save'));
+    });
+    await waitFor(() => expect(useLibraryStore.getState().playlists).toHaveLength(1));
+    const saved = useLibraryStore.getState().playlists[0];
+    expect(saved.title).toBe('The Dark Side of the Moon');
+    expect(saved.tracks.map((t) => t.id)).toEqual(['yt_a', 'yt_b', 'yt_c']);
+  });
+});

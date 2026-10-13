@@ -10,17 +10,24 @@ import {
   Share2,
   Shuffle,
   Trash2,
-  X
+  X,
+  Pin,
+  PinOff,
+  CopyX
 } from 'lucide-react';
 import { useLibraryStore } from '../../store/useLibraryStore';
-import { usePlayerStore } from '../../store/usePlayerStore';
+import { usePlayerStore, isQueueOfTracks } from '../../store/usePlayerStore';
+import { countDuplicates } from '../../services/playlistTools';
 import { refusedForAccount, useUIStore } from '../../store/useUIStore';
 import { ICON } from '../../styles/icons';
 import { pluralize } from '../../utils/plural';
 import { exportPlaylist, EXPORT_FORMAT_LABELS, type ExportFormat } from '../../services/playlistTransfer';
 import { saveTextFile } from '../../utils/download';
 import { Sheet, SheetRow } from './Sheet';
+import { usePinnedStore, MAX_PINNED } from '../../store/usePinnedStore';
 import { TrackRow } from './TrackRow';
+import { useVirtualRows, TRACK_ROW_PITCH } from '../../hooks/useVirtualRows';
+import { PLAYLIST_SORT_LABELS, PlaylistSortKey, viewEntries } from '../../services/playlistTools';
 import { TrackSelectionBar } from './TrackSelectionBar';
 import { offlineMode } from '../../services/offlineMode';
 import { prepareCoverImage } from '../../services/playlistCover';
@@ -55,7 +62,7 @@ export const MobilePlaylistView: React.FC = () => {
   const playlists = useLibraryStore((s) => s.playlists);
   const deletePlaylist = useLibraryStore((s) => s.deletePlaylist);
   const renamePlaylist = useLibraryStore((s) => s.renamePlaylist);
-  const addTrackToPlaylist = useLibraryStore((s) => s.addTrackToPlaylist);
+  const addTracksToPlaylist = useLibraryStore((s) => s.addTracksToPlaylist);
   const setPlaylistCover = useLibraryStore((s) => s.setPlaylistCover);
   const removeTrackFromPlaylist = useLibraryStore((s) => s.removeTrackFromPlaylist);
 
@@ -75,6 +82,44 @@ export const MobilePlaylistView: React.FC = () => {
     [activePlaylistId, playlists]
   );
   const tracks = playlist?.tracks ?? [];
+  /*
+   * Поиск и сортировка — как на компьютере. Сортировка здесь только вид:
+   * порядок самого плейлиста меняется на компьютере («Сохранить порядок»).
+   */
+  const [query, setQuery] = useState('');
+  const [sortKey, setSortKey] = useState<PlaylistSortKey>('custom');
+  const viewTracks = useMemo(
+    () => viewEntries(tracks, query, sortKey).map((entry) => entry.track),
+    [tracks, query, sortKey]
+  );
+  const isCustomView = sortKey === 'custom' && query.trim() === '';
+  const listTracks = isCustomView ? tracks : viewTracks;
+  // Импортированный плейлист бывает на тысячу треков: в DOM — только видимое.
+  const virtual = useVirtualRows({ itemCount: listTracks.length, rowPitch: TRACK_ROW_PITCH });
+
+  const isPinned = usePinnedStore((s) => (playlist ? s.pinnedIds.includes(playlist.id) : false));
+  const duplicateCount = useMemo(() => countDuplicates(tracks), [tracks]);
+  const removeDuplicatesFromPlaylist = useLibraryStore((s) => s.removeDuplicatesFromPlaylist);
+
+  /** Играющая очередь сверяется с правкой — иначе убранное продолжило бы играть. */
+  const syncQueue = useCallback((playlistId: string) => {
+    const updated = useLibraryStore.getState().playlists.find((p) => p.id === playlistId);
+    const player = usePlayerStore.getState();
+    // Только если играет именно этот плейлист: чужую очередь не трогаем.
+    if (updated && isQueueOfTracks(player.sourceQueue, tracks)) player.syncSourceQueue(updated.tracks);
+  }, [tracks]);
+
+  const handleRemoveDuplicates = useCallback(async () => {
+    if (!playlist) return;
+    const removed = await removeDuplicatesFromPlaylist(playlist.id);
+    setMenuOpen(false);
+    if (removed === null) {
+      showToast('Не удалось убрать повторы', 'error');
+      return;
+    }
+    syncQueue(playlist.id);
+    showToast(`Убрано ${pluralize(removed, 'повтор', 'повтора', 'повторов')}`, 'success');
+  }, [playlist, removeDuplicatesFromPlaylist, showToast, syncQueue]);
 
   const back = useCallback(() => {
     setActivePlaylistId(null);
@@ -203,9 +248,10 @@ export const MobilePlaylistView: React.FC = () => {
       return;
     }
 
+    syncQueue(playlist.id);
     showToast(`Убрано ${pluralize(removed, 'трек', 'трека', 'треков')}`, 'success');
     clearSelection();
-  }, [clearSelection, playlist, removeTrackFromPlaylist, selected, showToast, tracks]);
+  }, [clearSelection, playlist, removeTrackFromPlaylist, selected, showToast, syncQueue, tracks]);
 
   const handleMoveSelected = useCallback(
     async (targetId: string) => {
@@ -213,19 +259,20 @@ export const MobilePlaylistView: React.FC = () => {
       if (list.length === 0) return;
 
       /*
-       * Считаем удачи, а не длину списка.
-       *
-       * `addTrackToPlaylist` возвращает `false`, когда пополнять плейлисты
-       * нельзя — например, человек слушает без аккаунта. Отчёт по длине списка
-       * означал бы «перенесено пять треков» ровно там, где не перенёсся ни
-       * один, и искать их человек пошёл бы в другой плейлист.
+       * Считаем удачи, а не длину списка: пополнение отказывает без аккаунта,
+       * и отчёт по длине отправил бы человека искать треки в чужом плейлисте.
+       * Пачка уходит одной записью, повторы пропускаются и называются.
        */
-      let moved = 0;
-      for (const track of list) {
-        if (await addTrackToPlaylist(targetId, track)) moved += 1;
-      }
+      const result = await addTracksToPlaylist(targetId, list);
+      const moved = result?.added ?? 0;
+      const skipped = result?.skipped ?? 0;
 
       setMoveOpen(false);
+      if (result && moved === 0 && skipped > 0) {
+        showToast('Всё выбранное уже в этом плейлисте', 'info');
+        clearSelection();
+        return;
+      }
       if (moved === 0) {
         // Причину уже назвал стор: без аккаунта на экране стоит приглашение
         // войти, и вторая красная надпись теми же секундами — это два разных
@@ -236,12 +283,13 @@ export const MobilePlaylistView: React.FC = () => {
 
       const target = playlists.find((item) => item.id === targetId);
       showToast(
-        `${pluralize(moved, 'трек', 'трека', 'треков')} в «${target?.title ?? 'плейлист'}»`,
+        `${pluralize(moved, 'трек', 'трека', 'треков')} в «${target?.title ?? 'плейлист'}»` +
+          (skipped > 0 ? ` · повторы пропущены` : ''),
         'success'
       );
       clearSelection();
     },
-    [addTrackToPlaylist, clearSelection, playlists, selectedTracks, showToast]
+    [addTracksToPlaylist, clearSelection, playlists, selectedTracks, showToast]
   );
 
   const handleSavePlaylist = useCallback(async () => {
@@ -392,7 +440,7 @@ export const MobilePlaylistView: React.FC = () => {
             label="Слушать"
             onClick={() => {
               if (isShuffled) toggleShuffle();
-              void playTrack(tracks[0], tracks, 0);
+              if (listTracks.length > 0) void playTrack(listTracks[0], listTracks, 0);
             }}
             testId="mobile-playlist-play"
           />
@@ -401,10 +449,37 @@ export const MobilePlaylistView: React.FC = () => {
             label="Вперемешку"
             onClick={() => {
               if (!isShuffled) toggleShuffle();
-              void playTrack(tracks[0], tracks, 0);
+              if (listTracks.length > 0) void playTrack(listTracks[0], listTracks, 0);
             }}
             testId="mobile-playlist-shuffle"
           />
+        </div>
+      )}
+
+      {tracks.length > 8 && selected === null && (
+        <div style={{ display: 'flex', gap: 'var(--space-2)', alignItems: 'center' }} data-testid="mobile-playlist-toolbar">
+          <input
+            type="search"
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder="Найти в плейлисте"
+            aria-label="Найти в плейлисте"
+            style={{ flex: 1, minWidth: 0 }}
+            data-testid="mobile-playlist-filter"
+          />
+          <select
+            value={sortKey}
+            onChange={(e) => setSortKey(e.target.value as PlaylistSortKey)}
+            aria-label="Сортировка"
+            style={{ width: 'auto', flex: '0 0 auto', maxWidth: '45%' }}
+            data-testid="mobile-playlist-sort"
+          >
+            {(Object.keys(PLAYLIST_SORT_LABELS) as PlaylistSortKey[]).map((key) => (
+              <option key={key} value={key}>
+                {PLAYLIST_SORT_LABELS[key]}
+              </option>
+            ))}
+          </select>
         </div>
       )}
 
@@ -448,21 +523,31 @@ export const MobilePlaylistView: React.FC = () => {
         >
           Плейлист пуст. Треки добавляются из листа действий — нажмите на песню и подержите.
         </p>
+      ) : listTracks.length === 0 ? (
+        <p
+          style={{ margin: 0, padding: 'var(--space-5) 0', fontSize: 'var(--text-sm)', color: 'var(--text-muted)' }}
+          data-testid="mobile-playlist-filter-empty"
+        >
+          Ничего не нашлось.
+        </p>
       ) : (
-        <div>
-          {tracks.map((track, index) => (
+        <div ref={virtual.containerRef} style={{ paddingTop: virtual.paddingTop, paddingBottom: virtual.paddingBottom }}>
+          {listTracks.slice(virtual.startIndex, virtual.endIndex).map((track, offset) => {
+            const index = virtual.startIndex + offset;
+            return (
             <TrackRow
               key={`${track.id}-${index}`}
               track={track}
               isCurrent={currentTrack?.id === track.id}
-              onPlay={() => void playTrack(track, tracks, index)}
+              onPlay={() => void playTrack(track, listTracks, index)}
               onOpenActions={() => openTrackActions(track)}
               isSelectable={selected !== null}
               isSelected={selected?.has(track.id) ?? false}
               onToggleSelect={() => toggleSelected(track.id)}
               data-testid={`mobile-playlist-track-${track.id}`}
             />
-          ))}
+            );
+          })}
         </div>
       )}
 
@@ -481,6 +566,28 @@ export const MobilePlaylistView: React.FC = () => {
           }}
           data-testid="mobile-playlist-rename"
         />
+        <SheetRow
+          icon={isPinned ? <PinOff size={ICON.lg} aria-hidden="true" /> : <Pin size={ICON.lg} aria-hidden="true" />}
+          label={isPinned ? 'Открепить' : 'Закрепить наверху'}
+          hint="Закреплённые плейлисты стоят в медиатеке первыми"
+          onClick={() => {
+            void usePinnedStore.getState().hydrate();
+            if (!usePinnedStore.getState().toggle(playlist.id)) {
+              showToast(`Наверху помещается ${MAX_PINNED} плейлистов`, 'info');
+            }
+            setMenuOpen(false);
+          }}
+          data-testid="mobile-playlist-pin"
+        />
+        {duplicateCount > 0 && (
+          <SheetRow
+            icon={<CopyX size={ICON.lg} aria-hidden="true" />}
+            label={`Убрать повторы (${duplicateCount})`}
+            hint="Каждый трек останется по одному разу"
+            onClick={() => void handleRemoveDuplicates()}
+            data-testid="mobile-playlist-dedupe"
+          />
+        )}
         <SheetRow
           icon={<CheckSquare size={ICON.lg} aria-hidden="true" />}
           label="Выбрать треки"

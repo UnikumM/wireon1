@@ -31,6 +31,21 @@ export interface LibraryStoreActions {
   /** `null` возвращает мозаику из обложек треков. */
   setPlaylistCover: (playlistId: string, coverUrl: string | null) => Promise<boolean>;
   addTrackToPlaylist: (playlistId: string, track: UnifiedTrack) => Promise<boolean>;
+  /**
+   * Пачка одной записью. Повторы пропускаются, если не попросить иначе.
+   * `null` — не получилось (причина в `error`) или нет аккаунта.
+   */
+  addTracksToPlaylist: (
+    playlistId: string,
+    tracks: ReadonlyArray<UnifiedTrack>,
+    options?: { allowDuplicates?: boolean }
+  ) => Promise<{ added: number; skipped: number } | null>;
+  /** Новый плейлист сразу с составом — «сохранить очередь как плейлист». */
+  createPlaylistWithTracks: (title: string, tracks: ReadonlyArray<UnifiedTrack>) => Promise<Playlist | null>;
+  /** Число убранных повторов; `null` — ошибка. */
+  removeDuplicatesFromPlaylist: (playlistId: string) => Promise<number | null>;
+  /** Записать новый порядок треков (сортировка, применённая навсегда). */
+  setPlaylistTracks: (playlistId: string, tracks: UnifiedTrack[]) => Promise<boolean>;
   removeTrackFromPlaylist: (playlistId: string, trackIndex: number) => Promise<boolean>;
   reorderPlaylistTracks: (playlistId: string, fromIndex: number, toIndex: number) => Promise<boolean>;
   addToHistory: (track: UnifiedTrack, options?: dbService.AddToHistoryOptions) => Promise<boolean>;
@@ -211,6 +226,51 @@ export const useLibraryStore = create<LibraryStore>((set, get) => {
         return true;
       } catch (err) {
         return fail(`Не удалось добавить «${track?.title || 'трек'}» в плейлист`, err);
+      }
+    },
+
+    addTracksToPlaylist: async (playlistId, tracks, options) => {
+      if (requiresAccount('пополнять плейлисты')) return null;
+      try {
+        const result = await dbService.addTracksToPlaylist(playlistId, tracks, options);
+        commitPlaylist(result.playlist);
+        return { added: result.added, skipped: result.skipped };
+      } catch (err) {
+        fail('Не удалось добавить треки в плейлист', err);
+        return null;
+      }
+    },
+
+    createPlaylistWithTracks: async (title, tracks) => {
+      if (requiresAccount('создавать плейлисты')) return null;
+      try {
+        const created = await dbService.createPlaylist(title);
+        const result = await dbService.addTracksToPlaylist(created.id, tracks);
+        set((s) => ({ playlists: [result.playlist, ...s.playlists], error: null }));
+        return result.playlist;
+      } catch (err) {
+        fail('Не удалось создать плейлист', err);
+        return null;
+      }
+    },
+
+    removeDuplicatesFromPlaylist: async (playlistId) => {
+      try {
+        const result = await dbService.removeDuplicateTracks(playlistId);
+        if (result.removed > 0) commitPlaylist(result.playlist);
+        return result.removed;
+      } catch (err) {
+        fail('Не удалось убрать повторы', err);
+        return null;
+      }
+    },
+
+    setPlaylistTracks: async (playlistId, tracks) => {
+      try {
+        commitPlaylist(await dbService.setPlaylistTracks(playlistId, tracks));
+        return true;
+      } catch (err) {
+        return fail('Не удалось сохранить порядок треков', err);
       }
     },
 

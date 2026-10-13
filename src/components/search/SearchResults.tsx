@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
+import { parseCollectionLink } from '../../services/collections';
 import { AlertTriangle, Music2, RotateCcw, Shuffle, Play, X } from 'lucide-react';
 import { AudioSource, SearchCollection, SearchKind, UnifiedTrack } from '../../types/music';
 import { searchAggregator } from '../../services/aggregator';
@@ -143,6 +144,15 @@ export const SearchResults: React.FC<SearchResultsProps> = ({ className = '' }) 
       setError(null);
       setSourceErrors({});
       setIsLoading(false);
+      return;
+    }
+
+    // Ссылка на чужой плейлист — не запрос, а адрес: открываем его, как Spotify.
+    const link = parseCollectionLink(trimmed);
+    if (link) {
+      setIsLoading(false);
+      setSearchQuery('');
+      useUIStore.getState().openCollection(link);
       return;
     }
 

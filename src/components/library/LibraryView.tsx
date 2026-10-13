@@ -1,5 +1,8 @@
 import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { usePinnedStore, orderPinned } from '../../store/usePinnedStore';
+import { SmartPlaylistsShelf } from '../smart/SmartPlaylistsShelf';
 import {
+  Pin,
   ListMusic,
   Heart,
   History,
@@ -219,16 +222,23 @@ export const LibraryView: React.FC<LibraryViewProps> = ({
     [favorites, needle, sortMode]
   );
 
+  const pinnedIds = usePinnedStore((s) => s.pinnedIds);
+  useEffect(() => {
+    void usePinnedStore.getState().hydrate();
+  }, []);
   const visiblePlaylists = useMemo(
     () =>
-      needle
-        ? playlists.filter(
-            (pl) =>
-              pl.title.toLowerCase().includes(needle) ||
-              pl.tracks.some((t) => matchesQuery(t, needle))
-          )
-        : playlists,
-    [playlists, needle]
+      orderPinned(
+        needle
+          ? playlists.filter(
+              (pl) =>
+                pl.title.toLowerCase().includes(needle) ||
+                pl.tracks.some((t) => matchesQuery(t, needle))
+            )
+          : playlists,
+        pinnedIds
+      ),
+    [playlists, needle, pinnedIds]
   );
 
   const selectTab = useCallback(
@@ -861,6 +871,11 @@ export const LibraryView: React.FC<LibraryViewProps> = ({
                             color: 'var(--text-muted)'
                           }}
                         >
+                          {pinnedIds.includes(playlist.id) && (
+                            <span style={{ color: 'var(--accent)' }} data-testid={`playlist-pinned-${playlist.id}`}>
+                              <Pin size={ICON.xs} aria-label="Закреплён" style={{ verticalAlign: '-1px', marginRight: '4px' }} />
+                            </span>
+                          )}
                           {describeTrackTotals(playlist.tracks)}
                         </p>
                       </div>
@@ -884,6 +899,9 @@ export const LibraryView: React.FC<LibraryViewProps> = ({
                 ))}
               </div>
             )}
+
+            {/* Умные плейлисты — под обычными: те же «Плейлисты», только по правилам. */}
+            <SmartPlaylistsShelf />
           </div>
         )}
 

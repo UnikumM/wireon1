@@ -11,18 +11,24 @@ import { ICON } from '../../styles/icons';
 export interface DailyMixCardProps {
   mix: DailyMix;
   index: number;
+  /** Приставка `data-testid`: у живых подборок своя, чтобы не путать с миксами. */
+  testIdPrefix?: string;
 }
 
 /**
  * Карточка микса. Весь список известен заранее, поэтому нажатие сразу ставит
  * его в очередь целиком — ничего доигрывать и досчитывать не нужно.
  */
-export const DailyMixCard: React.FC<DailyMixCardProps> = ({ mix, index }) => {
+export const DailyMixCard: React.FC<DailyMixCardProps> = ({ mix, index, testIdPrefix = 'daily-mix' }) => {
   const playTrack = usePlayerStore((s) => s.playTrack);
   const currentTrack = usePlayerStore((s) => s.currentTrack);
 
   const totalSeconds = mix.tracks.reduce((sum, track) => sum + (track.duration || 0), 0);
-  const isPlayingFromMix = Boolean(currentTrack && mix.tracks.some((track) => track.id === currentTrack.id));
+  const isPlaying = usePlayerStore((s) => s.isPlaying);
+  // «Играет» — только когда звук и правда идёт: на паузе подпись врала.
+  const isPlayingFromMix = Boolean(
+    isPlaying && currentTrack && mix.tracks.some((track) => track.id === currentTrack.id)
+  );
 
   const start = () => {
     const first = mix.tracks[0];
@@ -48,7 +54,7 @@ export const DailyMixCard: React.FC<DailyMixCardProps> = ({ mix, index }) => {
           '--stagger': index
         } as React.CSSProperties
       }
-      data-testid={`daily-mix-${index}`}
+      data-testid={`${testIdPrefix}-${index}`}
     >
       <PlaylistCover tracks={mix.tracks} size={132} />
 

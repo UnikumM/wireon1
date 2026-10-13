@@ -728,8 +728,19 @@ export class YouTubeService {
    * `browseId` для плейлиста — это его идентификатор с приставкой `VL`.
    */
   public async getPlaylistTracks(playlistId: string, limit: number = 500): Promise<UnifiedTrack[]> {
+    return (await this.getPlaylistWithTitle(playlistId, limit)).tracks;
+  }
+
+  /**
+   * То же, что `getPlaylistTracks`, плюс название плейлиста из шапки ответа.
+   * Нужно, когда плейлист открыли по ссылке и как он называется, ещё не знаем.
+   */
+  public async getPlaylistWithTitle(
+    playlistId: string,
+    limit: number = 500
+  ): Promise<{ title: string | null; tracks: UnifiedTrack[] }> {
     const id = (playlistId || '').trim();
-    if (!id) return [];
+    if (!id) return { title: null, tracks: [] };
 
     const payload = {
       context: {
@@ -757,7 +768,20 @@ export class YouTubeService {
     });
 
     if (!response.ok) throw new Error(`InnerTube HTTP error: ${response.status}`);
-    return this.parsePlaylistResponse(await response.json(), limit);
+    const data = await response.json();
+    return { title: this.parsePlaylistTitle(data), tracks: this.parsePlaylistResponse(data, limit) };
+  }
+
+  /** Название из шапки плейлиста; у YouTube Music их две разновидности. */
+  public parsePlaylistTitle(data: any): string | null {
+    const header =
+      data?.header?.musicDetailHeaderRenderer ||
+      data?.header?.musicEditablePlaylistDetailHeaderRenderer?.header?.musicDetailHeaderRenderer ||
+      data?.contents?.twoColumnBrowseResultsRenderer?.tabs?.[0]?.tabRenderer?.content?.sectionListRenderer
+        ?.contents?.[0]?.musicResponsiveHeaderRenderer;
+    const runs = header?.title?.runs;
+    const text = Array.isArray(runs) ? runs.map((run: any) => run?.text || '').join('') : '';
+    return text.trim() || null;
   }
 
   /**

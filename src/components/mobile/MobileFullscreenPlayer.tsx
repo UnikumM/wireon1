@@ -5,6 +5,7 @@ import {
   ListMusic,
   Gauge,
   Mic2,
+  Moon,
   MoreVertical,
   Music2,
   Pause,
@@ -25,6 +26,8 @@ import { Button } from '../common/Button';
 import { SeekBar } from '../player/SeekBar';
 import { formatRate, TempoPanel } from '../player/TempoControl';
 import { Sheet } from './Sheet';
+import { SleepTimerPanel, useSleepCountdown } from '../player/SleepTimerPanel';
+import { formatDuration } from '../../utils/time';
 import { KaraokeView } from '../lyrics/KaraokeView';
 import { MarqueeText } from '../player/MarqueeText';
 import { ICON } from '../../styles/icons';
@@ -68,12 +71,16 @@ export const MobileFullscreenPlayer: React.FC = () => {
   const toggleShuffle = usePlayerStore((s) => s.toggleShuffle);
   const cycleRepeatMode = usePlayerStore((s) => s.cycleRepeatMode);
   const playbackRate = usePlayerStore((s) => s.playbackRate);
+  const sleepTimerEndsAt = usePlayerStore((s) => s.sleepTimerEndsAt);
+  const sleepAtTrackEnd = usePlayerStore((s) => s.sleepAtTrackEnd);
+  const sleepRemaining = useSleepCountdown(sleepTimerEndsAt);
 
   const isFavorite = useLibraryStore((s) => (currentTrack ? s.isFavorite(currentTrack.id) : false));
   const toggleFavorite = useLibraryStore((s) => s.toggleFavorite);
 
   const [artworkFailed, setArtworkFailed] = useState(false);
   const [isTempoOpen, setTempoOpen] = useState(false);
+  const [isSleepOpen, setSleepOpen] = useState(false);
 
   useEffect(() => setArtworkFailed(false), [currentTrack?.artworkUrl]);
 
@@ -371,6 +378,15 @@ export const MobileFullscreenPlayer: React.FC = () => {
           testId="mobile-fullscreen-tempo"
         />
         <LabelledButton
+          icon={<Moon size={ICON.md} aria-hidden="true" />}
+          label={
+            sleepAtTrackEnd ? 'Конец трека' : sleepRemaining !== null ? formatDuration(sleepRemaining) : 'Сон'
+          }
+          active={isSleepOpen || sleepAtTrackEnd || sleepRemaining !== null}
+          onClick={() => setSleepOpen(true)}
+          testId="mobile-fullscreen-sleep"
+        />
+        <LabelledButton
           icon={<ListMusic size={ICON.md} aria-hidden="true" />}
           label="Очередь"
           onClick={toggleQueue}
@@ -391,6 +407,17 @@ export const MobileFullscreenPlayer: React.FC = () => {
           */}
         <div style={{ padding: '0 var(--space-4) var(--space-2)' }}>
           <TempoPanel columns={1} />
+        </div>
+      </Sheet>
+
+      <Sheet
+        isOpen={isSleepOpen}
+        onClose={() => setSleepOpen(false)}
+        title="Таймер сна"
+        data-testid="mobile-sleep-sheet"
+      >
+        <div style={{ padding: '0 var(--space-4) var(--space-2)' }}>
+          <SleepTimerPanel onPicked={() => setSleepOpen(false)} />
         </div>
       </Sheet>
 

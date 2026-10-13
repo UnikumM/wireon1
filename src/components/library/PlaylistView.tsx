@@ -14,10 +14,15 @@ import {
   Sparkles,
   Download,
   ListPlus,
-  CheckSquare
+  CheckSquare,
+  Search,
+  CopyX,
+  Save,
+  Pin,
+  PinOff
 } from 'lucide-react';
 import { useLibraryStore } from '../../store/useLibraryStore';
-import { usePlayerStore } from '../../store/usePlayerStore';
+import { usePlayerStore, isQueueOfTracks } from '../../store/usePlayerStore';
 import { useUIStore } from '../../store/useUIStore';
 import { Button } from '../common/Button';
 import { ConfirmDialog } from '../common/ConfirmDialog';
@@ -33,6 +38,14 @@ import { describeTrackTotals } from './trackSummary';
 import { prepareCoverImage } from '../../services/playlistCover';
 import { useVirtualRows, TRACK_ROW_PITCH } from '../../hooks/useVirtualRows';
 import { ICON } from '../../styles/icons';
+import {
+  PLAYLIST_SORT_LABELS,
+  PlaylistSortKey,
+  countDuplicates,
+  viewEntries
+} from '../../services/playlistTools';
+import { pluralize } from '../../utils/plural';
+import { usePinnedStore, MAX_PINNED } from '../../store/usePinnedStore';
 
 export interface PlaylistViewProps {
   playlistId?: string;
@@ -67,6 +80,10 @@ export const PlaylistView: React.FC<PlaylistViewProps> = ({ playlistId: propPlay
   const clearSelection = useUIStore((s) => s.clearSelection);
   const removeTrackFromPlaylist = useLibraryStore((s) => s.removeTrackFromPlaylist);
   const reorderPlaylistTracks = useLibraryStore((s) => s.reorderPlaylistTracks);
+  const removeDuplicatesFromPlaylist = useLibraryStore((s) => s.removeDuplicatesFromPlaylist);
+  const pinnedIds = usePinnedStore((s) => s.pinnedIds);
+  const togglePin = usePinnedStore((s) => s.toggle);
+  const setPlaylistTracks = useLibraryStore((s) => s.setPlaylistTracks);
 
   const playTrack = usePlayerStore((s) => s.playTrack);
   const toggleShuffle = usePlayerStore((s) => s.toggleShuffle);
@@ -83,12 +100,25 @@ export const PlaylistView: React.FC<PlaylistViewProps> = ({ playlistId: propPlay
   const listRef = useRef<HTMLDivElement | null>(null);
 
   const tracks = playlist?.tracks ?? [];
+  const isPinned = playlist ? pinnedIds.includes(playlist.id) : false;
   const totals = useMemo(() => describeTrackTotals(tracks), [tracks]);
+
+  /*
+   * Поиск и сортировка внутри плейлиста — вид, а не правка (см. playlistTools).
+   * Пока вид отличается от своего порядка, стрелки переноса спрятаны: «выше»
+   * в отсортированном списке значило бы не то, что видно.
+   */
+  const [query, setQuery] = useState('');
+  const [sortKey, setSortKey] = useState<PlaylistSortKey>('custom');
+  const entries = useMemo(() => viewEntries(tracks, query, sortKey), [tracks, query, sortKey]);
+  const viewTracks = useMemo(() => entries.map((entry) => entry.track), [entries]);
+  const isCustomView = sortKey === 'custom' && query.trim() === '';
+  const duplicates = useMemo(() => countDuplicates(tracks), [tracks]);
 
   // Импортированный плейлист легко бывает на тысячу треков — держим в DOM
   // только видимое.
   const virtual = useVirtualRows({
-    itemCount: tracks.length,
+    itemCount: entries.length,
     rowPitch: TRACK_ROW_PITCH,
     containerRef: listRef
   });
@@ -101,9 +131,12 @@ export const PlaylistView: React.FC<PlaylistViewProps> = ({ playlistId: propPlay
   const afterMutation = useCallback(
     (playlistId: string) => {
       const updated = useLibraryStore.getState().playlists.find((p) => p.id === playlistId);
-      if (updated) syncSourceQueue(updated.tracks);
+      // `tracks` здесь — состав до правки: с ним и сверяем, играет ли этот плейлист.
+      if (updated && isQueueOfTracks(usePlayerStore.getState().sourceQueue, tracks)) {
+        syncSourceQueue(updated.tracks);
+      }
     },
-    [syncSourceQueue]
+    [syncSourceQueue, tracks]
   );
 
   const handleReorder = useCallback(
@@ -176,9 +209,36 @@ export const PlaylistView: React.FC<PlaylistViewProps> = ({ playlistId: propPlay
       showToast('Не удалось убрать треки', 'error');
       return;
     }
+    // Очередь сверяется и здесь: без этого убранные треки продолжали играть
+    // из уже запущенного плейлиста.
+    afterMutation(playlist.id);
     showToast(`Убрано ${removed}`, 'success');
     clearSelection();
-  }, [clearSelection, playlist, removeTrackFromPlaylist, selectedTrackIds, selectedTracks, showToast, tracks]);
+  }, [afterMutation, clearSelection, playlist, removeTrackFromPlaylist, selectedTrackIds, selectedTracks, showToast, tracks]);
+
+  const handleRemoveDuplicates = useCallback(async () => {
+    if (!playlist) return;
+    const removed = await removeDuplicatesFromPlaylist(playlist.id);
+    if (removed === null) {
+      showToast('Не удалось убрать повторы', 'error');
+      return;
+    }
+    afterMutation(playlist.id);
+    showToast(removed > 0 ? `Убрано ${pluralize(removed, 'повтор', 'повтора', 'повторов')}` : 'Повторов нет', 'success');
+  }, [afterMutation, playlist, removeDuplicatesFromPlaylist, showToast]);
+
+  /** Отсортированный вид становится порядком плейлиста. */
+  const handleKeepOrder = useCallback(async () => {
+    if (!playlist || sortKey === 'custom' || query.trim() !== '') return;
+    const ok = await setPlaylistTracks(playlist.id, viewTracks);
+    if (!ok) {
+      showToast('Не удалось сохранить порядок', 'error');
+      return;
+    }
+    afterMutation(playlist.id);
+    setSortKey('custom');
+    showToast('Порядок сохранён', 'success');
+  }, [afterMutation, playlist, query, setPlaylistTracks, showToast, sortKey, viewTracks]);
 
   const coverInputRef = useRef<HTMLInputElement>(null);
 
@@ -251,22 +311,28 @@ export const PlaylistView: React.FC<PlaylistViewProps> = ({ playlistId: propPlay
     showToast(`«${title}» убран из плейлиста`, 'info');
   }, [afterMutation, pendingRemoval, playlist, removeTrackFromPlaylist, showToast]);
 
+  // «Слушать» играет то, что видно: отсортированный по исполнителю плейлист —
+  // по исполнителю, найденное — только найденное.
   const handlePlayAll = useCallback(() => {
-    if (tracks.length === 0) return;
-    void playTrack(tracks[0], tracks, 0);
-  }, [playTrack, tracks]);
+    const list = isCustomView ? tracks : viewTracks;
+    if (list.length === 0) return;
+    if (usePlayerStore.getState().isShuffled) toggleShuffle();
+    void playTrack(list[0], list, 0);
+  }, [isCustomView, playTrack, toggleShuffle, tracks, viewTracks]);
 
   /** Shuffle is enabled first so the store builds its order once, then plays. */
   const handleShufflePlay = useCallback(() => {
-    if (tracks.length === 0) return;
+    const list = isCustomView ? tracks : viewTracks;
+    if (list.length === 0) return;
     if (!usePlayerStore.getState().isShuffled) toggleShuffle();
-    const start = Math.floor(Math.random() * tracks.length);
-    void playTrack(tracks[start], tracks, start);
-  }, [playTrack, toggleShuffle, tracks]);
+    const start = Math.floor(Math.random() * list.length);
+    void playTrack(list[start], list, start);
+  }, [isCustomView, playTrack, toggleShuffle, tracks, viewTracks]);
 
   /** Alt+↑/↓ moves the focused row — the keyboard equivalent of dragging it. */
   const handleRowKeyDown = useCallback(
     (event: React.KeyboardEvent<HTMLDivElement>, index: number) => {
+      if (!isCustomView) return;
       if (!event.altKey || (event.key !== 'ArrowUp' && event.key !== 'ArrowDown')) return;
       const to = event.key === 'ArrowUp' ? index - 1 : index + 1;
       if (to < 0 || to >= tracks.length) return;
@@ -274,7 +340,7 @@ export const PlaylistView: React.FC<PlaylistViewProps> = ({ playlistId: propPlay
       event.stopPropagation();
       void handleReorder(index, to);
     },
-    [handleReorder, tracks.length]
+    [handleReorder, isCustomView, tracks.length]
   );
 
   if (!playlist) {
@@ -311,6 +377,10 @@ export const PlaylistView: React.FC<PlaylistViewProps> = ({ playlistId: propPlay
           style={{
             display: 'flex',
             alignItems: 'center',
+            // Кнопок в шапке восемь: в одну строку с названием они не влезали
+            // уже на 1280 px и сжимали название до «В…» (особенно в широких
+            // гарнитурах «Бумаги» и «Дымки»). Теперь кнопки уходят вниз.
+            flexWrap: 'wrap',
             gap: 'var(--space-5)',
             padding: 'var(--space-5)',
             borderRadius: 'var(--radius-lg)'
@@ -363,7 +433,7 @@ export const PlaylistView: React.FC<PlaylistViewProps> = ({ playlistId: propPlay
             )}
           </div>
 
-          <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 'var(--space-1)' }}>
+          <div style={{ flex: '1 1 280px', minWidth: 0, display: 'flex', flexDirection: 'column', gap: 'var(--space-1)' }}>
             <span className="section-label">Плейлист</span>
 
             {isEditingTitle ? (
@@ -442,7 +512,7 @@ export const PlaylistView: React.FC<PlaylistViewProps> = ({ playlistId: propPlay
             </p>
           </div>
 
-          <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)', flexShrink: 0 }}>
+          <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 'var(--space-2)', minWidth: 0 }}>
             {tracks.length > 0 && (
               <>
                 <Button
@@ -497,6 +567,20 @@ export const PlaylistView: React.FC<PlaylistViewProps> = ({ playlistId: propPlay
                 </Button>
               </>
             )}
+            <Button
+              variant="ghost"
+              size="icon"
+              title={isPinned ? 'Открепить' : 'Закрепить наверху медиатеки'}
+              aria-label={isPinned ? 'Открепить плейлист' : 'Закрепить плейлист наверху медиатеки'}
+              aria-pressed={isPinned}
+              onClick={() => {
+                void usePinnedStore.getState().hydrate();
+                if (!togglePin(playlist.id)) showToast(`Наверху помещается ${MAX_PINNED} плейлистов — открепите какой-нибудь`, 'info');
+              }}
+              data-testid="playlist-pin-btn"
+            >
+              {isPinned ? <PinOff size={ICON.md} /> : <Pin size={ICON.md} />}
+            </Button>
             <PlaylistExportMenu playlist={playlist} />
             <Button
               variant="ghost"
@@ -541,6 +625,89 @@ export const PlaylistView: React.FC<PlaylistViewProps> = ({ playlistId: propPlay
           ]}
         />
 
+        {tracks.length > 1 && (
+          <div
+            style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)', flexWrap: 'wrap' }}
+            data-testid="playlist-toolbar"
+          >
+            <label
+              style={{
+                position: 'relative',
+                display: 'flex',
+                alignItems: 'center',
+                flex: '1 1 220px',
+                maxWidth: '360px'
+              }}
+            >
+              <Search
+                size={ICON.sm}
+                aria-hidden="true"
+                style={{ position: 'absolute', left: 'var(--space-3)', color: 'var(--text-muted)', pointerEvents: 'none' }}
+              />
+              <input
+                type="search"
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                placeholder="Найти в плейлисте"
+                aria-label="Найти в плейлисте"
+                style={{ width: '100%', paddingLeft: 'calc(var(--space-3) + 22px)' }}
+                data-testid="playlist-filter-input"
+              />
+            </label>
+            <select
+              value={sortKey}
+              onChange={(e) => setSortKey(e.target.value as PlaylistSortKey)}
+              aria-label="Сортировка"
+              style={{ width: 'auto', flex: '0 0 auto' }}
+              data-testid="playlist-sort-select"
+            >
+              {(Object.keys(PLAYLIST_SORT_LABELS) as PlaylistSortKey[]).map((key) => (
+                <option key={key} value={key}>
+                  {PLAYLIST_SORT_LABELS[key]}
+                </option>
+              ))}
+            </select>
+            {sortKey !== 'custom' && query.trim() === '' && (
+              <Button
+                variant="ghost"
+                size="sm"
+                icon={<Save size={ICON.sm} />}
+                onClick={() => void handleKeepOrder()}
+                title="Записать этот порядок в сам плейлист"
+                data-testid="playlist-keep-order-btn"
+              >
+                Сохранить порядок
+              </Button>
+            )}
+            {duplicates > 0 && (
+              <Button
+                variant="ghost"
+                size="sm"
+                icon={<CopyX size={ICON.sm} />}
+                onClick={() => void handleRemoveDuplicates()}
+                title="Оставить каждый трек по одному разу"
+                data-testid="playlist-dedupe-btn"
+              >
+                Убрать повторы ({duplicates})
+              </Button>
+            )}
+            {query.trim() !== '' && (
+              <span style={{ fontSize: 'var(--text-xs)', color: 'var(--text-muted)' }} data-testid="playlist-filter-count">
+                Найдено: {entries.length}
+              </span>
+            )}
+          </div>
+        )}
+
+        {tracks.length > 0 && entries.length === 0 && (
+          <EmptyState
+            icon={<Search size={ICON.xl} />}
+            title="Ничего не нашлось"
+            description="В этом плейлисте нет треков с такими словами."
+            data-testid="playlist-filter-empty"
+          />
+        )}
+
         {tracks.length === 0 ? (
           <EmptyState
             icon={<Music2 size={ICON.display} />}
@@ -564,8 +731,8 @@ export const PlaylistView: React.FC<PlaylistViewProps> = ({ playlistId: propPlay
               paddingBottom: virtual.paddingBottom
             }}
           >
-            {tracks.slice(virtual.startIndex, virtual.endIndex).map((track, offset) => {
-              const idx = virtual.startIndex + offset;
+            {entries.slice(virtual.startIndex, virtual.endIndex).map(({ track, index: idx }, offset) => {
+              const viewIdx = virtual.startIndex + offset;
               return (
               <div
                 key={`${track.id}_${idx}`}
@@ -574,10 +741,18 @@ export const PlaylistView: React.FC<PlaylistViewProps> = ({ playlistId: propPlay
                 data-testid={`playlist-track-row-${idx}`}
               >
                 <div style={{ flex: 1, minWidth: 0 }}>
-                  <TrackCard track={track} index={idx} layout="row" contextQueue={tracks} showIndex />
+                  <TrackCard
+                    track={track}
+                    index={isCustomView ? idx : viewIdx}
+                    layout="row"
+                    contextQueue={isCustomView ? tracks : viewTracks}
+                    showIndex
+                  />
                 </div>
 
                 <div style={{ display: 'flex', alignItems: 'center', gap: '2px', flexShrink: 0 }}>
+                  {isCustomView && (
+                  <>
                   <button
                     type="button"
                     onClick={() => void handleReorder(idx, idx - 1, `reorder-up-${idx - 1}`)}
@@ -600,6 +775,8 @@ export const PlaylistView: React.FC<PlaylistViewProps> = ({ playlistId: propPlay
                   >
                     <ArrowDown size={ICON.sm} />
                   </button>
+                  </>
+                  )}
                   <button
                     type="button"
                     onClick={() => setPendingRemoval({ index: idx, title: track.title })}

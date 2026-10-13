@@ -1,5 +1,7 @@
 import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { youtubeService } from '../../services/youtube';
+import { soundCloudService } from '../../services/soundcloud';
+import { parseCollectionLink } from '../../services/collections';
 import { getClientId, getFreshAccessToken, runSpotifyLogin } from '../../services/spotifyAuth';
 import { fetchLikedSongs, fetchPlaylistItems, fetchPlaylists, SpotifyPlaylistSummary } from '../../services/spotifyLibrary';
 import {
@@ -95,6 +97,7 @@ function badge(name: string, token: string): PlatformBadgeConfig {
 /** Метки площадок в окне импорта. Цвета — из темы, см. `badge` выше. */
 const PLATFORM_CONFIG: Record<PlatformType, PlatformBadgeConfig> = {
   youtube: badge('YouTube Music', 'youtube'),
+  soundcloud: badge('SoundCloud', 'soundcloud'),
   spotify: badge('Spotify', 'spotify'),
   yandex: badge('Yandex Music', 'yandex'),
   vk: badge('VK Music', 'vk'),
@@ -319,9 +322,20 @@ export const ImportPlaylistModal: React.FC<ImportPlaylistModalProps> = ({
       // Плейлист YouTube Music переносится как есть: он уже состоит из тех
       // самых записей, которые мы играем, — искать и подбирать нечего, а
       // значит и подменить нечем.
-      if (playlistImporter.detectPlatform(trimmed) === 'youtube') {
-        const listId = playlistImporter.extractYouTubePlaylistId(trimmed);
-        const tracks = listId ? await youtubeService.getPlaylistTracks(listId) : [];
+      const detected = playlistImporter.detectPlatform(trimmed);
+      if (detected === 'youtube' || detected === 'soundcloud') {
+        let tracks: UnifiedTrack[] = [];
+        let title: string | null = null;
+        if (detected === 'youtube') {
+          const listId = playlistImporter.extractYouTubePlaylistId(trimmed);
+          tracks = listId ? await youtubeService.getPlaylistTracks(listId) : [];
+        } else {
+          // Плейлист SoundCloud — как есть, со своим названием.
+          const link = parseCollectionLink(trimmed);
+          const found = link ? await soundCloudService.getPlaylistWithTitle(link.ref) : null;
+          tracks = found?.tracks ?? [];
+          title = found?.title ?? null;
+        }
         if (tracks.length === 0) {
           setError('Не удалось прочитать этот плейлист. Проверьте, что он доступен по ссылке всем.');
           setIsLoading(false);
@@ -329,10 +343,10 @@ export const ImportPlaylistModal: React.FC<ImportPlaylistModalProps> = ({
         }
 
         setPreview({
-          title: 'Плейлист из YouTube Music',
+          title: title || (detected === 'soundcloud' ? 'Плейлист из SoundCloud' : 'Плейлист из YouTube Music'),
           items: [],
           readyTracks: tracks,
-          origin: { kind: 'platform', platform: 'youtube' }
+          origin: { kind: 'platform', platform: detected }
         });
         setStep('preview');
         setIsLoading(false);
@@ -635,7 +649,7 @@ export const ImportPlaylistModal: React.FC<ImportPlaylistModalProps> = ({
                     setUrl(e.target.value);
                     if (error) setError(null);
                   }}
-                  placeholder="https://open.spotify.com/playlist/… либо Яндекс Музыка, VK, Apple Music"
+                  placeholder="https://open.spotify.com/playlist/… либо Яндекс Музыка, VK, Apple Music, YouTube, SoundCloud"
                   autoFocus
                   style={{
                     width: '100%',

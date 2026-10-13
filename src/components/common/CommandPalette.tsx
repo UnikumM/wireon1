@@ -21,6 +21,7 @@ import {
 } from 'lucide-react';
 import { useDismissable } from '../../hooks/useDismissable';
 import { useLibraryStore } from '../../store/useLibraryStore';
+import { useSmartPlaylistStore } from '../../store/useSmartPlaylistStore';
 import { usePlayerStore } from '../../store/usePlayerStore';
 import { useUIStore } from '../../store/useUIStore';
 import { pluralize } from '../../utils/plural';
@@ -80,12 +81,14 @@ function fuzzyScore(haystack: string, needle: string): number | null {
 
 function useCommands(): Command[] {
   const playlists = useLibraryStore((s) => s.playlists);
+  const smartPlaylists = useSmartPlaylistStore((s) => s.playlists);
   const isPlaying = usePlayerStore((s) => s.isPlaying);
   const isShuffled = usePlayerStore((s) => s.isShuffled);
   const repeatMode = usePlayerStore((s) => s.repeatMode);
   const isMuted = usePlayerStore((s) => s.isMuted);
   const visualizerEnabled = usePlayerStore((s) => s.visualizerEnabled);
   const sleepTimerEndsAt = usePlayerStore((s) => s.sleepTimerEndsAt);
+  const sleepAtTrackEnd = usePlayerStore((s) => s.sleepAtTrackEnd);
   const isQueueOpen = useUIStore((s) => s.isQueueOpen);
   const isFullscreenPlayerOpen = useUIStore((s) => s.isFullscreenPlayerOpen);
 
@@ -102,6 +105,8 @@ function useCommands(): Command[] {
       // Звёздочки здесь — тот же значок, что у «Для вас» в боковой панели: один
       // раздел не должен выглядеть по-разному в двух местах. Единственное место
       // в приложении, где они уцелели, — см. комментарий в Sidebar.
+      { id: 'recap-month', label: 'Итоги месяца', group: 'Навигация', icon: <Sparkles size={ICON.md} />, keywords: 'wrapped recap итоги месяц статистика истории', run: () => ui.openRecap('month') },
+      { id: 'recap-year', label: 'Итоги года', group: 'Навигация', icon: <Sparkles size={ICON.md} />, keywords: 'wrapped recap итоги год статистика истории', run: () => ui.openRecap('year') },
       { id: 'go-foryou', label: 'Открыть «Для вас»', group: 'Навигация', icon: <Sparkles size={ICON.md} />, keywords: 'for you mixes stats daily миксы дня итоги статистика для вас', run: goTo('foryou') },
       { id: 'go-library', label: 'Открыть медиатеку', group: 'Навигация', icon: <Library size={ICON.md} />, keywords: 'library tracks history медиатека треки история', run: goTo('library') },
       { id: 'go-favorites', label: 'Открыть избранное', group: 'Навигация', icon: <Heart size={ICON.md} />, keywords: 'favorites liked hearts избранное лайки нравится', run: goTo('favorites') },
@@ -199,7 +204,16 @@ function useCommands(): Command[] {
       run: () => usePlayerStore.getState().setSleepTimer(minutes)
     }));
 
-    if (sleepTimerEndsAt !== null) {
+    sleep.push({
+      id: 'sleep-track-end',
+      label: 'Таймер сна: до конца трека',
+      group: 'Таймер сна',
+      icon: <Moon size={ICON.md} />,
+      keywords: 'sleep end of track конец трека доиграет',
+      run: () => usePlayerStore.getState().setSleepAtTrackEnd(true)
+    });
+
+    if (sleepTimerEndsAt !== null || sleepAtTrackEnd) {
       sleep.push({
         id: 'sleep-off',
         label: 'Отключить таймер сна',
@@ -223,15 +237,58 @@ function useCommands(): Command[] {
       }
     }));
 
-    return [...navigation, ...playback, ...view, ...sleep, ...playlistCommands];
+    const smartCommands: Command[] = smartPlaylists.map((smart) => ({
+      id: `smart-${smart.id}`,
+      label: `Открыть умный плейлист: ${smart.title}`,
+      hint: 'по правилам',
+      group: 'Плейлисты',
+      icon: <Music size={ICON.md} />,
+      keywords: 'smart умный правила',
+      run: () => useUIStore.getState().openSmartPlaylist(smart.id)
+    }));
+
+    const queueCommands: Command[] = [
+      {
+        id: 'queue-save-playlist',
+        label: 'Сохранить очередь плейлистом',
+        group: 'Плейлисты',
+        icon: <Music size={ICON.md} />,
+        keywords: 'queue save playlist очередь сохранить',
+        run: () => {
+          const player = usePlayerStore.getState();
+          const order =
+            player.isShuffled && player.shuffleOrder.length > 0
+              ? player.shuffleOrder
+              : player.sourceQueue.map((_, i) => i);
+          const pos = order.indexOf(player.currentIndex);
+          const upcoming = (pos === -1 ? order : order.slice(pos + 1)).map((i) => player.sourceQueue[i]).filter(Boolean);
+          const list = [...(player.currentTrack ? [player.currentTrack] : []), ...player.userQueue, ...upcoming];
+          if (list.length === 0) {
+            useUIStore.getState().showToast('Очередь пуста', 'info');
+            return;
+          }
+          const date = new Date().toLocaleDateString('ru-RU', { day: 'numeric', month: 'short' });
+          void useLibraryStore
+            .getState()
+            .createPlaylistWithTracks(`Очередь · ${date}`, list)
+            .then((created) => {
+              if (created) useUIStore.getState().showToast(`Сохранено в «${created.title}»`, 'success');
+            });
+        }
+      }
+    ];
+
+    return [...navigation, ...playback, ...view, ...sleep, ...playlistCommands, ...smartCommands, ...queueCommands];
   }, [
     playlists,
+    smartPlaylists,
     isPlaying,
     isShuffled,
     repeatMode,
     isMuted,
     visualizerEnabled,
     sleepTimerEndsAt,
+    sleepAtTrackEnd,
     isQueueOpen,
     isFullscreenPlayerOpen
   ]);

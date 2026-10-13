@@ -39,6 +39,10 @@ export interface IAudioEngine {
   isCrossfadeInProgress(): boolean;
   setLoudnessNormalization(enabled: boolean): void;
   isLoudnessNormalizationEnabled(): boolean;
+  setBalance(balance: number): void;
+  getBalance(): number;
+  setMono(mono: boolean): void;
+  isMono(): boolean;
   getActiveDeck(): 'A' | 'B';
   getDeckAGainNode(): GainNode | null;
   getDeckBGainNode(): GainNode | null;
@@ -145,6 +149,12 @@ export class AudioEngine implements IAudioEngine {
    */
   private frequencyBuffer = new Uint8Array(128);
   private eqNodes: EqNodes | null = null;
+  /** Баланс левый/правый. `null` там, где StereoPannerNode нет. */
+  private pannerNode: StereoPannerNode | null = null;
+  /** Сведение в моно: узел с одним каналом, браузер сам раскладывает его на оба уха. */
+  private monoNode: GainNode | null = null;
+  private balance: number = 0;
+  private mono: boolean = false;
   private unsubscribeProcessing: (() => void) | null = null;
   private isGraphConnected: boolean = false;
   private graphUnavailable: boolean = false;
@@ -356,6 +366,39 @@ export class AudioEngine implements IAudioEngine {
     this.crossfadeDuration = Math.max(0, Math.min(12, dur));
   }
 
+  /**
+   * Баланс −1 (только левый) … 1 (только правый).
+   *
+   * Нужен тем, кто слышит одним ухом хуже, и тем, у кого один наушник тише:
+   * в системе такая ручка есть не везде, а на телефоне её не найти вовсе.
+   */
+  public setBalance(balance: number): void {
+    const value = typeof balance === 'number' && Number.isFinite(balance) ? Math.max(-1, Math.min(1, balance)) : 0;
+    this.balance = Math.round(value * 100) / 100;
+    if (this.pannerNode) {
+      try {
+        this.pannerNode.pan.value = this.balance;
+      } catch {
+        // Узел мог уже уйти вместе с закрытым контекстом.
+      }
+    }
+  }
+
+  public getBalance(): number {
+    return this.balance;
+  }
+
+  /** Моно: обе стороны получают одно и то же — для одного наушника. */
+  public setMono(mono: boolean): void {
+    if (this.mono === Boolean(mono)) return;
+    this.mono = Boolean(mono);
+    if (this.isGraphConnected) this.connectGraph();
+  }
+
+  public isMono(): boolean {
+    return this.mono;
+  }
+
   public isLoudnessNormalizationEnabled(): boolean {
     return this.loudnessNormalization;
   }
@@ -400,6 +443,8 @@ export class AudioEngine implements IAudioEngine {
         this.compressorNode = null;
         this.analyserNode = null;
         this.eqNodes = null;
+        this.pannerNode = null;
+        this.monoNode = null;
       }
 
       if (this.audioContext.state === 'suspended') {
@@ -438,6 +483,27 @@ export class AudioEngine implements IAudioEngine {
 
       if (!this.eqNodes) {
         this.eqNodes = this.createEqNodes(this.audioContext);
+      }
+
+      if (!this.pannerNode && typeof this.audioContext.createStereoPanner === 'function') {
+        try {
+          this.pannerNode = this.audioContext.createStereoPanner();
+          this.pannerNode.pan.value = this.balance;
+        } catch {
+          this.pannerNode = null;
+        }
+      }
+
+      if (!this.monoNode) {
+        try {
+          const node = this.audioContext.createGain();
+          node.channelCount = 1;
+          node.channelCountMode = 'explicit';
+          node.channelInterpretation = 'speakers';
+          this.monoNode = node;
+        } catch {
+          this.monoNode = null;
+        }
       }
 
       this.connectGraph();
@@ -545,7 +611,17 @@ export class AudioEngine implements IAudioEngine {
       this.analyserNode.connect(this.masterGainNode);
     }
 
-    this.masterGainNode.connect(this.audioContext.destination);
+    // Master Gain -> [моно?] -> [баланс?] -> Destination
+    let tail: AudioNode = this.masterGainNode;
+    if (this.mono && this.monoNode) {
+      tail.connect(this.monoNode);
+      tail = this.monoNode;
+    }
+    if (this.pannerNode) {
+      tail.connect(this.pannerNode);
+      tail = this.pannerNode;
+    }
+    tail.connect(this.audioContext.destination);
   }
 
   private disconnectGraph(): void {
@@ -559,7 +635,9 @@ export class AudioEngine implements IAudioEngine {
       this.eqNodes?.treble ?? null,
       this.analyserNode,
       this.compressorNode,
-      this.masterGainNode
+      this.masterGainNode,
+      this.monoNode,
+      this.pannerNode
     ];
 
     for (const node of nodes) {
@@ -582,6 +660,8 @@ export class AudioEngine implements IAudioEngine {
     this.compressorNode = null;
     this.analyserNode = null;
     this.eqNodes = null;
+    this.pannerNode = null;
+    this.monoNode = null;
     this.isGraphConnected = false;
   }
 

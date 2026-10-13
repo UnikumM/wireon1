@@ -105,11 +105,17 @@ export interface PlayerStoreState {
 
   // Playback extras
   sleepTimerEndsAt: number | null; // epoch ms
+  /** Таймер сна «до конца трека»: остановиться, когда текущая песня доиграет. */
+  sleepAtTrackEnd: boolean;
   autoplayRadio: boolean; // continue with related tracks when the queue ends
   eq: EqSettings; // dB, -12..+12
   crossfadeEnabled: boolean;
   crossfadeDuration: number; // 0..12 seconds
   loudnessNormalization: boolean;
+  /** Баланс −1 (левый) … 1 (правый). */
+  audioBalance: number;
+  /** Моно: обе стороны звучат одинаково. */
+  audioMono: boolean;
   /** Телефон: пропускать звук через эквалайзер и спектр. См. services/audioProcessing.ts. */
   mobileAudioFx: boolean;
   /** Playback speed, 0.5–2.0. Anything other than 1 is shown in the player bar. */
@@ -182,11 +188,14 @@ export interface PlayerStoreActions {
   // Settings & extras
   hydrateSettings: () => Promise<void>;
   setSleepTimer: (minutes: number | null) => void;
+  setSleepAtTrackEnd: (enabled: boolean) => void;
   setAutoplayRadio: (enabled: boolean) => void;
   setEq: (partial: Partial<EqSettings>) => void;
   setCrossfadeEnabled: (enabled: boolean) => void;
   setCrossfadeDuration: (seconds: number) => void;
   setLoudnessNormalization: (enabled: boolean) => void;
+  setAudioBalance: (balance: number) => void;
+  setAudioMono: (mono: boolean) => void;
   setMobileAudioFx: (enabled: boolean) => void;
   setPlaybackRate: (rate: number, preservePitch?: boolean) => void;
   setPreservePitch: (preserve: boolean) => void;
@@ -240,7 +249,9 @@ export interface UIStoreState {
   // `home` — лента, с которой открывается телефон. На широком окне отдельного
   // экрана под неё нет, и маршрут ведёт в «Для вас»: содержимое то же, просто
   // собранное для мыши.
-  activeView: 'home' | 'search' | 'library' | 'favorites' | 'playlists' | 'offline' | 'playlist' | 'settings' | 'wave' | 'artist' | 'foryou' | 'collection';
+  activeView: 'home' | 'search' | 'library' | 'favorites' | 'playlists' | 'offline' | 'playlist' | 'settings' | 'wave' | 'artist' | 'foryou' | 'collection' | 'smart';
+  /** Открытый умный плейлист (маршрут `smart`). */
+  activeSmartPlaylistId: string | null;
   /** Открытая подборка: альбом, чужой плейлист или сеты человека с SoundCloud. */
   activeCollection: SearchCollection | null;
   /** Трек, для которого открыт лист действий на телефоне. */
@@ -272,10 +283,15 @@ export interface UIStoreState {
   searchFilter: 'all' | 'youtube' | 'soundcloud';
   toastMessage: ToastInfo | null;
   isLyricsOpen: boolean;
+  /** Открытые «Итоги» и их окно; `null` — закрыты. */
+  recapPeriod: 'month' | 'year' | null;
 }
 
 export interface UIStoreActions {
   setActiveView: (view: UIStoreState['activeView']) => void;
+  openRecap: (period: 'month' | 'year') => void;
+  openSmartPlaylist: (id: string) => void;
+  closeRecap: () => void;
   openCollection: (collection: SearchCollection) => void;
   setActiveWaveMood: (mood: WaveMood) => void;
   setActiveWaveGenre: (genre: string | null) => void;

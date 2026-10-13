@@ -50,7 +50,8 @@ const TAB_FOR_VIEW: Record<string, MobileTabId> = {
   favorites: 'library',
   playlists: 'library',
   offline: 'library',
-  playlist: 'library'
+  playlist: 'library',
+  smart: 'library'
 };
 
 export const MobileNavBar: React.FC = () => {

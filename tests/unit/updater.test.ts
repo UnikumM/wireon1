@@ -572,3 +572,20 @@ describe('AppImage: обновление встаёт на место старо
     expect(updater.quitAndInstall).toHaveBeenCalledWith(true, true);
   });
 });
+
+describe('3.0.1: перезапуск после обновления на Linux', () => {
+  it('переносит ключи запуска, без которых AppImage не стартует', async () => {
+    const { relaunchArgs } = await import('../../electron/updater');
+    expect(relaunchArgs(['/tmp/.mount/wireon', '--no-sandbox', '--ozone-platform=wayland'])).toEqual([
+      '--no-sandbox',
+      '--ozone-platform=wayland'
+    ]);
+  });
+
+  it('не повторяет разовые команды, отладку и ссылки wireon://', async () => {
+    const { relaunchArgs } = await import('../../electron/updater');
+    expect(
+      relaunchArgs(['/x/wireon', '--next', '--remote-debugging-port=9222', 'wireon://auth?code=1', '--no-sandbox'])
+    ).toEqual(['--no-sandbox']);
+  });
+});

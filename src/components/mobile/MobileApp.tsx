@@ -26,6 +26,8 @@ import { checkForUpdate } from '../../services/androidUpdater';
 import { useAppLayoutStore } from '../../store/useAppLayoutStore';
 import { CustomAppFrame } from '../layout/CustomAppFrame';
 import { SidePlayer } from '../player/SidePlayer';
+import { RecapStories } from '../recap/RecapStories';
+import { SmartPlaylistView } from '../smart/SmartPlaylistView';
 
 /**
  * Всё приложение на телефоне.
@@ -104,6 +106,8 @@ export const MobileApp: React.FC = () => {
         return <ArtistHubView scrollSelf={false} />;
       case 'collection':
         return <CollectionView />;
+      case 'smart':
+        return <SmartPlaylistView />;
       case 'search':
       default:
         return <MobileSearchView />;
@@ -164,6 +168,7 @@ export const MobileApp: React.FC = () => {
       <WelcomeGate />
       <AccountPrompt />
       <WhatsNewGate />
+      <RecapStories />
       <Toast />
     </div>
   );

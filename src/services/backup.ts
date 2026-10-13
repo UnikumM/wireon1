@@ -20,7 +20,15 @@ const HISTORY_SCAN_LIMIT = 10000;
  * Sync-engine bookkeeping (see `cloudSync.ts`) is machine state, not library
  * content: it is neither exported nor restored.
  */
-const INTERNAL_SETTING_KEYS = new Set(['pending_sync_mutations', 'parked_sync_mutations']);
+const INTERNAL_SETTING_KEYS = new Set([
+  'pending_sync_mutations',
+  'parked_sync_mutations',
+  // Снимок очереди и «Открытия недели» — кэши этого устройства: в копии они
+  // только раздували бы файл, а при восстановлении вернули бы устаревшее.
+  // Умные и закреплённые плейлисты — содержимое медиатеки и в копию идут.
+  'lastQueue',
+  'discoverWeekly'
+]);
 
 const VALID_SOURCES: AudioSource[] = ['youtube', 'soundcloud'];
 

@@ -38,6 +38,21 @@ export const useUIStore = create<UIStore>((set, get) => ({
   actionsTrack: null,
   selectedTrackIds: null,
   accountPrompt: null,
+  recapPeriod: null,
+  activeSmartPlaylistId: null,
+
+  openSmartPlaylist: (id) => {
+    if (!id) return;
+    set({ activeView: 'smart', activeSmartPlaylistId: id, isFullscreenPlayerOpen: false });
+  },
+
+  openRecap: (period) => {
+    set({ recapPeriod: period, isFullscreenPlayerOpen: false, isQueueOpen: false });
+  },
+
+  closeRecap: () => {
+    set({ recapPeriod: null });
+  },
 
   setActiveView: (view: UIStoreState['activeView']) => {
     set({ activeView: view });

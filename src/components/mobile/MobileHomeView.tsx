@@ -5,6 +5,7 @@ import { useLibraryStore } from '../../store/useLibraryStore';
 import { useUIStore } from '../../store/useUIStore';
 import { getHistory, HistoryRecord } from '../../services/db';
 import { buildDailyMixes, dailyMixDateKey, DailyMix } from '../../services/dailyMixes';
+import { useAutoMixes } from '../../hooks/useAutoMixes';
 import { normalizeArtist } from '../../services/recommendationEngine';
 import { ICON } from '../../styles/icons';
 import type { UnifiedTrack } from '../../types/music';
@@ -34,6 +35,7 @@ export const MobileHomeView: React.FC = () => {
   const playTrack = usePlayerStore((s) => s.playTrack);
   const play = usePlayerStore((s) => s.play);
   const currentTrack = usePlayerStore((s) => s.currentTrack);
+  const isPlaying = usePlayerStore((s) => s.isPlaying);
   const resumePosition = usePlayerStore((s) => s.resumePosition);
   const startTrackRadio = usePlayerStore((s) => s.startTrackRadio);
   const favorites = useLibraryStore((s) => s.favorites);
@@ -41,6 +43,7 @@ export const MobileHomeView: React.FC = () => {
   const history = useLibraryStore((s) => s.history);
   const setActiveView = useUIStore((s) => s.setActiveView);
 
+  const autoMixes = useAutoMixes();
   const [records, setRecords] = useState<HistoryRecord[] | null>(null);
 
   useEffect(() => {
@@ -103,7 +106,9 @@ export const MobileHomeView: React.FC = () => {
   const heroKicker = resumePosition
     ? 'Продолжить'
     : currentTrack
-      ? 'Сейчас играет'
+      ? isPlaying
+        ? 'Сейчас играет'
+        : 'На паузе'
       : 'Начните слушать';
 
   const handleHeroPlay = useCallback(() => {
@@ -126,42 +131,36 @@ export const MobileHomeView: React.FC = () => {
   );
 
   return (
-    <HomeLayout platform="mobile" testId="mobile-home">
-      <header style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-3)' }}>
-        {/*
-          * Слова «Wireon» здесь больше нет.
-          *
-          * Название приложения занимало самую заметную строку экрана и не
-          * сообщало ничего: человек и так знает, что он открыл. Место отдано
-          * герою ниже — обложке того, на чём остановились.
-          */}
-        <span style={{ flex: 1 }} />
-        {/*
-          * Настройки на телефоне жили под аватаром в шапке. Шапки больше нет,
-          * поэтому вход переезжает сюда — туда же, куда его кладут телефонные
-          * приложения, и он остаётся ровно один.
-          */}
-        <button
-          type="button"
-          className="press focus-ring"
-          onClick={() => setActiveView('settings')}
-          aria-label="Настройки"
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            width: '44px',
-            height: '44px',
-            flexShrink: 0,
-            borderRadius: 'var(--radius-pill)',
-            color: 'var(--text-secondary)',
-            cursor: 'pointer'
-          }}
-          data-testid="mobile-home-settings"
-        >
-          <Settings size={ICON.lg} aria-hidden="true" />
-        </button>
-      </header>
+    <HomeLayout
+      platform="mobile"
+      testId="mobile-home"
+      /*
+       * Настройки — в одном ряду с «Настроить главную». Отдельной строкой под
+       * ним шестерёнка оставляла над героем пустую полосу во всю ширину.
+       */
+      toolsAside={
+          <button
+            type="button"
+            className="press focus-ring"
+            onClick={() => setActiveView('settings')}
+            aria-label="Настройки"
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              width: '44px',
+              height: '44px',
+              flexShrink: 0,
+              borderRadius: 'var(--radius-pill)',
+              color: 'var(--text-secondary)',
+              cursor: 'pointer'
+            }}
+            data-testid="mobile-home-settings"
+          >
+            <Settings size={ICON.lg} aria-hidden="true" />
+          </button>
+      }
+    >
 
       {/* --- Герой: то, на чём остановились ------------------------------- */}
       <section
@@ -448,10 +447,20 @@ export const MobileHomeView: React.FC = () => {
         </button>
       </section>
 
-      {mixes.length > 0 && (
+      {(mixes.length > 0 || autoMixes.length > 0) && (
         <section data-testid="mobile-home-mixes" data-home-block="mixes">
           <SectionTitle>Миксы дня</SectionTitle>
           <Shelf>
+            {autoMixes.map((mix) => (
+              <ShelfCard
+                key={mix.id}
+                title={mix.title}
+                subtitle={mix.subtitle}
+                artworkUrl={mix.artworkUrl}
+                onClick={() => void playTrack(mix.tracks[0], mix.tracks, 0)}
+                testId={`mobile-home-auto-${mix.kind}`}
+              />
+            ))}
             {mixes.map((mix) => (
               <ShelfCard
                 key={mix.id}

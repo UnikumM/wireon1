@@ -46,8 +46,8 @@ export const AddToPlaylistModal: React.FC<AddToPlaylistModalProps> = ({
   onClose
 }) => {
   const playlists = useLibraryStore((s) => s.playlists);
-  const addTrackToPlaylist = useLibraryStore((s) => s.addTrackToPlaylist);
-  const createPlaylist = useLibraryStore((s) => s.createPlaylist);
+  const addTracksToPlaylist = useLibraryStore((s) => s.addTracksToPlaylist);
+  const createPlaylistWithTracks = useLibraryStore((s) => s.createPlaylistWithTracks);
   const showToast = useUIStore((s) => s.showToast);
 
   /** Один трек или пачка — дальше всё считается по этому списку. */
@@ -100,11 +100,21 @@ export const AddToPlaylistModal: React.FC<AddToPlaylistModalProps> = ({
     setBusyId(playlistId);
     setError(null);
 
-    let filed = 0;
-    for (const item of list) {
-      if (await addTrackToPlaylist(playlistId, item)) filed += 1;
-    }
+    // Одной записью, а не по треку. Повторы пропускаются — и об этом сказано.
+    const result = await addTracksToPlaylist(playlistId, list);
     setBusyId(null);
+    const filed = result?.added ?? 0;
+    const skipped = result?.skipped ?? 0;
+
+    if (result && filed === 0 && skipped > 0) {
+      showToast(
+        many ? `Все выбранные уже в «${playlistTitle}»` : `«${list[0].title}» уже в «${playlistTitle}»`,
+        'info'
+      );
+      reset();
+      onClose();
+      return;
+    }
 
     if (filed === 0) {
       if (refusedForAccount()) return;
@@ -116,7 +126,8 @@ export const AddToPlaylistModal: React.FC<AddToPlaylistModalProps> = ({
 
     showToast(
       many
-        ? `${plural(filed, 'трек', 'трека', 'треков')} в «${playlistTitle}»`
+        ? `${plural(filed, 'трек', 'трека', 'треков')} в «${playlistTitle}»` +
+            (skipped > 0 ? ` · ${plural(skipped, 'повтор', 'повтора', 'повторов')} пропущено` : '')
         : `«${list[0].title}» добавлен в «${playlistTitle}»`,
       'success'
     );
@@ -137,28 +148,16 @@ export const AddToPlaylistModal: React.FC<AddToPlaylistModalProps> = ({
     setBusyId('__new__');
     setError(null);
 
-    const created = await createPlaylist(title);
+    const created = await createPlaylistWithTracks(title, list);
+    setBusyId(null);
     if (!created) {
+      if (refusedForAccount()) return;
       const reason = useLibraryStore.getState().error ?? 'Не удалось создать плейлист.';
-      setBusyId(null);
       setError(reason);
       showToast(reason, 'error');
       return;
     }
-
-    let filed = 0;
-    for (const item of list) {
-      if (await addTrackToPlaylist(created.id, item)) filed += 1;
-    }
-    const ok = filed > 0;
-    setBusyId(null);
-
-    if (!ok) {
-      const reason = useLibraryStore.getState().error ?? 'Не удалось добавить трек.';
-      setError(`Плейлист «${created.title}» создан, но трек в него не попал. ${reason}`);
-      showToast(reason, 'error');
-      return;
-    }
+    const filed = created.tracks.length;
 
     showToast(
       many

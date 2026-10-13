@@ -56,16 +56,18 @@ async function selectTracks(ids: string[]): Promise<void> {
 
 describe('выбор треков на телефоне', () => {
   let removeTrackFromPlaylist: ReturnType<typeof vi.fn>;
-  let addTrackToPlaylist: ReturnType<typeof vi.fn>;
+  let addTracksToPlaylist: ReturnType<typeof vi.fn>;
 
   beforeEach(() => {
     removeTrackFromPlaylist = vi.fn().mockResolvedValue(true);
-    addTrackToPlaylist = vi.fn().mockResolvedValue(true);
+    addTracksToPlaylist = vi
+      .fn()
+      .mockImplementation(async (_id: string, tracks: unknown[]) => ({ added: tracks.length, skipped: 0 }));
 
     useLibraryStore.setState({
       playlists: [source, target],
       removeTrackFromPlaylist,
-      addTrackToPlaylist
+      addTracksToPlaylist
     } as never);
     useUIStore.setState({ activePlaylistId: 'pl_a', accountPrompt: null, toastMessage: null });
   });
@@ -130,7 +132,7 @@ describe('выбор треков на телефоне', () => {
 
   it('перенос отчитывается по удачам, а не по длине списка', async () => {
     // Пополнять плейлисты нельзя — стор отвечает отказом на каждый трек.
-    addTrackToPlaylist.mockResolvedValue(false);
+    addTracksToPlaylist.mockResolvedValue(null);
     render(<MobilePlaylistView />);
     await selectTracks(['1', '2']);
 
@@ -141,7 +143,9 @@ describe('выбор треков на телефоне', () => {
       fireEvent.click(screen.getByTestId('mobile-playlist-move-pl_b'));
     });
 
-    await waitFor(() => expect(addTrackToPlaylist).toHaveBeenCalledTimes(2));
+    // Пачка — одним вызовом, а не по треку.
+    await waitFor(() => expect(addTracksToPlaylist).toHaveBeenCalledTimes(1));
+    expect(addTracksToPlaylist.mock.calls[0][1]).toHaveLength(2);
     expect(useUIStore.getState().toastMessage?.type).toBe('error');
     expect(useUIStore.getState().toastMessage?.text).not.toContain('2');
   });
@@ -160,5 +164,36 @@ describe('выбор треков на телефоне', () => {
     await waitFor(() => {
       expect(useUIStore.getState().toastMessage?.text).toBe('2 трека в «Дорога»');
     });
+  });
+});
+
+describe('3.0: поиск и сортировка плейлиста на телефоне', () => {
+  afterEach(() => {
+    cleanup();
+    vi.restoreAllMocks();
+  });
+
+  it('ищет, сортирует и играет то, что видно', async () => {
+    const many = playlist(
+      'pl_many',
+      'Большой',
+      ['Яблоко', 'Абрикос', 'Груша', 'Банан', 'Вишня', 'Дыня', 'Ежевика', 'Жимолость', 'Земляника'].map((title, i) => ({
+        ...track(`m${i}`),
+        title
+      }))
+    );
+    useLibraryStore.setState({ playlists: [many] } as never);
+    useUIStore.setState({ activePlaylistId: 'pl_many' });
+    const play = vi.spyOn(usePlayerStore.getState(), 'playTrack').mockResolvedValue();
+    render(<MobilePlaylistView />);
+
+    fireEvent.change(screen.getByTestId('mobile-playlist-filter'), { target: { value: 'груш' } });
+    expect(screen.getByTestId('mobile-playlist-track-m2')).toBeTruthy();
+    expect(screen.queryByTestId('mobile-playlist-track-m0')).toBeNull();
+
+    fireEvent.change(screen.getByTestId('mobile-playlist-filter'), { target: { value: '' } });
+    fireEvent.change(screen.getByTestId('mobile-playlist-sort'), { target: { value: 'title' } });
+    fireEvent.click(screen.getByTestId('mobile-playlist-play'));
+    expect(play.mock.calls[0][0].title).toBe('Абрикос');
   });
 });

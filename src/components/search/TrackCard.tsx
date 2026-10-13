@@ -1,4 +1,5 @@
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import {
   Play,
   Pause,
@@ -7,6 +8,7 @@ import {
   MoreHorizontal,
   ListPlus,
   ExternalLink,
+  Share2,
   Music2,
   Radio,
   CheckCircle2,
@@ -18,6 +20,7 @@ import { Button } from '../common/Button';
 import { usePlayerStore } from '../../store/usePlayerStore';
 import { useLibraryStore } from '../../store/useLibraryStore';
 import { useUIStore, refusedForAccount } from '../../store/useUIStore';
+import { shareTrack } from '../../services/shareTrack';
 import { offlineStorage } from '../../services/offlineStorage';
 import { formatDuration } from '../../utils/time';
 import { ICON } from '../../styles/icons';
@@ -187,6 +190,9 @@ export const TrackCard: React.FC<TrackCardProps> = ({
   const [isDownloaded, setIsDownloaded] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
   const menuTriggerRef = useRef<HTMLButtonElement>(null);
+  const menuPanelRef = useRef<HTMLDivElement>(null);
+  /** Где стоит меню на экране: считается от кнопки, а не от строки списка. */
+  const [menuPosition, setMenuPosition] = useState<{ top: number; left: number; origin: string } | null>(null);
 
   // Offline mode caches what gets played, so the card only reports the fact —
   // there is no per-track download to drive from here any more.
@@ -223,10 +229,20 @@ export const TrackCard: React.FC<TrackCardProps> = ({
   useEffect(() => {
     if (!isMenuOpen) return;
     const handleClickOutside = (e: MouseEvent) => {
-      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
-        setIsMenuOpen(false);
-      }
+      const target = e.target as Node;
+      if (menuRef.current?.contains(target) || menuPanelRef.current?.contains(target)) return;
+      setIsMenuOpen(false);
     };
+    // Меню приколото к экрану: при прокрутке списка оно осталось бы висеть
+    // над чужой строкой, поэтому прокрутка и смена размера окна его закрывают.
+    const handleScroll = (e: Event) => {
+      // Прокрутка самого меню (длинный список) его не закрывает.
+      if (e.target instanceof Node && menuPanelRef.current?.contains(e.target)) return;
+      setIsMenuOpen(false);
+    };
+    const handleResize = () => setIsMenuOpen(false);
+    window.addEventListener('scroll', handleScroll, true);
+    window.addEventListener('resize', handleResize);
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
         e.stopPropagation();
@@ -238,8 +254,40 @@ export const TrackCard: React.FC<TrackCardProps> = ({
     return () => {
       document.removeEventListener('mousedown', handleClickOutside);
       document.removeEventListener('keydown', handleKeyDown);
+      window.removeEventListener('scroll', handleScroll, true);
+      window.removeEventListener('resize', handleResize);
     };
   }, [isMenuOpen, closeMenu]);
+
+  /*
+   * Меню живёт на уровне экрана (портал в body), а не внутри строки.
+   *
+   * Раньше оно было абсолютным потомком строки и всегда раскрывалось вниз: у
+   * нижних треков списка оно уезжало под полосу плеера и за край прокрутки, а
+   * у виртуализированных списков ещё и пряталось вместе со строкой. Теперь
+   * место считается от кнопки: вниз, если помещается над полосой плеера, иначе
+   * вверх; по горизонтали — не дальше краёв окна.
+   */
+  useLayoutEffect(() => {
+    if (!isMenuOpen) {
+      setMenuPosition(null);
+      return;
+    }
+    const trigger = menuTriggerRef.current;
+    const panel = menuPanelRef.current;
+    if (!trigger || typeof window === 'undefined') return;
+    const rect = trigger.getBoundingClientRect();
+    const width = panel?.offsetWidth || 220;
+    const height = panel?.offsetHeight || 320;
+    const gap = 4;
+    const margin = 8;
+    const bar = document.querySelector<HTMLElement>('[data-testid="player-bar"]');
+    const bottomLimit = Math.min(window.innerHeight, bar ? bar.getBoundingClientRect().top : window.innerHeight) - margin;
+    const fitsBelow = rect.bottom + gap + height <= bottomLimit;
+    const top = fitsBelow ? rect.bottom + gap : Math.max(margin, rect.top - gap - height);
+    const left = Math.max(margin, Math.min(rect.right - width, window.innerWidth - width - margin));
+    setMenuPosition({ top, left, origin: fitsBelow ? 'top right' : 'bottom right' });
+  }, [isMenuOpen]);
 
   /**
    * Play resolution order, fixed by `.agents/CONTRACT.md`:
@@ -339,6 +387,15 @@ export const TrackCard: React.FC<TrackCardProps> = ({
     playlistPicker.open(track);
   };
 
+  const handleShare = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    closeMenu();
+    const outcome = await shareTrack(track);
+    const ui = useUIStore.getState();
+    if (outcome === 'copied') ui.showToast('Ссылка на трек скопирована', 'success');
+    else if (outcome === 'failed') ui.showToast('Не удалось поделиться — буфер обмена недоступен', 'error');
+  };
+
   const handleOpenSource = (e: React.MouseEvent) => {
     e.stopPropagation();
     closeMenu();
@@ -394,21 +451,25 @@ export const TrackCard: React.FC<TrackCardProps> = ({
         <MoreHorizontal size={ICON.md} />
       </button>
 
-      {isMenuOpen && !isMobileShell && (
+      {isMenuOpen && !isMobileShell && typeof document !== 'undefined' && createPortal(
         <div
+          ref={menuPanelRef}
           className="panel-raised animate-drop-in scrollbar-thin"
           role="menu"
           aria-label={`Действия с «${track.title}»`}
           onKeyDown={handleMenuKeyDown}
+          onClick={(e) => e.stopPropagation()}
           style={
             {
-              // Меню приколото к правому краю кнопки, поэтому и расти обязано
-              // оттуда: рост от середины отвязывает его от того, что нажали.
-              '--pop-origin': 'top right',
-              position: 'absolute',
-              right: 0,
-              top: '100%',
-              marginTop: 'var(--space-1)',
+              // Растёт из угла у кнопки: рост от середины отвязывает меню от
+              // того, что нажали.
+              '--pop-origin': menuPosition?.origin ?? 'top right',
+              position: 'fixed',
+              top: menuPosition ? `${menuPosition.top}px` : 0,
+              left: menuPosition ? `${menuPosition.left}px` : 0,
+              // Пока место не посчитано (первый кадр), меню не видно — иначе оно
+              // мелькнуло бы в углу окна.
+              visibility: menuPosition ? 'visible' : 'hidden',
               padding: 'var(--space-1)',
               minWidth: '210px',
               maxHeight: '320px',
@@ -462,6 +523,17 @@ export const TrackCard: React.FC<TrackCardProps> = ({
             <span className="text-truncate">{isFavorite ? 'Убрать из избранного' : 'В избранное'}</span>
           </button>
 
+          <button
+            type="button"
+            role="menuitem"
+            className="menu-item-hover"
+            onClick={(e) => void handleShare(e)}
+            data-testid={`menu-share-${track.id}`}
+          >
+            <Share2 size={ICON.md} aria-hidden="true" />
+            <span className="text-truncate">Поделиться</span>
+          </button>
+
           {track.sourceUrl && (
             <button type="button" role="menuitem" className="menu-item-hover" onClick={handleOpenSource}>
               <ExternalLink size={ICON.md} aria-hidden="true" />
@@ -498,7 +570,8 @@ export const TrackCard: React.FC<TrackCardProps> = ({
             <CheckSquare size={ICON.md} aria-hidden="true" />
             <span className="text-truncate">Выбрать несколько</span>
           </button>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* Окно выбора плейлиста. Живёт рядом с меню, потому что открывается

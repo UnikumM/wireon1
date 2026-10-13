@@ -5,7 +5,13 @@ import { useAppLayoutStore, HOME_BLOCK_LABELS, type HomeBlockId, type LayoutPlat
 import { useUIStore } from '../../store/useUIStore';
 import '../../styles/appLayout.css';
 
-export const HomeLayout: React.FC<{ platform: LayoutPlatform; children: React.ReactNode; testId: string }> = ({ platform, children, testId }) => {
+export const HomeLayout: React.FC<{
+  platform: LayoutPlatform;
+  children: React.ReactNode;
+  testId: string;
+  /** Что стоит в одном ряду с «Настроить главную», у правого края (настройки на телефоне). */
+  toolsAside?: React.ReactNode;
+}> = ({ platform, children, testId, toolsAside }) => {
   const layout = useAppLayoutStore((s) => s[platform]);
   const editing = useAppLayoutStore((s) => s.editHome);
   const { move, toggle, setEditHome } = useAppLayoutStore.getState();
@@ -21,6 +27,8 @@ export const HomeLayout: React.FC<{ platform: LayoutPlatform; children: React.Re
     <div className="home-builder-tools">
       <button className="chip" aria-pressed={editing} onClick={() => setEditHome(!editing)}><SlidersHorizontal size={ICON.md} />{editing ? 'Готово' : 'Настроить главную'}</button>
       {editing && <button className="chip" onClick={() => useUIStore.getState().setActiveView('settings')}>Все настройки</button>}
+      {toolsAside && <span style={{ flex: 1 }} />}
+      {toolsAside}
     </div>
     {childrenArray.map((child, index) => {
       if (!React.isValidElement(child)) return child;

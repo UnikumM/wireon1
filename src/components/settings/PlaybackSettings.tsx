@@ -48,8 +48,14 @@ export const PlaybackSettings: React.FC = () => {
   const crossfadeEnabled = usePlayerStore((s) => s.crossfadeEnabled);
   const crossfadeDuration = usePlayerStore((s) => s.crossfadeDuration);
   const loudnessNormalization = usePlayerStore((s) => s.loudnessNormalization);
+  const audioBalance = usePlayerStore((s) => s.audioBalance);
+  const audioMono = usePlayerStore((s) => s.audioMono);
+  const setAudioBalance = usePlayerStore((s) => s.setAudioBalance);
+  const setAudioMono = usePlayerStore((s) => s.setAudioMono);
   const autoplayRadio = usePlayerStore((s) => s.autoplayRadio);
   const sleepTimerEndsAt = usePlayerStore((s) => s.sleepTimerEndsAt);
+  const sleepAtTrackEnd = usePlayerStore((s) => s.sleepAtTrackEnd);
+  const setSleepAtTrackEnd = usePlayerStore((s) => s.setSleepAtTrackEnd);
   const setVolume = usePlayerStore((s) => s.setVolume);
   const setEq = usePlayerStore((s) => s.setEq);
   const setCrossfadeEnabled = usePlayerStore((s) => s.setCrossfadeEnabled);
@@ -70,8 +76,9 @@ export const PlaybackSettings: React.FC = () => {
   const [selectedSleepOption, setSelectedSleepOption] = useState('');
 
   useEffect(() => {
-    if (sleepTimerEndsAt === null) setSelectedSleepOption('');
-  }, [sleepTimerEndsAt]);
+    if (sleepAtTrackEnd) setSelectedSleepOption('end');
+    else if (sleepTimerEndsAt === null) setSelectedSleepOption('');
+  }, [sleepTimerEndsAt, sleepAtTrackEnd]);
 
   return (
     <SettingsSection
@@ -120,6 +127,28 @@ export const PlaybackSettings: React.FC = () => {
         description="Сглаживает разницу в громкости между записями с разных сервисов, чтобы не тянуться к регулятору на каждом треке."
         checked={loudnessNormalization}
         onChange={setLoudnessNormalization}
+      />
+
+      <div className="divider" role="presentation" />
+
+      <SliderSetting
+        id="setting-audio-balance"
+        label="Баланс"
+        description="Сдвинуть звук к левому или правому уху — если один наушник тише или одно ухо слышит хуже."
+        min={-100}
+        max={100}
+        step={1}
+        value={Math.round(audioBalance * 100)}
+        onChange={(next) => setAudioBalance(next / 100)}
+        format={(next) => (next === 0 ? 'центр' : next < 0 ? `Л ${-next}` : `П ${next}`)}
+      />
+
+      <ToggleSetting
+        id="setting-audio-mono"
+        label="Моно"
+        description="Оба уха слышат одно и то же: удобно с одним наушником, ничего из сведения не теряется."
+        checked={audioMono}
+        onChange={setAudioMono}
       />
 
       <div className="divider" role="presentation" />
@@ -232,9 +261,11 @@ export const PlaybackSettings: React.FC = () => {
         label="Таймер сна"
         controlId="setting-sleep-timer"
         description={
-          remainingSeconds !== null
-            ? `Музыка встанет на паузу через ${formatDuration(remainingSeconds)}.`
-            : 'Поставить музыку на паузу через заданное время.'
+          sleepAtTrackEnd
+            ? 'Музыка встанет на паузу, когда доиграет текущий трек.'
+            : remainingSeconds !== null
+              ? `Музыка встанет на паузу через ${formatDuration(remainingSeconds)}.`
+              : 'Поставить музыку на паузу через заданное время.'
         }
       >
         <select
@@ -244,7 +275,8 @@ export const PlaybackSettings: React.FC = () => {
           onChange={(e) => {
             const raw = e.target.value;
             setSelectedSleepOption(raw);
-            setSleepTimer(raw === '' ? null : Number(raw));
+            if (raw === 'end') setSleepAtTrackEnd(true);
+            else setSleepTimer(raw === '' ? null : Number(raw));
           }}
           data-testid="settings-sleep-timer"
         >
@@ -253,6 +285,7 @@ export const PlaybackSettings: React.FC = () => {
               {option.label}
             </option>
           ))}
+          <option value="end">До конца трека</option>
         </select>
       </SettingRow>
     </SettingsSection>

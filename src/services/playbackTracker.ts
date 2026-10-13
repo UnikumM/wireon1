@@ -74,6 +74,11 @@ export function currentPlaySeconds(): number {
   return session ? session.seconds : 0;
 }
 
+/** Идёт ли уже прослушивание этого трека. */
+export function isTracking(trackId: string): boolean {
+  return Boolean(session && trackId && session.track.id === trackId);
+}
+
 /** Начинает новое прослушивание, закрывая предыдущее. */
 export function beginPlay(track: UnifiedTrack): void {
   if (!track || !track.id) return;

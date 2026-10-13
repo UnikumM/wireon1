@@ -97,6 +97,8 @@ export function useKeyboardShortcuts(): void {
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.defaultPrevented) return;
+      // Открыты «Итоги»: клавиши листают истории, а не управляют плеером.
+      if (useUIStore.getState().recapPeriod) return;
       if (isFromTextEntry(event.target)) return;
       // Уступаем только те клавиши, которыми элемент под фокусом реально
       // управляется. Раньше уступали все подряд, и после щелчка по кнопке или

@@ -766,12 +766,21 @@ export class SoundCloudService {
    * SoundCloud ограничивает, и сотня ключей в запрос уже не влезает.
    */
   public async getPlaylistTracks(url: string, limit: number = 500): Promise<UnifiedTrack[]> {
+    return (await this.getPlaylistWithTitle(url, limit)).tracks;
+  }
+
+  /** Плейлист по ссылке вместе с его названием. */
+  public async getPlaylistWithTitle(
+    url: string,
+    limit: number = 500
+  ): Promise<{ title: string | null; tracks: UnifiedTrack[] }> {
     const trimmed = (url || '').trim();
-    if (!trimmed) return [];
+    if (!trimmed) return { title: null, tracks: [] };
 
     const playlist = await this.apiGet('/resolve', { url: trimmed });
+    const title = typeof playlist?.title === 'string' && playlist.title.trim() ? playlist.title.trim() : null;
     const items: any[] = Array.isArray(playlist?.tracks) ? playlist.tracks : [];
-    if (items.length === 0) return [];
+    if (items.length === 0) return { title, tracks: [] };
 
     const hydrated = items.filter((item) => item?.title);
     const missing = items.filter((item) => item?.id && !item.title).map((item) => String(item.id));
@@ -789,7 +798,7 @@ export class SoundCloudService {
     for (const item of [...hydrated, ...fetched]) byId.set(String(item.id), item);
     const ordered = items.map((item) => byId.get(String(item?.id))).filter(Boolean);
 
-    return this.parseTracksResponse(ordered, limit);
+    return { title, tracks: this.parseTracksResponse(ordered, limit) };
   }
 
   /**

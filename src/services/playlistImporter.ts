@@ -26,7 +26,7 @@ import {
 } from './trackMatching';
 import { findLink, trackFromLink } from './matchLinks';
 
-export type PlatformType = 'spotify' | 'yandex' | 'vk' | 'apple' | 'youtube';
+export type PlatformType = 'spotify' | 'yandex' | 'vk' | 'apple' | 'youtube' | 'soundcloud';
 
 export interface ParsedPlaylistItem {
   title: string;
@@ -308,6 +308,11 @@ export class PlaylistImporterService {
       (clean.includes('list=') || clean.includes('/playlist'))
     ) {
       return 'youtube';
+    }
+
+    // Плейлист или альбом SoundCloud — тоже без поиска: записи уже наши.
+    if (clean.includes('soundcloud.com/') && clean.includes('/sets/')) {
+      return 'soundcloud';
     }
 
     if (
