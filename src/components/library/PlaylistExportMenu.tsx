@@ -124,10 +124,11 @@ export const PlaylistExportMenu: React.FC<PlaylistExportMenuProps> = ({ playlist
           display: 'inline-flex',
           alignItems: 'center',
           justifyContent: 'center',
-          width: '36px',
-          height: '36px',
+          // Размер и вид — как у соседних кнопок-значков шапки (`Button
+          // size="icon"`): рамка выделяла одну эту кнопку среди ровного ряда.
+          width: 'var(--control-md)',
+          height: 'var(--control-md)',
           borderRadius: 'var(--radius-sm)',
-          border: '1px solid var(--border-subtle)',
           // `background: transparent` убран: <button> обнулён в ресете, а
           // инлайновое объявление было старше `.press:hover` — кнопка выгрузки
           // не отвечала на наведение. Подсветку «меню открыто» берёт на себя

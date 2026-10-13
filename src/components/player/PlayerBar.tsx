@@ -816,7 +816,11 @@ export const PlayerBar: React.FC<PlayerBarProps> = ({ className = '' }) => {
                   flexShrink: 0,
                   padding: 0,
                   overflow: 'hidden',
-                  borderRadius: 'var(--radius-xs)'
+                  borderRadius: 'var(--radius-xs)',
+                  // На паузе спектру нечего рисовать, и полная рамка читалась
+                  // как пустое окошко — особенно на светлых темах.
+                  opacity: isPlaying ? 1 : 0.45,
+                  transition: 'opacity var(--dur-normal) var(--ease-out)'
                   // Фон, рамка и ответ на наведение — в `.artwork-press`
                   // (global.css §14). Инлайновый фон стоял бы старше правила
                   // таблицы, и холст со спектром на наведение не отзывался бы —

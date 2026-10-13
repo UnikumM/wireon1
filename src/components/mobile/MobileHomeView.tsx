@@ -35,6 +35,7 @@ export const MobileHomeView: React.FC = () => {
   const playTrack = usePlayerStore((s) => s.playTrack);
   const play = usePlayerStore((s) => s.play);
   const currentTrack = usePlayerStore((s) => s.currentTrack);
+  const isPlaying = usePlayerStore((s) => s.isPlaying);
   const resumePosition = usePlayerStore((s) => s.resumePosition);
   const startTrackRadio = usePlayerStore((s) => s.startTrackRadio);
   const favorites = useLibraryStore((s) => s.favorites);
@@ -105,7 +106,9 @@ export const MobileHomeView: React.FC = () => {
   const heroKicker = resumePosition
     ? 'Продолжить'
     : currentTrack
-      ? 'Сейчас играет'
+      ? isPlaying
+        ? 'Сейчас играет'
+        : 'На паузе'
       : 'Начните слушать';
 
   const handleHeroPlay = useCallback(() => {
@@ -128,42 +131,36 @@ export const MobileHomeView: React.FC = () => {
   );
 
   return (
-    <HomeLayout platform="mobile" testId="mobile-home">
-      <header style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-3)' }}>
-        {/*
-          * Слова «Wireon» здесь больше нет.
-          *
-          * Название приложения занимало самую заметную строку экрана и не
-          * сообщало ничего: человек и так знает, что он открыл. Место отдано
-          * герою ниже — обложке того, на чём остановились.
-          */}
-        <span style={{ flex: 1 }} />
-        {/*
-          * Настройки на телефоне жили под аватаром в шапке. Шапки больше нет,
-          * поэтому вход переезжает сюда — туда же, куда его кладут телефонные
-          * приложения, и он остаётся ровно один.
-          */}
-        <button
-          type="button"
-          className="press focus-ring"
-          onClick={() => setActiveView('settings')}
-          aria-label="Настройки"
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            width: '44px',
-            height: '44px',
-            flexShrink: 0,
-            borderRadius: 'var(--radius-pill)',
-            color: 'var(--text-secondary)',
-            cursor: 'pointer'
-          }}
-          data-testid="mobile-home-settings"
-        >
-          <Settings size={ICON.lg} aria-hidden="true" />
-        </button>
-      </header>
+    <HomeLayout
+      platform="mobile"
+      testId="mobile-home"
+      /*
+       * Настройки — в одном ряду с «Настроить главную». Отдельной строкой под
+       * ним шестерёнка оставляла над героем пустую полосу во всю ширину.
+       */
+      toolsAside={
+          <button
+            type="button"
+            className="press focus-ring"
+            onClick={() => setActiveView('settings')}
+            aria-label="Настройки"
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              width: '44px',
+              height: '44px',
+              flexShrink: 0,
+              borderRadius: 'var(--radius-pill)',
+              color: 'var(--text-secondary)',
+              cursor: 'pointer'
+            }}
+            data-testid="mobile-home-settings"
+          >
+            <Settings size={ICON.lg} aria-hidden="true" />
+          </button>
+      }
+    >
 
       {/* --- Герой: то, на чём остановились ------------------------------- */}
       <section

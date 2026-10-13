@@ -377,6 +377,10 @@ export const PlaylistView: React.FC<PlaylistViewProps> = ({ playlistId: propPlay
           style={{
             display: 'flex',
             alignItems: 'center',
+            // Кнопок в шапке восемь: в одну строку с названием они не влезали
+            // уже на 1280 px и сжимали название до «В…» (особенно в широких
+            // гарнитурах «Бумаги» и «Дымки»). Теперь кнопки уходят вниз.
+            flexWrap: 'wrap',
             gap: 'var(--space-5)',
             padding: 'var(--space-5)',
             borderRadius: 'var(--radius-lg)'
@@ -429,7 +433,7 @@ export const PlaylistView: React.FC<PlaylistViewProps> = ({ playlistId: propPlay
             )}
           </div>
 
-          <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 'var(--space-1)' }}>
+          <div style={{ flex: '1 1 280px', minWidth: 0, display: 'flex', flexDirection: 'column', gap: 'var(--space-1)' }}>
             <span className="section-label">Плейлист</span>
 
             {isEditingTitle ? (
@@ -508,7 +512,7 @@ export const PlaylistView: React.FC<PlaylistViewProps> = ({ playlistId: propPlay
             </p>
           </div>
 
-          <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)', flexShrink: 0 }}>
+          <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 'var(--space-2)', minWidth: 0 }}>
             {tracks.length > 0 && (
               <>
                 <Button

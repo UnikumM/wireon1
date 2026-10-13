@@ -359,6 +359,7 @@ export const QueueDrawer: React.FC<QueueDrawerProps> = ({ className = '' }) => {
             onClick={() => setQueueOpen(false)}
             title="Закрыть очередь"
             aria-label="Закрыть очередь"
+            data-autofocus
             style={{ width: 'var(--control-md)', height: 'var(--control-md)' }}
             data-testid="queue-drawer-close"
           >

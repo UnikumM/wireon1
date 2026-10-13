@@ -151,7 +151,11 @@ export function useDismissable<T extends HTMLElement = HTMLDivElement>({
     const container = containerRef.current;
 
     if (trapFocus && container) {
-      const first = getFocusable(container)[0];
+      // Окно может само назвать, куда ставить фокус (`data-autofocus`): иначе
+      // кольцо фокуса доставалось первой кнопке по порядку — в очереди это
+      // была «В плейлист», и она выглядела выделенной без причины.
+      const preferred = container.querySelector<HTMLElement>('[data-autofocus]');
+      const first = preferred ?? getFocusable(container)[0];
       if (first) {
         first.focus();
       } else {

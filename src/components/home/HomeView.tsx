@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Play, Radio } from 'lucide-react';
+import { Music2, Play, Radio } from 'lucide-react';
 import { usePlayerStore } from '../../store/usePlayerStore';
 import { useLibraryStore } from '../../store/useLibraryStore';
 import { useUIStore } from '../../store/useUIStore';
@@ -35,6 +35,9 @@ const HERO_ART = 300;
 export const HomeView: React.FC = () => {
   const currentTrack = usePlayerStore((s) => s.currentTrack);
   const resumePosition = usePlayerStore((s) => s.resumePosition);
+  const isPlaying = usePlayerStore((s) => s.isPlaying);
+  const [heroArtFailed, setHeroArtFailed] = useState(false);
+  useEffect(() => setHeroArtFailed(false), [currentTrack?.artworkUrl]);
   const play = usePlayerStore((s) => s.play);
   const playTrack = usePlayerStore((s) => s.playTrack);
   const startMyWave = usePlayerStore((s) => s.startMyWave);
@@ -122,7 +125,9 @@ export const HomeView: React.FC = () => {
     resumePosition && resumePosition > 1
       ? `Остановились на ${formatDuration(resumePosition)}`
       : currentTrack
-        ? 'Сейчас играет'
+        ? isPlaying
+          ? 'Сейчас играет'
+          : 'На паузе'
         : 'Начните слушать';
 
   return (
@@ -137,15 +142,23 @@ export const HomeView: React.FC = () => {
             flexShrink: 0,
             overflow: 'hidden',
             background: 'var(--surface-2)',
-            boxShadow: 'var(--shadow-lg)'
+            boxShadow: 'var(--shadow-lg)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center'
           }}
+          data-testid="home-hero-art"
         >
-          {heroTrack?.artworkUrl && (
+          {heroTrack?.artworkUrl && !heroArtFailed ? (
             <img
               src={heroTrack.artworkUrl}
               alt=""
+              onError={() => setHeroArtFailed(true)}
               style={{ width: '100%', height: '100%', objectFit: 'cover' }}
             />
+          ) : (
+            // Без обложки квадрат был пустым и читался как недогруженный.
+            <Music2 size={ICON.display} aria-hidden="true" style={{ color: 'var(--text-faint)' }} />
           )}
         </div>
 
