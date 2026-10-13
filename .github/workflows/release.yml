@@ -1,0 +1,207 @@
+# Сборка и выпуск релиза на серверах GitHub: установщик Windows, AppImage для Linux и подписанный APK.
+# Запуск: Actions → «Release» → Run workflow (с ветки main).
+#
+# Версия берётся из package.json (её поднимает `npm run release:prepare`). Сначала создаётся ЧЕРНОВИК релиза
+# v<версия> на коммите, с которого запущено, в него складываются все файлы. Опубликовать его (снять черновик)
+# workflow может сам — если при запуске поставить «publish», — или руками на странице релиза.
+#
+# Секреты репозитория (Settings → Secrets and variables → Actions):
+#   WIREON_KEYSTORE_BASE64   ключ подписи Android (base64 от .jks/.keystore) — тот же, что у прошлых релизов
+#   WIREON_STORE_PASSWORD, WIREON_KEY_ALIAS, WIREON_KEY_PASSWORD
+#   VITE_WIREON_SERVER_URL, VITE_WIREON_SERVER_TOKEN       сервер (обязательно для APK)
+#   VITE_WIREON_MQTT_URL, VITE_SPOTIFY_CLIENT_ID, VITE_DISCORD_CLIENT_ID   по желанию, как в .env
+name: Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      publish:
+        description: "Опубликовать релиз, когда все файлы собраны (иначе останется черновиком)"
+        type: boolean
+        default: false
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+env:
+  WIREON_GH_OWNER: ${{ github.repository_owner }}
+  WIREON_GH_REPO: ${{ github.event.repository.name }}
+
+jobs:
+  prepare:
+    name: Черновик релиза
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+    steps:
+      - uses: actions/checkout@v4
+      - id: version
+        run: echo "version=$(node -p "require('./package.json').version")" >> "$GITHUB_OUTPUT"
+      - name: Версия везде одна
+        run: |
+          V=${{ steps.version.outputs.version }}
+          grep -q "APP_VERSION = '$V'" src/utils/appInfo.ts || { echo "::error::APP_VERSION в src/utils/appInfo.ts не $V — запустите npm run release:prepare"; exit 1; }
+          grep -q "versionName \"$V\"" android/app/build.gradle || { echo "::error::versionName в android/app/build.gradle не $V"; exit 1; }
+      - name: Создать черновик (или продолжить существующий)
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          V=${{ steps.version.outputs.version }}
+          if gh release view "v$V" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            if [ "$(gh release view "v$V" --repo "$GITHUB_REPOSITORY" --json isDraft -q .isDraft)" != "true" ]; then
+              echo "::error::Релиз v$V уже опубликован. Поднимите версию: npm run release:prepare"
+              exit 1
+            fi
+            echo "Черновик v$V уже есть — файлы будут добавлены в него"
+          else
+            NOTES=.github/release-notes/$V.md
+            [ -f "$NOTES" ] || { echo "Wireon $V" > /tmp/notes.md; NOTES=/tmp/notes.md; }
+            gh release create "v$V" --repo "$GITHUB_REPOSITORY" --draft --target "$GITHUB_SHA" \
+              --title "Wireon $V" --notes-file "$NOTES"
+          fi
+
+  windows:
+    name: Windows (установщик)
+    needs: prepare
+    runs-on: windows-latest
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - name: .env из секретов
+        run: |
+          {
+            echo "VITE_DISCORD_CLIENT_ID=${{ secrets.VITE_DISCORD_CLIENT_ID }}"
+            echo "VITE_WIREON_SERVER_URL=${{ secrets.VITE_WIREON_SERVER_URL }}"
+            echo "VITE_WIREON_SERVER_TOKEN=${{ secrets.VITE_WIREON_SERVER_TOKEN }}"
+            echo "VITE_WIREON_MQTT_URL=${{ secrets.VITE_WIREON_MQTT_URL }}"
+            echo "VITE_SPOTIFY_CLIENT_ID=${{ secrets.VITE_SPOTIFY_CLIENT_ID }}"
+          } > .env
+      - run: npm ci
+      - run: npm run refresh:ytdlp
+      - run: npm run electron:build
+      - run: node scripts/check-platform-binaries.mjs --platform=win32
+      - name: Собрать и загрузить в черновик
+        env:
+          GH_TOKEN: ${{ github.token }}
+          EP_DRAFT: "true"
+        run: npx electron-builder --config electron-builder.cjs --win nsis --x64 --publish always
+
+  linux:
+    name: Linux (AppImage)
+    needs: prepare
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - name: .env из секретов
+        run: |
+          {
+            echo "VITE_DISCORD_CLIENT_ID=${{ secrets.VITE_DISCORD_CLIENT_ID }}"
+            echo "VITE_WIREON_SERVER_URL=${{ secrets.VITE_WIREON_SERVER_URL }}"
+            echo "VITE_WIREON_SERVER_TOKEN=${{ secrets.VITE_WIREON_SERVER_TOKEN }}"
+            echo "VITE_WIREON_MQTT_URL=${{ secrets.VITE_WIREON_MQTT_URL }}"
+            echo "VITE_SPOTIFY_CLIENT_ID=${{ secrets.VITE_SPOTIFY_CLIENT_ID }}"
+          } > .env
+      - run: npm ci
+      - run: npm run refresh:ytdlp
+      - run: npm run electron:build
+      - run: node scripts/check-platform-binaries.mjs --platform=linux
+      - name: Собрать и загрузить в черновик
+        env:
+          GH_TOKEN: ${{ github.token }}
+          EP_DRAFT: "true"
+        run: npx electron-builder --config electron-builder.cjs --linux AppImage --x64 --publish always
+
+  android:
+    name: Android (APK)
+    needs: prepare
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Ключ подписи на месте
+        env:
+          KEYSTORE: ${{ secrets.WIREON_KEYSTORE_BASE64 }}
+          SERVER: ${{ secrets.VITE_WIREON_SERVER_URL }}
+          TOKEN: ${{ secrets.VITE_WIREON_SERVER_TOKEN }}
+        run: |
+          [ -n "$KEYSTORE" ] || { echo "::error::Нет секрета WIREON_KEYSTORE_BASE64. Неподписанный или чужим ключом подписанный APK не встанет поверх установленного — APK не выкладываю."; exit 1; }
+          [ -n "$SERVER" ] && [ -n "$TOKEN" ] || { echo "::error::Нет VITE_WIREON_SERVER_URL/VITE_WIREON_SERVER_TOKEN — на телефоне не будут работать поиск и воспроизведение."; exit 1; }
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+      - uses: android-actions/setup-android@v3
+      - name: .env из секретов
+        run: |
+          {
+            echo "VITE_DISCORD_CLIENT_ID=${{ secrets.VITE_DISCORD_CLIENT_ID }}"
+            echo "VITE_WIREON_SERVER_URL=${{ secrets.VITE_WIREON_SERVER_URL }}"
+            echo "VITE_WIREON_SERVER_TOKEN=${{ secrets.VITE_WIREON_SERVER_TOKEN }}"
+            echo "VITE_WIREON_MQTT_URL=${{ secrets.VITE_WIREON_MQTT_URL }}"
+            echo "VITE_SPOTIFY_CLIENT_ID=${{ secrets.VITE_SPOTIFY_CLIENT_ID }}"
+          } > .env
+      - run: npm ci
+      - run: npm run build
+      - run: npx cap sync android
+      - name: Собрать подписанный APK
+        env:
+          KEYSTORE: ${{ secrets.WIREON_KEYSTORE_BASE64 }}
+          STORE_PASSWORD: ${{ secrets.WIREON_STORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.WIREON_KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.WIREON_KEY_PASSWORD }}
+        run: |
+          echo "$KEYSTORE" | base64 -d > "$RUNNER_TEMP/wireon.keystore"
+          cd android
+          chmod +x gradlew
+          ./gradlew assembleRelease --no-daemon \
+            -PWIREON_KEYSTORE="$RUNNER_TEMP/wireon.keystore" \
+            -PWIREON_STORE_PASSWORD="$STORE_PASSWORD" \
+            -PWIREON_KEY_ALIAS="$KEY_ALIAS" \
+            -PWIREON_KEY_PASSWORD="$KEY_PASSWORD"
+          rm -f "$RUNNER_TEMP/wireon.keystore"
+      - name: Проверить подпись и загрузить в черновик
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          V=${{ needs.prepare.outputs.version }}
+          APK=android/app/build/outputs/apk/release/app-release.apk
+          [ -f "$APK" ] || { echo "::error::APK не собрался (нет $APK)"; ls -R android/app/build/outputs/apk || true; exit 1; }
+          APKSIGNER=$(ls -d "$ANDROID_HOME"/build-tools/*/apksigner | sort -V | tail -1)
+          "$APKSIGNER" verify --print-certs "$APK"
+          cp "$APK" "Wireon-$V.apk"
+          gh release upload "v$V" "Wireon-$V.apk" --repo "$GITHUB_REPOSITORY" --clobber
+
+  publish:
+    name: Опубликовать
+    needs: [prepare, windows, linux, android]
+    if: ${{ inputs.publish }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Все файлы на месте — снять черновик
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          V=${{ needs.prepare.outputs.version }}
+          ASSETS=$(gh release view "v$V" --repo "$GITHUB_REPOSITORY" --json assets -q '.assets[].name')
+          echo "$ASSETS"
+          for f in "Wireon-Setup-$V.exe" "Wireon-Setup-$V.exe.blockmap" latest.yml "Wireon-$V.AppImage" latest-linux.yml "Wireon-$V.apk"; do
+            echo "$ASSETS" | grep -qx "$f" || { echo "::error::В релизе нет $f — не публикую"; exit 1; }
+          done
+          gh release edit "v$V" --repo "$GITHUB_REPOSITORY" --draft=false --latest

@@ -19,6 +19,24 @@ npm run release                 # собирает и публикует
 
 Всё остальное в этом файле — про то, что стоит за этими тремя строками.
 
+## Выпуск без своей машины: GitHub Actions
+
+Если под рукой нет компьютера со всем установленным, релиз собирают серверы GitHub
+(`.github/workflows/release.yml`): установщик Windows, AppImage для Linux и подписанный APK.
+
+1. Один раз — секреты репозитория (Settings → Secrets and variables → Actions):
+   `WIREON_KEYSTORE_BASE64` (ключ подписи Android в base64 — **тот же**, что у прошлых релизов,
+   иначе APK не встанет поверх установленного), `WIREON_STORE_PASSWORD`, `WIREON_KEY_ALIAS`,
+   `WIREON_KEY_PASSWORD`, `VITE_WIREON_SERVER_URL`, `VITE_WIREON_SERVER_TOKEN` и по желанию
+   `VITE_WIREON_MQTT_URL`, `VITE_SPOTIFY_CLIENT_ID`, `VITE_DISCORD_CLIENT_ID` — как в `.env`.
+   Base64 ключа: `base64 -w0 wireon.jks` (Linux/macOS) или
+   `[Convert]::ToBase64String([IO.File]::ReadAllBytes("wireon.jks"))` (PowerShell).
+2. Версия поднята (`npm run release:prepare`) и всё слито в `main`.
+3. Actions → **Release** → Run workflow. Без галочки «publish» получится черновик релиза со всеми
+   файлами — его можно проверить и опубликовать кнопкой на странице релиза; с галочкой workflow
+   опубликует сам, но только если на месте все шесть файлов (exe, blockmap, latest.yml, AppImage,
+   latest-linux.yml, apk).
+
 ## Что нужно один раз
 
 1. **Репозиторий на GitHub, откуда качать.** Он должен быть **публичным**:
