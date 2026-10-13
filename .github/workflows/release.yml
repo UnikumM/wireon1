@@ -73,6 +73,14 @@ jobs:
         shell: bash
     steps:
       - uses: actions/checkout@v4
+      - name: Адрес сервера задан
+        env:
+          SERVER: ${{ secrets.VITE_WIREON_SERVER_URL }}
+          TOKEN: ${{ secrets.VITE_WIREON_SERVER_TOKEN }}
+        run: |
+          # Без адреса сборка проходит, но синхронизация и «слушать вместе» молча не работают
+          # (адрес нужен политике безопасности окна) — так сломались AppImage 2.2.6–2.2.9.
+          [ -n "$SERVER" ] && [ -n "$TOKEN" ] || { echo "::error::Нет секретов VITE_WIREON_SERVER_URL / VITE_WIREON_SERVER_TOKEN — сборка вышла бы без синхронизации."; exit 1; }
       - uses: actions/setup-node@v4
         with:
           node-version: 22
@@ -102,6 +110,14 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - name: Адрес сервера задан
+        env:
+          SERVER: ${{ secrets.VITE_WIREON_SERVER_URL }}
+          TOKEN: ${{ secrets.VITE_WIREON_SERVER_TOKEN }}
+        run: |
+          # Без адреса сборка проходит, но синхронизация и «слушать вместе» молча не работают
+          # (адрес нужен политике безопасности окна) — так сломались AppImage 2.2.6–2.2.9.
+          [ -n "$SERVER" ] && [ -n "$TOKEN" ] || { echo "::error::Нет секретов VITE_WIREON_SERVER_URL / VITE_WIREON_SERVER_TOKEN — сборка вышла бы без синхронизации."; exit 1; }
       - uses: actions/setup-node@v4
         with:
           node-version: 22
