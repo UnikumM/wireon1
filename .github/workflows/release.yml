@@ -164,6 +164,9 @@ jobs:
           distribution: temurin
           java-version: 21
       - uses: android-actions/setup-android@v3
+        with:
+          # по умолчанию ставит пакет `tools`, которого в новых SDK нет — sdkmanager падает
+          packages: "platform-tools"
       - name: .env из секретов
         run: |
           {
