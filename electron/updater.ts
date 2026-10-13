@@ -192,6 +192,29 @@ export interface AppImageOps {
   relaunch(execPath: string): void;
 }
 
+/**
+ * Ключи, одноразовые по смыслу: повторять их при перезапуске нельзя.
+ * Команды плеера (`--next`) переключили бы трек, отладочные — открыли бы порт.
+ */
+const ONE_SHOT_SWITCHES = /^--(next|prev|previous|play-pause|stop|remote-debugging-port|remote-debugging-pipe|inspect|inspect-brk)(=|$)/;
+
+/**
+ * С какими ключами поднять приложение после обновления — с теми же, что сейчас.
+ *
+ * Раньше перезапуск шёл с пустым списком, и это ломало обновление на Linux
+ * целиком. На Ubuntu 24.04+ (и везде, где AppArmor запрещает пространства
+ * имён без прав) AppImage на Electron стартует только с `--no-sandbox`. Человек
+ * запускал так, обновление скачивалось и вставало на место, а новая версия
+ * поднималась без ключа и тут же падала: «нажал перезапустить — приложение
+ * закрылось и не открылось». Теперь ключи запуска переносятся, кроме разовых
+ * и адресов `wireon://`.
+ */
+export function relaunchArgs(argv: ReadonlyArray<string>): string[] {
+  return argv
+    .slice(1)
+    .filter((arg) => typeof arg === 'string' && arg.startsWith('--') && !ONE_SHOT_SWITCHES.test(arg));
+}
+
 const realFileOps: FileOps = {
   copyFile: (from, to) => copyFileSync(from, to),
   rename: (from, to) => renameSync(from, to),
@@ -258,7 +281,7 @@ export class UpdateService {
       files: realFileOps,
       relaunch: (execPath) => {
         // relaunch срабатывает после выхода — единственная копия успевает закрыться.
-        app.relaunch({ execPath, args: [] });
+        app.relaunch({ execPath, args: relaunchArgs(process.argv) });
         app.exit(0);
       }
     };

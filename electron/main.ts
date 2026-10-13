@@ -227,12 +227,22 @@ export function ensureLinuxDesktopEntry(): string | null {
     const dir = path.join(home, '.local', 'share', 'applications');
     const file = path.join(dir, 'wireon.desktop');
 
+    /*
+     * Запущено с `--no-sandbox` — значит, без него здесь не стартует (Ubuntu
+     * 24.04+ и другие системы с запретом AppArmor). Ярлык обязан запускать так
+     * же, иначе из меню приложение не откроется, а после обновления не
+     * поднимется.
+     */
+    const noSandbox =
+      process.argv.includes('--no-sandbox') ||
+      (typeof app.commandLine?.hasSwitch === 'function' && app.commandLine.hasSwitch('no-sandbox'));
+    const execLine = `Exec="${appImage}"${noSandbox ? ' --no-sandbox' : ''} %U`;
     const contents = [
       '[Desktop Entry]',
       'Type=Application',
       'Name=Wireon',
       'Comment=Музыкальный плеер',
-      `Exec="${appImage}" %U`,
+      execLine,
       'Icon=wireon',
       'Terminal=false',
       'Categories=AudioVideo;Audio;Player;',
@@ -243,8 +253,11 @@ export function ensureLinuxDesktopEntry(): string | null {
 
     if (existsSync(file)) {
       const current = readFileSync(file, 'utf-8');
-      // Тот же путь запуска — трогать нечего.
-      if (current.includes(`Exec="${appImage}"`)) return file;
+      // Тот же путь и те же ключи запуска — трогать нечего.
+      if (current.includes(execLine)) return file;
+      // Человек правил ярлык сам и оставил наш путь — не затираем, разве что
+      // добавляем недостающий `--no-sandbox`, без которого ярлык мёртв.
+      if (current.includes(`Exec="${appImage}"`) && (!noSandbox || current.includes('--no-sandbox'))) return file;
     }
 
     mkdirSync(dir, { recursive: true });
