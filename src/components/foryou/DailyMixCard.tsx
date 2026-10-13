@@ -24,7 +24,11 @@ export const DailyMixCard: React.FC<DailyMixCardProps> = ({ mix, index, testIdPr
   const currentTrack = usePlayerStore((s) => s.currentTrack);
 
   const totalSeconds = mix.tracks.reduce((sum, track) => sum + (track.duration || 0), 0);
-  const isPlayingFromMix = Boolean(currentTrack && mix.tracks.some((track) => track.id === currentTrack.id));
+  const isPlaying = usePlayerStore((s) => s.isPlaying);
+  // «Играет» — только когда звук и правда идёт: на паузе подпись врала.
+  const isPlayingFromMix = Boolean(
+    isPlaying && currentTrack && mix.tracks.some((track) => track.id === currentTrack.id)
+  );
 
   const start = () => {
     const first = mix.tracks[0];
