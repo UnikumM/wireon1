@@ -33,6 +33,18 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ReadonlyArray<ChangelogEntry> = [
   {
+    version: '3.1.1',
+    date: '2026-10-15',
+    headline: 'Вход через Discord на телефоне с первого раза',
+    items: [
+      {
+        kind: 'fix',
+        title: 'Вход через Discord на телефоне проходит с первого раза',
+        detail: 'Возвращаясь из Discord, приложение иногда решало, что окно входа закрыли, и следующая попытка падала с «Ответ Discord не совпал с этим запросом входа».'
+      }
+    ]
+  },
+  {
     version: '3.1.0',
     date: '2026-10-15',
     headline: 'Синхронизация и музыка снова работают после переезда сервера',

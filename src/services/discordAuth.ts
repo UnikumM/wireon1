@@ -21,6 +21,9 @@ export const DEFAULT_OAUTH_SCOPES = ['identify', 'email'];
 export const DEFAULT_SESSION_TTL_SECONDS = 604800;
 export const DEFAULT_LOGIN_TIMEOUT_MS = 120000;
 
+/** Сколько ждать адрес возврата после «браузер закрыт»: см. `loginWithDeepLink`. */
+export const DEEP_LINK_CANCEL_GRACE_MS = 1500;
+
 /** Custom protocol used by the packaged desktop app for the OAuth2 redirect. */
 export const DESKTOP_PROTOCOL = 'wireon';
 export const DESKTOP_REDIRECT_URI = `${DESKTOP_PROTOCOL}://auth/callback`;
@@ -1008,8 +1011,11 @@ export class DiscordAuthService {
       let unsubscribe: (() => void) | null = null;
       let unsubscribeCancel: (() => void) | null = null;
 
+      let cancelTimer: ReturnType<typeof setTimeout> | null = null;
+
       const cleanup = () => {
         if (timeoutId) clearTimeout(timeoutId);
+        if (cancelTimer) clearTimeout(cancelTimer);
         if (unsubscribe) {
           unsubscribe();
           unsubscribe = null;
@@ -1026,8 +1032,15 @@ export class DiscordAuthService {
       // необязательная — у десктопного моста её нет.
       if (typeof bridge.onCancelled === 'function') {
         unsubscribeCancel = bridge.onCancelled(() => {
-          cleanup();
-          reject(new AuthError('POPUP_CLOSED', 'Окно входа Discord закрыто.'));
+          // Не сразу. На Android вкладка согласия закрывается и тогда, когда
+          // Discord вернул нас в приложение, и «браузер закрыт» иногда приходит
+          // раньше адреса возврата. Отказ здесь снимал подписку, адрес
+          // доставался следующей попытке входа — и та падала с чужим state.
+          if (cancelTimer) return;
+          cancelTimer = setTimeout(() => {
+            cleanup();
+            reject(new AuthError('POPUP_CLOSED', 'Окно входа Discord закрыто.'));
+          }, DEEP_LINK_CANCEL_GRACE_MS);
         });
       }
 
@@ -1035,6 +1048,10 @@ export class DiscordAuthService {
         if (!isAuthCallbackUrl(callbackUrl)) return;
 
         const result = this.handleCallback(callbackUrl, expectedState);
+        // Чужой state — ответ на прошлую попытку: Capacitor хранит
+        // недоставленный адрес и отдаёт его следующему подписчику. Принять его
+        // нельзя, но и обрывать вход незачем — ждём свой.
+        if (result.code === 'STATE_MISMATCH') return;
         cleanup();
 
         // Поток по коду: Discord вернул не токен, а разрешение его получить.

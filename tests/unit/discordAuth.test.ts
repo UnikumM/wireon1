@@ -575,7 +575,9 @@ describe('Discord OAuth2 Service (src/services/discordAuth.ts)', () => {
       expect(exchange).toHaveBeenCalledTimes(1);
     });
 
-    it('rejects a deep link whose state does not match and writes nothing', async () => {
+    it('ignores a deep link whose state does not match, writes nothing, and waits for its own', async () => {
+      // Capacitor отдаёт недоставленный адрес прошлой попытки следующему
+      // подписчику: принять его нельзя, но и обрывать из-за него вход нельзя.
       const { handlers } = stubBridge();
       vi.stubGlobal('fetch', mockProfileFetch());
       const service = new DiscordAuthService();
@@ -584,9 +586,12 @@ describe('Discord OAuth2 Service (src/services/discordAuth.ts)', () => {
       await Promise.resolve();
 
       handlers.forEach((cb) => cb('wireon://auth/callback#access_token=forged&state=other_state'));
-
-      await expect(pending).rejects.toMatchObject({ code: 'STATE_MISMATCH' });
+      await Promise.resolve();
       expectNoStoredSession();
+
+      handlers.forEach((cb) => cb('wireon://auth/callback#access_token=real&state=deep_state&expires_in=604800'));
+      const session = await pending;
+      expect(session.token).toBe('real');
     });
 
     it('rejects when the system browser cannot be opened', async () => {

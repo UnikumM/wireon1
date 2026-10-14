@@ -156,6 +156,26 @@ describe('Поток входа на телефоне', () => {
     await expect(login).rejects.toThrow(/Окно входа Discord закрыто/);
   });
 
+  it('«браузер закрыт» раньше адреса возврата — вход всё равно проходит', async () => {
+    // Android закрывает вкладку согласия, когда Discord возвращает в
+    // приложение, и это событие бывает первым. Раньше вход тут обрывался, а
+    // адрес возврата доставался следующей попытке — «с пятого раза».
+    const bridge = fakeBridge();
+    const login = service.loginWithDeepLink({ clientId: '123', timeoutMs: 120000 }, bridge);
+    await vi.waitFor(() => expect(bridge.opened).toHaveLength(1));
+    vi.spyOn(globalThis, 'fetch').mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: async () => ({ id: '42', username: 'Слушатель', avatar: null })
+    } as unknown as Response);
+
+    bridge.cancels[0]();
+    bridge.listeners[0](callbackFor(bridge.opened[0]));
+
+    const session = await login;
+    expect(session.token).toBe(TOKEN);
+  });
+
   it('подписки снимаются, чтобы второй вход не поймал чужой ответ', async () => {
     const bridge = fakeBridge();
     const login = service.loginWithDeepLink({ clientId: '123', timeoutMs: 120000 }, bridge);
