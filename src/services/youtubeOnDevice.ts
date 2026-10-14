@@ -14,9 +14,8 @@
  * проверки нет, и ссылка выписывается на него же. Заодно из горячего пути
  * уходит и yt-dlp, и чужой аккаунт, чьи cookies надо обновлять руками.
  *
- * Разбор делает `youtubei.js` — та же работа, что делает браузер, когда
- * открывает страницу с видео. Импорт **динамический**: библиотека большая, а
- * настольной сборке она не нужна вовсе, и в её главный кусок попасть не должна.
+ * Разбор — один запрос /player от имени клиента `visionos` (см. ниже, почему
+ * не `youtubei.js`): готовая ссылка без расшифровки и без PO-токена.
  */
 
 import { getStreamExpiryFromUrl } from './youtube';
@@ -56,8 +55,8 @@ export class OnDeviceError extends Error {
 
 /**
  * Клиент InnerTube. Один на всё время работы: его создание тянет с YouTube
- * файл плеера и разбирает из него функцию расшифровки — секунды работы,
- * которые незачем повторять на каждый трек.
+ * главную ради visitorData — лишний запрос, который незачем повторять на
+ * каждый трек.
  */
 type Innertube = {
   getBasicInfo: (videoId: string, client?: string) => Promise<any>;
@@ -72,17 +71,92 @@ let clientPromise: Promise<Innertube> | null = null;
  */
 type ClientFactory = () => Promise<Innertube>;
 
-let factory: ClientFactory = async () => {
-  const mod: any = await import('youtubei.js');
-  const Innertube = mod.Innertube ?? mod.default?.Innertube ?? mod.default;
-  // `generate_session_locally` — чтобы не ходить за идентификатором сессии на
-  // отдельную ручку: лишний запрос на старте это лишняя причина не заиграть.
-  return Innertube.create({ generate_session_locally: true, retrieve_player: true });
+/**
+ * Клиент `visionos` — тот же, что выбирает yt-dlp на десктопе.
+ *
+ * Замерено 2026-10-14 на 30 треках с домашнего адреса: `youtubei.js` 18 у
+ * клиентов ANDROID/WEB отдаёт только SABR, а у YTMUSIC/IOS — ссылку, которая без
+ * PO-токена обрывается 403 после первого мегабайта (то есть трек играет минуту).
+ * `visionos` отдаёт готовые ссылки (`REQUIRE_JS_PLAYER: False` в yt-dlp), и все
+ * 30 скачались целиком, без токенов и расшифровки. Обязательное условие —
+ * visitorData с главной: без него тот же запрос получает «вы не робот».
+ * Значения — из `yt_dlp/extractor/youtube/_base.py`; сломается — сверить там.
+ */
+const VISIONOS_CLIENT = {
+  clientName: 'VISIONOS',
+  clientVersion: '1.02',
+  deviceMake: 'Apple',
+  deviceModel: 'RealityDevice17,1',
+  userAgent:
+    'Mozilla/5.0 (Macintosh; Intel Mac OS X 15_7_3) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.0 Safari/605.1.15',
+  osName: 'visionOS',
+  osVersion: '26.5.23O471',
+  hl: 'en',
+  gl: 'US'
+};
+const VISIONOS_CLIENT_ID = '101';
+
+/** Ответ /player в той форме, которую разбирает {@link resolveOnDevice}. */
+function toBasicInfo(player: any): any {
+  const formats = (player?.streamingData?.adaptiveFormats || []).map((f: any) => {
+    const mime = String(f?.mimeType || '');
+    return {
+      has_audio: mime.startsWith('audio/'),
+      has_video: mime.startsWith('video/'),
+      bitrate: f?.bitrate,
+      mime_type: mime,
+      url: f?.url
+    };
+  });
+  return {
+    playability_status: {
+      status: player?.playabilityStatus?.status,
+      reason: player?.playabilityStatus?.reason
+    },
+    streaming_data: { adaptive_formats: formats, formats: [] }
+  };
+}
+
+const visionosFactory: ClientFactory = async () => {
+  const page = await fetch('https://www.youtube.com/', {
+    headers: { 'User-Agent': VISIONOS_CLIENT.userAgent, 'Accept-Language': 'en-US,en;q=0.9' }
+  });
+  const visitorData = (await page.text()).match(/"VISITOR_DATA":"([^"]+)"/)?.[1];
+  // Без visitorData YouTube отвечает «вы не робот» на всё: лучше честно упасть
+  // здесь — неудачный старт не запоминается, и следующий трек попробует снова.
+  if (!visitorData) throw new Error('на главной YouTube нет VISITOR_DATA');
+
+  return {
+    session: {},
+    getBasicInfo: async (videoId: string) => {
+      const response = await fetch('https://www.youtube.com/youtubei/v1/player?prettyPrint=false', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'User-Agent': VISIONOS_CLIENT.userAgent,
+          'X-YouTube-Client-Name': VISIONOS_CLIENT_ID,
+          'X-YouTube-Client-Version': VISIONOS_CLIENT.clientVersion,
+          'X-Goog-Visitor-Id': visitorData,
+          Origin: 'https://www.youtube.com'
+        },
+        body: JSON.stringify({
+          context: { client: { ...VISIONOS_CLIENT, visitorData } },
+          videoId,
+          contentCheckOk: true,
+          racyCheckOk: true
+        })
+      });
+      if (!response.ok) throw new Error(`YouTube /player ответил ${response.status}`);
+      return toBasicInfo(await response.json());
+    }
+  };
 };
 
-/** Подменяет создание клиента. Только для тестов. */
+let factory: ClientFactory = visionosFactory;
+
+/** Подменяет создание клиента; `null` возвращает настоящий. Только для тестов. */
 export function setInnertubeFactory(next: ClientFactory | null): void {
-  factory = next ?? factory;
+  factory = next ?? visionosFactory;
   clientPromise = null;
 }
 
@@ -145,7 +219,7 @@ export async function resolveOnDevice(videoId: string): Promise<OnDeviceStream> 
   let info: any;
   try {
     const yt = await client();
-    info = await yt.getBasicInfo(videoId, 'ANDROID');
+    info = await yt.getBasicInfo(videoId);
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
     throw new OnDeviceError('YT_ALL_ATTEMPTS_FAILED', message);
@@ -154,6 +228,12 @@ export async function resolveOnDevice(videoId: string): Promise<OnDeviceStream> 
   const status = String(info?.playability_status?.status || '').toUpperCase();
   if (status && status !== 'OK') {
     const reason = String(info?.playability_status?.reason || status);
+    // «Подтвердите, что вы не робот» — это не возраст: протух visitorData.
+    // Сбрасываем клиента, чтобы следующий трек взял свежий.
+    if (/not a bot/i.test(reason)) {
+      resetInnertube();
+      throw new OnDeviceError('YT_BOT_CHECK', reason);
+    }
     throw new OnDeviceError(STATUS_CODES[status] || 'YT_UNAVAILABLE', reason);
   }
 
@@ -170,7 +250,7 @@ export async function resolveOnDevice(videoId: string): Promise<OnDeviceStream> 
   if (!url && typeof chosen.decipher === 'function') {
     try {
       const yt = await client();
-      url = chosen.decipher(yt.session.player);
+      url = await chosen.decipher(yt.session.player);
     } catch (err) {
       throw new OnDeviceError(
         'YT_ALL_ATTEMPTS_FAILED',

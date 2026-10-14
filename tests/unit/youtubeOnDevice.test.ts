@@ -209,3 +209,56 @@ describe('youtubeOnDevice: отказы говорят кодом', () => {
     expect(err.message).toBe('YT_LIVE: идёт прямой эфир');
   });
 });
+
+describe('youtubeOnDevice: клиент visionos', () => {
+  afterEach(() => setInnertubeFactory(null));
+
+  it('берёт visitorData с главной и разбирает ответ /player', async () => {
+    setInnertubeFactory(null);
+    const calls: Array<{ url: string; init?: RequestInit }> = [];
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (url: string, init?: RequestInit) => {
+        calls.push({ url, init });
+        if (!init?.method) return new Response('<script>ytcfg.set({"VISITOR_DATA":"vis123"})</script>');
+        return new Response(
+          JSON.stringify({
+            playabilityStatus: { status: 'OK' },
+            streamingData: {
+              adaptiveFormats: [
+                { mimeType: 'video/mp4; codecs="avc1"', bitrate: 900000, url: 'v' },
+                { mimeType: 'audio/webm; codecs="opus"', bitrate: 140000, url: URL_WITH_EXPIRY }
+              ]
+            }
+          })
+        );
+      })
+    );
+
+    const got = await resolveOnDevice(VIDEO_ID);
+    expect(got.streamUrl).toBe(URL_WITH_EXPIRY);
+    expect(got.format).toBe('webm');
+    const player = calls.find((c) => c.init?.method === 'POST')!;
+    expect((player.init!.headers as Record<string, string>)['X-Goog-Visitor-Id']).toBe('vis123');
+    expect(JSON.parse(String(player.init!.body)).context.client).toMatchObject({
+      clientName: 'VISIONOS',
+      visitorData: 'vis123'
+    });
+    vi.unstubAllGlobals();
+  });
+
+  it('«вы не робот» — свой код и свежий клиент на следующий трек', async () => {
+    let created = 0;
+    setInnertubeFactory(async () => {
+      created += 1;
+      return {
+        getBasicInfo: async () => stream([], 'LOGIN_REQUIRED', 'Sign in to confirm you’re not a bot'),
+        session: {}
+      };
+    });
+
+    await expect(resolveOnDevice(VIDEO_ID)).rejects.toThrow(/^YT_BOT_CHECK:/);
+    await expect(resolveOnDevice(VIDEO_ID)).rejects.toThrow(/^YT_BOT_CHECK:/);
+    expect(created).toBe(2);
+  });
+});

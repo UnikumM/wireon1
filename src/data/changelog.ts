@@ -33,10 +33,15 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ReadonlyArray<ChangelogEntry> = [
   {
-    version: '3.0.1',
-    date: '2026-10-14',
+    version: '3.1.0',
+    date: '2026-10-15',
     headline: 'Синхронизация и музыка снова работают после переезда сервера',
     items: [
+      {
+        kind: 'fix',
+        title: 'Телефон снова сам достаёт звук с YouTube, если встроенный способ не справился',
+        detail: 'YouTube перестал отдавать прежнему запасному способу ссылки на звук. Теперь он запрашивает их так же, как приложение на ПК, — без сервера и без входа в аккаунт.'
+      },
       {
         kind: 'fix',
         title: 'Синхронизация медиатеки между устройствами снова работает',
@@ -46,10 +51,6 @@ export const CHANGELOG: ReadonlyArray<ChangelogEntry> = [
         kind: 'fix',
         title: 'На телефоне снова ищутся и играют треки с YouTube',
         detail: 'На Android поиск и воспроизведение идут через сервер Wireon, и с 3.0.0 они не могли до него достучаться.'
-      },
-      {
-        kind: 'fix',
-        title: 'Треки, которые YouTube не отдаёт напрямую, на ПК снова играют через сервер'
       },
       {
         kind: 'fix',
