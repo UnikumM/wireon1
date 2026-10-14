@@ -301,6 +301,24 @@ class TestOwnership:
         assert response.status == 503
         assert (await response.json())["error"] == "DISCORD_UNAVAILABLE"
 
+    @pytest.mark.asyncio
+    async def test_a_hiccup_at_discord_is_not_remembered_as_a_refusal(self):
+        # Сбой Discord (429, таймаут) лёг в кэш как отказ, и полминуты каждый
+        # запрос с этим токеном получал 401 «войдите заново» — людей выкидывало.
+        calls = []
+
+        async def flaky(_session, token):
+            calls.append(token)
+            if len(calls) == 1:
+                raise IdentityError("DISCORD_UNAVAILABLE", "Discord ответил 429")
+            return {"id": "id-of-alice"}
+
+        identity = DiscordIdentity(fetch_me=flaky)
+        with pytest.raises(IdentityError) as first:
+            await identity.user_id(None, ALICE)
+        assert first.value.code == "DISCORD_UNAVAILABLE"
+        assert await identity.user_id(None, ALICE) == "id-of-alice"
+
 
 class TestGuards:
     @pytest.mark.asyncio

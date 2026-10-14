@@ -124,9 +124,13 @@ class DiscordIdentity:
             self.stats["asked"] += 1
             try:
                 profile = await self._ask_discord(session, cleaned)
-            except IdentityError:
-                self._cache[key] = (self._now() + self._negative_ttl, None)
-                self.stats["rejected"] += 1
+            except IdentityError as exc:
+                # Запоминаем только настоящий отказ. Сбой Discord (429 на наш
+                # общий адрес, таймаут) в кэше превращался в 401 «войдите
+                # заново» на полминуты — и людей выкидывало из аккаунта.
+                if exc.code != "DISCORD_UNAVAILABLE":
+                    self._cache[key] = (self._now() + self._negative_ttl, None)
+                    self.stats["rejected"] += 1
                 raise
 
             user_id = str(profile.get("id") or "").strip()

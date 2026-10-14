@@ -13,8 +13,7 @@
     <domain-config cleartextTrafficPermitted="true">
         <domain includeSubdomains="true">localhost</domain>
         <domain includeSubdomains="true">10.0.2.2</domain>
+        <!-- Сюда входит и сервер музыки и синхронизации: music.wireon.pro (http и ws на 25545). -->
         <domain includeSubdomains="true">wireon.pro</domain>
-        <!-- Сервер музыки и синхронизации (http и ws на 25545). -->
-        <domain includeSubdomains="false">217.60.240.107</domain>
     </domain-config>
 </network-security-config>
