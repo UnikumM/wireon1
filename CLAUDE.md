@@ -15,6 +15,7 @@
 - `server/` — Python-сервер музыки (`wireon_music/`), тесты `server/tests`, деплой `server/deploy.ps1`.
 - `tests/unit` — vitest; `scripts/` — сборка, проверки, `release-prepare.mjs`.
 - Подробности: `RELEASE.md` (выпуск), `DESIGN_SYSTEM.md` (вид), `.env.example` (переменные).
+- Идеи на потом (разборы конкурентов и планы): `docs/ideas/`.
 
 ## Проверки — запускай точечно, чтобы не жечь лимиты
 
