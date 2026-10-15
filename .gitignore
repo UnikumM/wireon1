@@ -17,3 +17,4 @@ server/yt-dlp-tmp/
 server/.pytest_cache/
 __pycache__/
 *.pyc
+server/wireon_telemetry.db*

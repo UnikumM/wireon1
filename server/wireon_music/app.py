@@ -46,6 +46,7 @@ from . import proxy
 from .broker import Broker, ConnectionHandler
 from .identity import DiscordIdentity, IdentityError
 from .sync import KIND_FAVORITE, KIND_PLAYLIST, SyncError, SyncStore, sanitize_records
+from .telemetry import TelemetryError, TelemetryStore, sanitize_report
 from .resolver import (
     ResolveError,
     StreamResolver,
@@ -418,6 +419,18 @@ async def handle_sync_wait(request: web.Request) -> web.Response:
     return web.json_response({"revision": revision, "changed": revision != since})
 
 
+async def handle_telemetry(request: web.Request) -> web.Response:
+    """Статистика и ошибки от приложения. Адрес отправителя не сохраняется."""
+    try:
+        report = sanitize_report(await request.json())
+    except TelemetryError as exc:
+        return web.json_response({"error": exc.code, "detail": exc.detail}, status=400)
+    except Exception:  # noqa: BLE001
+        return web.json_response({"error": "TELEMETRY_BAD_BODY", "detail": "тело не JSON"}, status=400)
+    accepted = await request.app["telemetry"].record(report)
+    return web.json_response({"accepted": accepted})
+
+
 async def handle_sync_push(request: web.Request) -> web.Response:
     """
     Приём записей. В ответе — сколько **приняли**, а не сколько получили:
@@ -600,6 +613,9 @@ async def _on_cleanup(app: web.Application) -> None:
     store = app.get("sync")
     if store is not None:
         store.close()
+    telemetry = app.get("telemetry")
+    if telemetry is not None:
+        telemetry.close()
 
 
 def create_app(token: Optional[str] = None, *, resolver: Optional[StreamResolver] = None) -> web.Application:
@@ -623,6 +639,7 @@ def create_app(token: Optional[str] = None, *, resolver: Optional[StreamResolver
     app["resolver"] = resolver if resolver is not None else StreamResolver()
     app["identity"] = DiscordIdentity()
     app["sync"] = SyncStore()
+    app["telemetry"] = TelemetryStore()
     app["proxy_gate"] = asyncio.Semaphore(proxy.MAX_CONCURRENT_STREAMS)
     app["proxy_stats"] = proxy.new_stats()
     app["started_at"] = time.monotonic()
@@ -640,6 +657,7 @@ def create_app(token: Optional[str] = None, *, resolver: Optional[StreamResolver
     app.router.add_post("/v1/sync", handle_sync_push)
     app.router.add_delete("/v1/sync/{kind:playlists|favorites}/{id}", handle_sync_delete)
     app.router.add_get("/mqtt", handle_mqtt)
+    app.router.add_post("/v1/telemetry", handle_telemetry)
     # Предзапрос приходит на тот же адрес, что и настоящий запрос, а маршрута
     # с методом `OPTIONS` у нас нет — без этой строки aiohttp отвечал бы `405`
     # раньше, чем до дела дошла бы прослойка.

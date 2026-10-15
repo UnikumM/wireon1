@@ -10,6 +10,7 @@ import {
   readResolveLog,
   type ResolveLogEntry
 } from '../../services/resolveLog';
+import { TelemetryToggle } from './TelemetryToggle';
 import { ICON } from '../../styles/icons';
 
 /**
@@ -44,6 +45,7 @@ export const ResolveLogSettings: React.FC = () => {
       title="Открытие треков"
       description="Последние попытки: какой источник ответил, сколько это заняло и почему не вышло. Если что-то не играет — скопируйте журнал и перешлите."
     >
+      <TelemetryToggle />
       <p style={{ margin: 0, fontSize: 'var(--text-sm)', color: 'var(--text-secondary)' }} data-testid="resolve-log-summary">
         {entries.length === 0
           ? 'Пока пусто: журнал заполнится, когда включите что-нибудь.'

@@ -545,11 +545,30 @@ describe('nativeBridge: yt-dlp на самом устройстве', () => {
     vi.restoreAllMocks();
   });
 
-  it('удача yt-dlp — ни `youtubei.js`, ни сервер не спрашиваются', async () => {
-    // Ради этого всё и делалось: домашний адрес вместо адреса дата-центра, где
-    // YouTube требует доказать, что мы не робот.
-    withYtDlp(async () => ({ streamUrl: YTDLP_URL, format: 'm4a', bitrate: 129, expiresAt: 1 }));
+  /** Быстрая ступень, которая ничего не отдала. */
+  function innertubeFails(): void {
+    setInnertubeFactory(async () => {
+      throw new Error('нет сети до YouTube');
+    });
+  }
+
+  it('удача быстрой ступени — ни yt-dlp, ни сервер не спрашиваются', async () => {
+    // Ради этого порядок и поменян: 0,3 с вместо Python на каждый трек.
+    const ytDlp = withYtDlp(async () => ({ streamUrl: YTDLP_URL, format: 'm4a', bitrate: 129, expiresAt: 1 }));
     innertubeSucceeds();
+    const fetchSpy = vi.fn(async () => okResponse({}));
+    const bridge = createServerBridge(CONFIG, fetchSpy as unknown as typeof fetch);
+
+    const resolved = (await bridge.resolveYouTubeStream!(VIDEO_ID)) as { streamUrl: string };
+
+    expect(resolved.streamUrl).toBe(INNERTUBE_URL);
+    expect(ytDlp).not.toHaveBeenCalled();
+    expect(fetchSpy).not.toHaveBeenCalled();
+  });
+
+  it('после отказа быстрой ступени очередь доходит до yt-dlp', async () => {
+    withYtDlp(async () => ({ streamUrl: YTDLP_URL, format: 'm4a', bitrate: 129, expiresAt: 1 }));
+    innertubeFails();
     const fetchSpy = vi.fn(async () => okResponse({}));
     const bridge = createServerBridge(CONFIG, fetchSpy as unknown as typeof fetch);
 
@@ -559,40 +578,39 @@ describe('nativeBridge: yt-dlp на самом устройстве', () => {
     expect(fetchSpy).not.toHaveBeenCalled();
   });
 
-  it('после отказа yt-dlp очередь доходит до `youtubei.js`', async () => {
-    withYtDlp(async () => {
-      throw new Error('YT_ALL_ATTEMPTS_FAILED: yt-dlp не отдал ссылку');
-    });
+  it('плеер отверг ссылку — повтор сразу через yt-dlp, а не тот же ответ', async () => {
+    const ytDlp = withYtDlp(async () => ({ streamUrl: YTDLP_URL, format: 'm4a', bitrate: 129, expiresAt: 1 }));
     innertubeSucceeds();
-    const fetchSpy = vi.fn(async () => okResponse({}));
-    const bridge = createServerBridge(CONFIG, fetchSpy as unknown as typeof fetch);
+    const bridge = createServerBridge(CONFIG, vi.fn(async () => okResponse({})) as unknown as typeof fetch);
 
-    const resolved = (await bridge.resolveYouTubeStream!(VIDEO_ID)) as { streamUrl: string };
+    const resolved = (await bridge.resolveYouTubeStream!(VIDEO_ID, 'user', INNERTUBE_URL)) as { streamUrl: string };
 
-    expect(resolved.streamUrl).toBe(INNERTUBE_URL);
-    expect(fetchSpy).not.toHaveBeenCalled();
+    expect(resolved.streamUrl).toBe(YTDLP_URL);
+    expect(ytDlp).toHaveBeenCalledTimes(1);
   });
 
   it('«видео удалено» останавливает лестницу на первой же ступени', async () => {
-    // Этот ответ одинаков и у телефона, и у сервера. Продолжать — значит
+    // Этот ответ одинаков у любой ступени и у сервера. Продолжать — значит
     // добавить полминуты ожидания к тому же самому «его нет».
-    const ytDlp = withYtDlp(async () => {
-      throw new Error('YT_UNAVAILABLE: видео удалено или недоступно');
-    });
-    innertubeSucceeds();
+    const ytDlp = withYtDlp(async () => ({ streamUrl: YTDLP_URL, format: 'm4a', bitrate: 129, expiresAt: 1 }));
+    setInnertubeFactory(async () => ({
+      getBasicInfo: async () => ({ playability_status: { status: 'UNPLAYABLE', reason: 'Video unavailable' } }),
+      session: {}
+    }));
     const fetchSpy = vi.fn(async () => okResponse({}));
     const bridge = createServerBridge(CONFIG, fetchSpy as unknown as typeof fetch);
 
     await expect(bridge.resolveYouTubeStream!(VIDEO_ID)).rejects.toMatchObject({
       code: 'YT_UNAVAILABLE'
     });
-    expect(ytDlp).toHaveBeenCalledTimes(1);
+    expect(ytDlp).not.toHaveBeenCalled();
     expect(fetchSpy).not.toHaveBeenCalled();
   });
 
   it('телефон без адреса сервера играет через yt-dlp', async () => {
     // Сервер нужен радио и поиску; звук телефон добывает сам, и это ровно то,
     // ради чего ступень появилась.
+    innertubeFails();
     withYtDlp(async () => ({ streamUrl: YTDLP_URL, format: 'm4a', bitrate: 129, expiresAt: 1 }));
     resetStreamBridge();
 

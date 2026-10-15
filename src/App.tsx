@@ -95,6 +95,10 @@ export const App: React.FC = () => {
      */
     void import('./services/ytDlpOnDevice').then(({ maybeUpdateYtDlp }) => maybeUpdateYtDlp());
 
+    // Статистика и ошибки на наш сервер — см. шапку telemetry.ts; выключается в
+    // настройках диагностики.
+    void import('./services/telemetry').then(({ startTelemetry }) => startTelemetry());
+
     /*
      * Просим систему не вычищать хранилище страницы — на запуске, а не только
      * при первом сохранении в офлайн: тот, кто ни разу ничего не скачивал, не

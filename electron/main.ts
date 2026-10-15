@@ -7,6 +7,7 @@ import { fileURLToPath } from 'url';
 import youtubedl, { create } from 'youtube-dl-exec';
 import discordRpc, { DiscordRpcClient, DiscordActivityPayload } from './discordRpc.js';
 import { StreamResolver, normalizeCookieBrowser } from './streamResolver.js';
+import { resolveVisionos } from './visionosDirect.js';
 import { AudioTranscoder, normalizeBitrate } from './transcoder.js';
 import { YtDlpManager } from './ytdlp.js';
 import { ensureWorkerPlugin, YtDlpWorkerPool, type YtDlpRunResult } from './ytdlpWorker.js';
@@ -691,6 +692,7 @@ export function getStreamResolver(): StreamResolver {
     streamResolver = new StreamResolver({
       // Через обёртку, а не напрямую: путь к бинарнику может поменяться на ходу.
       ytdl: (url, flags) => getYtdl()(url, flags),
+      direct: (videoId) => resolveVisionos(videoId),
       stateDir,
     });
   }
@@ -1406,8 +1408,18 @@ export function setupIpcHandlers(
   ipc.handle('get-stream-diagnostics', async () => {
     const ytdlp = getYtDlpManager().describe();
     const resolver = getStreamResolver();
+    // Плеер (Chromium) уважает системный прокси, а yt-dlp и проверка ссылки идут
+    // напрямую. Ссылка YouTube привязана к адресу, поэтому при прокси она
+    // выдаётся одному адресу, а открывается с другого — и отвечает 403.
+    let mediaProxy: string | null = null;
+    try {
+      mediaProxy = await session.defaultSession.resolveProxy('https://rr1---sn-x.googlevideo.com/videoplayback');
+    } catch {
+      mediaProxy = null;
+    }
     return {
       log: resolver.readLog(150),
+      mediaProxy,
       ytDlpPath: ytdlp.path,
       ytDlpAvailable: existsSync(ytdlp.path),
       ytDlpSource: ytdlp.source,

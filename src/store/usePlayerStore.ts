@@ -9,6 +9,7 @@ import { MediaSessionService } from '../services/mediaSession';
 import { streamResolver } from '../services/streamResolver';
 import { describePlaybackError } from '../services/playbackErrors';
 import { recordResolve } from '../services/resolveLog';
+import { trackResolve } from '../services/telemetry';
 import { searchAggregator } from '../services/aggregator';
 import { recommendationEngine, deriveWaveMood, clampAxis } from '../services/recommendationEngine';
 import { offlineMode } from '../services/offlineMode';
@@ -2258,6 +2259,16 @@ if (typeof window !== 'undefined') {
     usePlayerStore.setState(errorPatch(err, track?.source));
     // Ссылка получена, а звук не пошёл (HLS не открылся, раздача ответила
     // отказом) — в журнал телефона, рядом с попытками получить ссылку.
+    if (track) {
+      trackResolve({
+        kind: 'playback',
+        ok: false,
+        source: track.source,
+        ms: 0,
+        detail: `PLAYBACK_FAILED: ${err instanceof Error ? err.message : String(err)}`,
+        videoId: track.id
+      });
+    }
     if (track && detectPlatform() === 'mobile') {
       recordResolve({
         source: track.source,

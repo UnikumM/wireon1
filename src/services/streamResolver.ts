@@ -6,6 +6,7 @@ import { db, getSetting, setSetting } from './db';
 import { findLink, forgetLink, rememberLink } from './matchLinks';
 import { detectPlatform } from './nativeBridge';
 import { recordResolve } from './resolveLog';
+import { trackResolve } from './telemetry';
 import { objectUrlFor, trackFileUrl } from './offlineFiles';
 import { needsLocalSource } from './audioProcessing';
 import { cachePathFromUrl, cachedStreamExists, cacheStreamToFile, deleteCachedStream } from './streamCache';
@@ -380,6 +381,9 @@ export class StreamResolver {
    * ведёт главный процесс.
    */
   private logAttempt(track: UnifiedTrack, priority: ResolvePriority, startedAt: number, ok: boolean, detail: string): void {
+    // Статистика — со всех платформ: на ПК подробный журнал ведёт главный
+    // процесс, но до нас он доходит только файлом от человека.
+    trackResolve({ ok, source: track.source, ms: Date.now() - startedAt, detail, videoId: track.id });
     if (detectPlatform() !== 'mobile') return;
     try {
       recordResolve({

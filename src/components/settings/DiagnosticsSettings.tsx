@@ -5,6 +5,7 @@ import { SettingsSection, SettingRow, InfoRow } from './SettingsPrimitives';
 import { useUIStore } from '../../store/useUIStore';
 import { StreamDiagnostics } from '../../types/electron';
 import { COOKIE_BROWSER_OPTIONS, youtubeCookiesService } from '../../services/youtubeCookies';
+import { TelemetryToggle } from './TelemetryToggle';
 import { ICON } from '../../styles/icons';
 
 /** Only the desktop build resolves streams itself, so only it has a log. */
@@ -138,6 +139,11 @@ export const DiagnosticsSettings: React.FC = () => {
       `версия: ${diagnostics.ytDlpVersion ?? 'из установщика'}`,
       `cookies: ${diagnostics.cookiesBrowser ?? 'не используются'}`,
       `проверка «вы не робот»: ${diagnostics.botCheckSeen ? 'была в этом запуске' : 'не встречалась'}`,
+      `плеер ходит к YouTube: ${diagnostics.mediaProxy ?? 'неизвестно'}${
+        diagnostics.mediaProxy && diagnostics.mediaProxy !== 'DIRECT'
+          ? ' — через прокси, а yt-dlp напрямую: ссылки могут отвечать 403'
+          : ''
+      }`,
       `журнал: ${diagnostics.logPath ?? '—'}`,
       '',
       ...diagnostics.log
@@ -174,6 +180,7 @@ export const DiagnosticsSettings: React.FC = () => {
       title="Диагностика воспроизведения"
       description="Здесь видно, почему трек не заиграл. Wireon Sounds перебирает пять конфигураций клиента YouTube и проверяет ссылку до начала воспроизведения — каждая попытка попадает в журнал."
     >
+      <TelemetryToggle />
       <InfoRow
         label="Извлекатель yt-dlp"
         description={extractorNote}

@@ -54,6 +54,8 @@ export interface StreamDiagnostics {
   cookiesBrowser?: string | null;
   /** В этом запуске уже натыкались на проверку «подтвердите, что вы не робот». */
   botCheckSeen?: boolean;
+  /** Как плеер ходит к googlevideo: `DIRECT` или `PROXY host:port`. */
+  mediaProxy?: string | null;
   logPath: string | null;
   /**
    * Как управлять плеером из системного сочетания: `<command> --next`.

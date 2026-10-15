@@ -233,36 +233,40 @@ function onDeviceResolve(): StreamBridge {
 }
 
 /**
- * Две попытки самого устройства: сначала yt-dlp, потом `youtubei.js`.
+ * Две попытки самого устройства: сначала один запрос `visionos`, потом yt-dlp.
  *
- * Порядок именно такой, и он не про скорость. `youtubei.js` отвечает за
- * секунду-две, но замерено 2026-08-28: ни один его клиент не отдаёт ни прямой
- * ссылки, ни манифеста — только SABR, который `<audio src>` не играет. То есть
- * быстрая ступень сегодня отказывает **всегда**, и поставить её первой значит
- * добавлять эти две секунды к каждому треку впустую.
+ * Порядок поменян 2026-10-15, как и было задумано, «когда быстрая ступень
+ * научится». `youtubeOnDevice.ts` теперь отдаёт готовую ссылку за ~0,3 с (30/30
+ * треков, см. его шапку), а yt-dlp поднимает Python: в журнале владельца 19–57 с
+ * до звука на каждом треке.
  *
- * yt-dlp медленнее — он поднимает настоящий Python, — зато прямую ссылку
- * получает. Вторая ступень оставлена не как запас надёжности, а на случай,
- * когда `youtubei.js` научится тому же: тогда порядок надо будет поменять
- * обратно, и менять придётся одну строку.
+ * yt-dlp остаётся запасным — и идёт первым, когда плеер уже отверг ссылку
+ * (`rejectUrl`): если быструю ступень YouTube не пустил к звуку, второй такой же
+ * ответ не заиграет и подавно.
  */
 async function resolveHere(
   videoId: string,
   priority: 'user' | 'prefetch' = 'user',
   rejectUrl?: string
 ): Promise<unknown> {
-  const { isYtDlpAvailable, resolveWithYtDlp } = await import('./ytDlpOnDevice');
-
-  if (await isYtDlpAvailable()) {
+  let fastError: unknown = null;
+  if (!rejectUrl) {
     try {
-      return await resolveWithYtDlp(videoId, { priority, rejectUrl });
+      const { resolveOnDevice } = await import('./youtubeOnDevice');
+      return await resolveOnDevice(videoId);
     } catch (error) {
       // «Видео нет» и «оно приватное» одинаковы для любой ступени: вторая
       // попытка здесь только добавит ожидания к тому же ответу.
       if (HOPELESS_CODES.has(codeOf(error))) throw error;
+      fastError = error;
     }
   }
 
+  const { isYtDlpAvailable, resolveWithYtDlp } = await import('./ytDlpOnDevice');
+  if (await isYtDlpAvailable()) {
+    return resolveWithYtDlp(videoId, { priority, rejectUrl });
+  }
+  if (fastError) throw fastError;
   const { resolveOnDevice } = await import('./youtubeOnDevice');
   return resolveOnDevice(videoId);
 }

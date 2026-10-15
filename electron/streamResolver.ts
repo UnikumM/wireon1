@@ -56,6 +56,11 @@ export interface StreamResolverDeps {
    * `null` — не использовать; см. {@link buildAttempts}.
    */
   cookiesFromBrowser?: string | null;
+  /**
+   * Быстрая ступень до yt-dlp: ответ в форме yt-dlp за один HTTP-запрос
+   * (`visionosDirect.ts`). Не задана — лестница начинается сразу с yt-dlp.
+   */
+  direct?: ((videoId: string) => Promise<unknown>) | null;
 }
 
 /** yt-dlp flags shared by every attempt. */
@@ -380,6 +385,7 @@ class PriorityGate {
 
 export class StreamResolver {
   private readonly ytdl: StreamResolverDeps['ytdl'];
+  private readonly direct: StreamResolverDeps['direct'];
   private readonly fetchImpl: typeof fetch;
   private readonly now: () => number;
   private readonly gate: PriorityGate;
@@ -403,6 +409,7 @@ export class StreamResolver {
 
   constructor(deps: StreamResolverDeps) {
     this.ytdl = deps.ytdl;
+    this.direct = deps.direct ?? null;
     this.fetchImpl = deps.fetchImpl || ((globalThis as { fetch?: typeof fetch }).fetch as typeof fetch);
     this.now = deps.now || (() => Date.now());
     const background = Math.max(1, deps.maxConcurrent ?? 2);
@@ -484,9 +491,17 @@ export class StreamResolver {
     const startedAt = this.now();
     let sawBotCheck = false;
 
+    const steps: Array<{ label: string; run: () => Promise<unknown> }> = [];
+    const direct = this.direct;
+    if (direct) steps.push({ label: 'visionos-direct', run: () => direct(videoId) });
     for (const { label, flags } of buildAttempts(this.cookiesFromBrowser, this.botCheckSeen)) {
+      steps.push({ label, run: () => this.ytdl(url, { ...BASE_FLAGS, ...flags }) });
+    }
+
+    for (const { label, run } of steps) {
+      const stepStartedAt = this.now();
       try {
-        const info = await this.ytdl(url, { ...BASE_FLAGS, ...flags });
+        const info = await run();
         const picked = pickAudioFormat(info);
         if (!picked || !picked.format.url) {
           failures.push(`${label}: no audio format in response`);
@@ -500,7 +515,9 @@ export class StreamResolver {
           const probe = await this.verifyStreamUrl(streamUrl);
           if (!probe.ok) {
             failures.push(`${label}: URL rejected on playback (${probe.reason})`);
-            this.log(`attempt ${label} for ${videoId} resolved but failed probe: ${probe.reason}`);
+            this.log(
+              `attempt ${label} for ${videoId} resolved but failed probe: ${probe.reason} (${this.now() - stepStartedAt}ms)`
+            );
             continue;
           }
         }
@@ -521,6 +538,7 @@ export class StreamResolver {
       } catch (err) {
         const message = err instanceof Error ? err.message : String(err);
         failures.push(`${label}: ${message}`);
+        this.log(`attempt ${label} for ${videoId} failed in ${this.now() - stepStartedAt}ms: ${message.slice(0, 200)}`);
 
         if (BOT_CHECK_PATTERN.test(message)) {
           sawBotCheck = true;
