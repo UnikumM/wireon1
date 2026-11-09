@@ -4490,3 +4490,81 @@ h2 {
   /* Белый с прозрачностью, как буква заглушки обложки: на затемнении токен текста темы не читается. */
   color: rgb(255 255 255 / 0.9);
 }
+
+/* ---------------------------------------------------------------------------
+ * Превью по наведению: кольцо прогресса и динамик поверх обложки
+ * (`TrackPreviewRing`). Не ловит указатель — иначе уход курсора с обложки
+ * терялся бы в самом кольце и превью не останавливалось.
+ * ------------------------------------------------------------------------- */
+.preview-ring {
+  position: absolute;
+  inset: 0;
+  z-index: var(--z-raised);
+  display: grid;
+  place-items: center;
+  pointer-events: none;
+  background: var(--scrim);
+  animation: fadeIn var(--dur-fast) var(--ease-out);
+}
+
+.preview-ring-svg {
+  grid-area: 1 / 1;
+  width: 70%;
+  height: 70%;
+  max-width: 64px;
+  max-height: 64px;
+  transform: rotate(-90deg);
+}
+
+.preview-ring-track,
+.preview-ring-bar {
+  fill: none;
+  stroke-width: 2.5;
+  stroke-linecap: round;
+}
+
+.preview-ring-track {
+  stroke: rgb(255 255 255 / 0.25);
+}
+
+.preview-ring-bar {
+  stroke: var(--accent);
+  /* Прогресс приходит десять раз в секунду; переход сглаживает шаги в движение. */
+  transition: stroke-dashoffset var(--dur-fast) linear;
+}
+
+.preview-ring-icon {
+  grid-area: 1 / 1;
+  /* Белый с прозрачностью, как у кнопки на затемнении: токен текста темы на скриме не читается. */
+  color: rgb(255 255 255 / 0.92);
+}
+
+/* «Продолжить здесь»: что играет на другом устройстве (фича 27). */
+.handoff-banner {
+  padding: var(--space-3) var(--space-4);
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--border-accent);
+  background: var(--accent-soft);
+}
+
+.handoff-banner-icon {
+  width: var(--control-lg);
+  height: var(--control-lg);
+  border-radius: var(--radius-sm);
+  background: var(--surface-2);
+  color: var(--accent);
+}
+
+.handoff-banner-close {
+  width: var(--control-md);
+  height: var(--control-md);
+  border-radius: var(--radius-full);
+  color: var(--text-muted);
+  cursor: pointer;
+}
+
+@container app-content (max-width: 560px) {
+  .handoff-banner {
+    flex-wrap: wrap;
+  }
+}

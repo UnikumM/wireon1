@@ -10,7 +10,7 @@ import { normalizeArtist } from '../../services/recommendationEngine';
 import { ICON } from '../../styles/icons';
 import type { UnifiedTrack } from '../../types/music';
 import { HomeLayout } from '../home/HomeLayout';
-import { ResumeCard, WaveCard } from '../home/HeroCards';
+import { HandoffBanner, ResumeCard, WaveCard } from '../home/HeroCards';
 
 /**
  * Главная — то, что человек видит, открыв приложение.
@@ -160,6 +160,7 @@ export const MobileHomeView: React.FC = () => {
 
       {/* --- Герой: то, на чём остановились — общая карточка с ПК --------- */}
       <section className="stack gap-3" data-testid="mobile-home-hero" data-home-block="hero">
+        <HandoffBanner />
         <ResumeCard
           track={heroTrack}
           kicker={heroKicker}

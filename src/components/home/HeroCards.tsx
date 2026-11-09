@@ -1,5 +1,7 @@
 import React from 'react';
-import { Music2, Play, Radio } from 'lucide-react';
+import { Music2, Play, Radio, Smartphone, Monitor, Globe, X } from 'lucide-react';
+import { useHandoffStore, remotePosition } from '../../store/useHandoffStore';
+import { formatDuration } from '../../utils/time';
 import { ICON } from '../../styles/icons';
 import type { UnifiedTrack } from '../../types/music';
 
@@ -123,6 +125,57 @@ export const ResumeCard: React.FC<ResumeCardProps> = ({ track, kicker, subtitle,
           <Radio size={ICON.sm} aria-hidden="true" />
         </button>
       </div>
+    </div>
+  );
+};
+
+const PLATFORM_LABEL = { mobile: 'телефона', electron: 'компьютера', browser: 'браузера' } as const;
+const PLATFORM_ICON = { mobile: Smartphone, electron: Monitor, browser: Globe } as const;
+
+/**
+ * «Продолжить здесь» — то, что играет сейчас на другом устройстве человека.
+ *
+ * Плашка над героем, а не тост: решение не срочное, человек может и не
+ * продолжать. Исчезает, когда там остановились, когда продолжили отсюда или
+ * когда отмахнулись. Позиция досчитывается по часам, пока там играет.
+ */
+export const HandoffBanner: React.FC = () => {
+  const remote = useHandoffStore((s) => s.remote);
+  const takeOver = useHandoffStore((s) => s.takeOver);
+  const dismiss = useHandoffStore((s) => s.dismiss);
+  const [now, setNow] = React.useState(() => Date.now());
+
+  React.useEffect(() => {
+    if (!remote?.playing) return;
+    const id = window.setInterval(() => setNow(Date.now()), 1000);
+    return () => window.clearInterval(id);
+  }, [remote?.playing, remote?.at]);
+
+  if (!remote) return null;
+  const Icon = PLATFORM_ICON[remote.platform];
+  const position = remotePosition(remote, now);
+
+  return (
+    <div className="handoff-banner row gap-3" role="status" data-testid="handoff-banner">
+      <span className="handoff-banner-icon row justify-center shrink-0" aria-hidden="true">
+        <Icon size={ICON.md} />
+      </span>
+      <span className="stack grow min-0 gap-px">
+        <span className="type-sm text-secondary">
+          {remote.playing ? 'Сейчас играет' : 'На паузе'} с {PLATFORM_LABEL[remote.platform]}
+        </span>
+        <span className="type-base weight-semibold text-primary text-truncate">
+          {remote.track.title}
+          <span className="text-muted weight-normal"> — {remote.track.artist} · {formatDuration(position)}</span>
+        </span>
+      </span>
+      <button type="button" className="focus-ring press home-btn home-btn-primary shrink-0" onClick={() => void takeOver()} data-testid="handoff-take-over">
+        <Play size={ICON.sm} fill="currentColor" aria-hidden="true" />
+        Продолжить здесь
+      </button>
+      <button type="button" className="focus-ring press handoff-banner-close row justify-center shrink-0" onClick={dismiss} aria-label="Скрыть" data-testid="handoff-dismiss">
+        <X size={ICON.sm} aria-hidden="true" />
+      </button>
     </div>
   );
 };

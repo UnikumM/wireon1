@@ -38,6 +38,7 @@ import { useAppLayoutStore } from './store/useAppLayoutStore';
 import { cloudSyncEngine } from './services/cloudSync';
 import { onBackgroundAudioCommand, stopBackgroundAudio } from './services/backgroundAudio';
 import { migrateLegacyDatabase } from './services/db';
+import { startOfflineAutoDownload } from './services/offlineAutoDownload';
 import { streamResolver } from './services/streamResolver';
 import { youtubeCookiesService } from './services/youtubeCookies';
 
@@ -97,6 +98,8 @@ export const App: React.FC = () => {
     // Статистика и ошибки на наш сервер — см. шапку telemetry.ts; выключается в
     // настройках диагностики.
     void import('./services/telemetry').then(({ startTelemetry }) => startTelemetry());
+    // «Продолжить на другом устройстве»: публикуем, что играет здесь (фича 27).
+    void import('./services/handoff').then(({ startHandoffPublisher }) => startHandoffPublisher());
 
     /*
      * Просим систему не вычищать хранилище страницы — на запуске, а не только
@@ -113,6 +116,10 @@ export const App: React.FC = () => {
     void import('./services/offlineFiles').then(({ requestPersistentStorage }) =>
       requestPersistentStorage()
     );
+
+    // Офлайн 2.0: избранное докачивается само — с отсрочкой, чтобы не мешать
+    // старту плеера; подробности и настройки в offlineAutoDownload.ts.
+    const stopOfflineAutoDownload = startOfflineAutoDownload();
 
     useAuthStore
       .getState()
@@ -146,6 +153,7 @@ export const App: React.FC = () => {
     return () => {
       cloudSyncEngine.stopPeriodicSync();
       unsubscribeBackground();
+      stopOfflineAutoDownload();
       // Уведомление снимается вместе с приложением: оставленное, оно обещает
       // пульт, за которым уже никого нет.
       // Без отсрочки: приложение уходит, ждать возвращения уже некому.

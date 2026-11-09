@@ -15,6 +15,7 @@ import {
   startLibrarySignal,
   stopLibrarySignal
 } from '../services/librarySignal';
+import { useHandoffStore } from './useHandoffStore';
 
 /** Текст, который видит пользователь, когда сессия Discord перестала быть годной. */
 export const SESSION_EXPIRED_MESSAGE =
@@ -292,7 +293,12 @@ function attachRemote(): void {
   const userId = cloudSyncEngine.getUserId();
   let stopWaitLoop: (() => void) | null = null;
   if (userId) {
-    void startLibrarySignal({ userId, onNudge: syncOnNudge }).then((connected) => {
+    void startLibrarySignal({
+      userId,
+      onNudge: syncOnNudge,
+      // «Продолжить на другом устройстве»: что играет там — в свой стор.
+      onRemotePlaying: (remote) => useHandoffStore.getState().setRemote(remote)
+    }).then((connected) => {
       if (connected) {
         syncChannel = 'instant';
         return;

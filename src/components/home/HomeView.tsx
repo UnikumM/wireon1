@@ -10,7 +10,7 @@ import { DiscoverShelf, getCharts, getNewReleases } from '../../services/discove
 import { CoverCard } from '../common/CoverCard';
 import { formatDuration } from '../../utils/time';
 import { HomeLayout } from './HomeLayout';
-import { ResumeCard, WaveCard } from './HeroCards';
+import { HandoffBanner, ResumeCard, WaveCard } from './HeroCards';
 import { HomeBlockId } from '../../store/useAppLayoutStore';
 import { useAutoMixes } from '../../hooks/useAutoMixes';
 
@@ -169,6 +169,7 @@ export const HomeView: React.FC = () => {
   return (
     <HomeLayout platform="desktop" testId="home-view">
       {/* --- Герой: Волна и «продолжить» ---------------------------------- */}
+      <HandoffBanner />
       <section data-home-block="hero" className="home-hero" data-testid="home-hero">
         <WaveCard
           favorites={favorites.length}

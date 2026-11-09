@@ -29,9 +29,23 @@
 import { MqttClient, WebSocketLike } from './mqttClient';
 import { resolveBrokerEndpoints } from './groupListenService';
 import { detectPlatform } from './nativeBridge';
+import type { UnifiedTrack } from '../types/music';
 
 /** Тема выводится из личности, поэтому имя в открытом виде туда не уходит. */
 const TOPIC_PREFIX = 'wireon/lib/';
+/**
+ * Соседняя тема — «что играет сейчас» (4.0, «продолжить на другом устройстве»).
+ *
+ * Отдельно от звонка о медиатеке нарочно: тот по замыслу не несёт ни байта
+ * содержимого, и тест это охраняет. Здесь содержимое есть — название и обложка
+ * играющего трека, то есть сведения из открытого каталога о собственном
+ * прослушивании, на своём брокере, в теме, выведенной из хеша личности.
+ * Сообщение удерживается брокером (retain): устройство, включённое позже,
+ * сразу узнаёт, что играло на другом.
+ */
+const NOW_PLAYING_SUFFIX = '/np';
+/** Старше этого «играло на телефоне» уже не предлагаем — человек давно ушёл. */
+export const NOW_PLAYING_MAX_AGE_MS = 6 * 60 * 60 * 1000;
 
 /** Чаще этого звонок не звонит: правки идут пачками, а звонок нужен один. */
 const NOTIFY_THROTTLE_MS = 2000;
@@ -44,6 +58,8 @@ export interface LibrarySignalOptions {
   userId: string;
   /** Позвали, когда изменение пришло с другого устройства. */
   onNudge: () => void;
+  /** Другое устройство сообщило, что у него играет (или что оно остановилось). */
+  onRemotePlaying?: (state: RemotePlaying | null) => void;
   /** Только для тестов: свой брокер вместо настроенного. */
   endpoints?: string[];
   /** Только для тестов: поддельный сокет. */
@@ -61,6 +77,43 @@ interface Nudge {
   /** Кто позвонил. Своё эхо мы пропускаем: сверять нечего, мы и так отправили. */
   device: string;
   at: number;
+}
+
+/** Что играет на одном из устройств человека. */
+export interface RemotePlaying {
+  device: string;
+  /** Откуда: подпись «с телефона» / «с компьютера». */
+  platform: 'electron' | 'mobile' | 'browser';
+  /** Когда снято состояние, мс. Позиция досчитывается от этого момента. */
+  at: number;
+  track: UnifiedTrack;
+  position: number;
+  playing: boolean;
+}
+
+type NowPlayingMessage = ({ kind: 'playing' } & RemotePlaying) | { kind: 'idle'; device: string; at: number };
+
+function parseNowPlaying(payload: string): NowPlayingMessage | null {
+  if (!payload) return null;
+  try {
+    const parsed = JSON.parse(payload) as Partial<NowPlayingMessage> & { track?: Partial<UnifiedTrack> };
+    if (!parsed || typeof parsed.device !== 'string' || typeof parsed.at !== 'number') return null;
+    if (parsed.kind === 'idle') return { kind: 'idle', device: parsed.device, at: parsed.at };
+    if (parsed.kind !== 'playing' || !parsed.track || typeof parsed.track.id !== 'string') return null;
+    const track = parsed.track;
+    if (typeof track.title !== 'string' || typeof track.source !== 'string') return null;
+    return {
+      kind: 'playing',
+      device: parsed.device,
+      platform: parsed.platform === 'mobile' || parsed.platform === 'browser' ? parsed.platform : 'electron',
+      at: parsed.at,
+      track: track as UnifiedTrack,
+      position: typeof parsed.position === 'number' && Number.isFinite(parsed.position) ? Math.max(0, parsed.position) : 0,
+      playing: Boolean(parsed.playing)
+    };
+  } catch {
+    return null;
+  }
 }
 
 let client: MqttClient | null = null;
@@ -219,6 +272,16 @@ export async function startLibrarySignal(options: LibrarySignalOptions): Promise
   client = created;
 
   offMessage = created.onMessage((incomingTopic, payload) => {
+    if (incomingTopic === currentTopic + NOW_PLAYING_SUFFIX) {
+      const message = parseNowPlaying(payload);
+      if (!message || message.device === deviceId) return;
+      if (message.kind === 'idle' || Date.now() - message.at > NOW_PLAYING_MAX_AGE_MS) {
+        options.onRemotePlaying?.(null);
+        return;
+      }
+      options.onRemotePlaying?.(message);
+      return;
+    }
     if (incomingTopic !== currentTopic) return;
     let nudge: Nudge | null = null;
     try {
@@ -232,6 +295,7 @@ export async function startLibrarySignal(options: LibrarySignalOptions): Promise
   });
 
   created.subscribe(currentTopic);
+  if (options.onRemotePlaying) created.subscribe(currentTopic + NOW_PLAYING_SUFFIX);
 
   try {
     await created.connect();
@@ -264,6 +328,19 @@ export function notifyLibraryChanged(): void {
   lastNotifyAt = now;
   const nudge: Nudge = { device: deviceId, at: now };
   client.publish(currentTopic, JSON.stringify(nudge));
+}
+
+/**
+ * Сообщает остальным устройствам, что играет здесь. `null` — остановились.
+ * Удерживается брокером, чтобы устройство, включённое позже, увидело последнее.
+ */
+export function publishNowPlaying(state: Omit<RemotePlaying, 'device' | 'platform' | 'at'> | null): boolean {
+  if (!client || !currentTopic) return false;
+  const base = { device: deviceId, at: Date.now() };
+  const message: NowPlayingMessage = state
+    ? { kind: 'playing', platform: detectPlatform(), ...base, ...state }
+    : { kind: 'idle', ...base };
+  return client.publish(currentTopic + NOW_PLAYING_SUFFIX, JSON.stringify(message), { retain: true });
 }
 
 export function stopLibrarySignal(): void {
