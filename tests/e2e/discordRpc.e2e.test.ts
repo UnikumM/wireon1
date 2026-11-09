@@ -139,7 +139,7 @@ describe('E2E: Discord Rich Presence (RPC) Integration (M4)', () => {
 
       expect(payload?.details).toBe('Minimal Song');
       expect(payload?.state).toBe('Неизвестный исполнитель');
-      expect(payload?.largeImageKey).toBe('wireon_logo');
+      expect(payload?.largeImageKey).toBe('https://raw.githubusercontent.com/UnikumM/wireon1/main/public/wireon-logo.png');
       expect(payload?.largeImageText).toBe('Wireon');
     });
 

@@ -186,7 +186,7 @@ describe('Milestone 4: Discord Rich Presence (RPC) Unit Tests', () => {
       const formatted = formatActivityForDiscord(payload);
       expect(formatted?.details).toBe('Wireon');
       expect(formatted?.state).toBe('Listening to music');
-      expect(formatted?.assets?.large_image).toBe('wireon_logo');
+      expect(formatted?.assets?.large_image).toBe('https://raw.githubusercontent.com/UnikumM/wireon1/main/public/wireon-logo.png');
       expect(formatted?.assets?.large_text).toBe('Wireon');
     });
   });

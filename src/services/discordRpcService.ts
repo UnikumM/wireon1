@@ -110,7 +110,13 @@ export const WIREON_DOWNLOAD_URL = 'https://github.com/UnikumM/wireon1/releases/
  * загруженных в заявку Discord, а ссылку Discord забирает к себе сам — так же,
  * как обложку.
  */
-export const WIREON_ICON_URL = 'https://raw.githubusercontent.com/UnikumM/wireon1/main/public/icon.png';
+/**
+ * Знак Wireon для Discord — по адресу, а не по ключу из Developer Portal: ключ
+ * `wireon_logo` там так и остался со старым логотипом, а картинку по адресу
+ * Discord берёт сам. Имя файла новое нарочно: Discord кэширует картинку по
+ * адресу, и замена файла под старым именем до него не доходила.
+ */
+export const WIREON_ICON_URL = 'https://raw.githubusercontent.com/UnikumM/wireon1/main/public/wireon-logo.png';
 
 const STATUS_DISPLAY_CODE: Record<DiscordStatusDisplay, 0 | 1 | 2> = { app: 0, artist: 1, track: 2 };
 
@@ -327,7 +333,7 @@ export class DiscordRpcService {
       statusDisplayType: STATUS_DISPLAY_CODE[options.statusDisplay] ?? 2,
       ...(sourceUrl ? { detailsUrl: sourceUrl, largeUrl: sourceUrl } : {}),
       ...(artistSearchUrl(track) ? { stateUrl: artistSearchUrl(track) } : {}),
-      largeImageKey: track.artworkUrl || 'wireon_logo',
+      largeImageKey: track.artworkUrl || WIREON_ICON_URL,
       largeImageText: (track.album || 'Wireon').slice(0, 128),
       smallImageKey: WIREON_ICON_URL,
       // Значок Wireon ведёт на скачивание — его, в отличие от кнопок, видит
@@ -343,7 +349,7 @@ export class DiscordRpcService {
       smallImageText: `Wireon Sounds · ${sourceName} · скачать бесплатно`,
       instance: false,
       assets: {
-        large_image: track.artworkUrl || 'wireon_logo',
+        large_image: track.artworkUrl || WIREON_ICON_URL,
         large_text: (track.album || 'Wireon').slice(0, 128),
         small_image: WIREON_ICON_URL,
         small_text: `Wireon Sounds · ${sourceName} · скачать бесплатно`

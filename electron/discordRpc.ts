@@ -17,6 +17,9 @@ import path from 'path';
 
 import { DISCORD_CLIENT_ID } from './authWindow.js';
 
+/** Тот же адрес знака, что у рендерера (`discordRpcService.WIREON_ICON_URL`): главный процесс его не импортирует. */
+const WIREON_LOGO_URL = 'https://raw.githubusercontent.com/UnikumM/wireon1/main/public/wireon-logo.png';
+
 /**
  * Заявка, от чьего имени показывается активность.
  *
@@ -233,7 +236,7 @@ export function formatActivityForDiscord(payload: DiscordActivityPayload | null)
   const state = requiredActivityText(payload.state, 'Listening to music');
 
   const assets: Record<string, string> = {
-    large_image: payload.largeImageKey || payload.assets?.large_image || 'wireon_logo'
+    large_image: payload.largeImageKey || payload.assets?.large_image || WIREON_LOGO_URL
   };
 
   // Подпись под обложкой — тот же порог в два символа. Здесь защиты не было

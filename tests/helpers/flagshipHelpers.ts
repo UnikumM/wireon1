@@ -426,7 +426,7 @@ export class MockDiscordRpcManager {
     const payload: DiscordActivityPayload = {
       details: title,
       state,
-      largeImageKey: track.artworkUrl || 'wireon_logo',
+      largeImageKey: track.artworkUrl || 'https://raw.githubusercontent.com/UnikumM/wireon1/main/public/wireon-logo.png',
       largeImageText: track.album || 'Wireon',
       smallImageKey: isPlaying ? 'play_icon' : 'pause_icon',
       smallImageText: isPlaying ? 'Играет' : 'Пауза',
