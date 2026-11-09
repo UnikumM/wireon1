@@ -24,6 +24,7 @@ import { useTrackWaveform } from './core/useTrackWaveform';
 import { swap } from '../../styles/motion';
 import { ICON } from '../../styles/icons';
 import { formatDuration } from '../../utils/time';
+import { formatScrubDelta, scrubRateLabel } from '../../services/scrubbing';
 import type { UnifiedTrack } from '../../types/music';
 import { Button } from '../common/Button';
 import { Sheet } from '../mobile/Sheet';
@@ -37,6 +38,7 @@ import {
   NowPlayingArtwork,
   NowPlayingTitles,
   RoundButton,
+  useArtworkScrub,
   useFavoriteToggle,
   usePlayerTimeline,
   usePlayerTransport,
@@ -99,6 +101,10 @@ const StageBody: React.FC<{ track: UnifiedTrack }> = ({ track }) => {
   const dominant = useDominantColor(track.artworkUrl);
   // Форма волны есть только у SoundCloud; остальным SeekBar рисует полоску.
   const waveform = useTrackWaveform(track);
+  // Точная перемотка по обложке: палец ведёт время, ниже — медленнее. Пока
+  // палец на экране, позицию держит хук, перемотка одна — на отпускании.
+  // Сцена сама есть только на телефоне (Player.Stage выбирает тело по оболочке).
+  const scrub = useArtworkScrub({ enabled: true, currentTime, duration, onSeek: seekTo });
 
   return (
     <motion.div className="player-stage-host" initial={false} animate={{ opacity: 1 }} exit={{ opacity: 1 }}>
@@ -143,12 +149,43 @@ const StageBody: React.FC<{ track: UnifiedTrack }> = ({ track }) => {
         </motion.header>
 
         <div className="row justify-center py-4 player-stage-art-slot">
-          <NowPlayingArtwork
-            track={track}
-            className="player-stage-artwork"
-            fallbackIcon={ICON.hero}
-            data-testid="mobile-fullscreen-artwork"
-          />
+          {/*
+            * Зона жеста — обёртка, а не сама обложка: обложка летит между телами
+            * через `layoutId`, и ей нельзя ни обрезаться, ни дёргаться. Оверлей
+            * времени — отдельный слой рядом с ней, поверх.
+            */}
+          <div
+            {...scrub.handlers}
+            className="artwork-scrub-host"
+            data-scrubbing={scrub.isScrubbing ? 'true' : undefined}
+            data-testid="mobile-fullscreen-scrub-zone"
+          >
+            <NowPlayingArtwork
+              track={track}
+              className="player-stage-artwork"
+              fallbackIcon={ICON.hero}
+              data-testid="mobile-fullscreen-artwork"
+            />
+            <AnimatePresence>
+              {scrub.isScrubbing ? (
+                <motion.div
+                  key="scrub"
+                  className="artwork-scrub-overlay"
+                  aria-hidden="true"
+                  data-testid="mobile-fullscreen-scrub-overlay"
+                  {...swap()}
+                >
+                  <span className="artwork-scrub-time weight-bold font-sans tabular" data-testid="mobile-fullscreen-scrub-time">
+                    {formatDuration(scrub.position)}
+                  </span>
+                  <span className="type-base text-secondary">{scrubRateLabel(scrub.rate)}</span>
+                  <span className="type-lg tabular text-secondary" data-testid="mobile-fullscreen-scrub-delta">
+                    {formatScrubDelta(scrub.delta)}
+                  </span>
+                </motion.div>
+              ) : null}
+            </AnimatePresence>
+          </div>
         </div>
 
         <motion.div className="stack shrink-0" {...swap()}>
@@ -170,8 +207,9 @@ const StageBody: React.FC<{ track: UnifiedTrack }> = ({ track }) => {
         </div>
 
         <div className="shrink-0 py-3">
+          {/* Пока палец ведёт по обложке, ползунок идёт за ним, а не за плеером. */}
           <SeekBar
-            currentTime={currentTime}
+            currentTime={scrub.position}
             duration={duration}
             buffered={buffered}
             onSeek={seekTo}

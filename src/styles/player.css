@@ -648,3 +648,54 @@
 .waveform-bar-hover {
   fill: var(--text-secondary);
 }
+
+/* --- Точная перемотка по обложке (сцена телефона) ------------------------- */
+
+/* Зона жеста обнимает обложку и ничего не обрезает: обложка летит между телами
+ * плеера через `layoutId`, и `overflow: hidden` у предка оборвал бы полёт.
+ * `touch-action: none` обязателен — иначе браузер, увидев вертикаль, заберёт
+ * указатель под прокрутку ровно в тот момент, когда палец выбирает зону
+ * скорости. Выделение и перетаскивание картинки гасятся: удержание — часть
+ * жеста, а не просьба сохранить изображение. */
+.artwork-scrub-host {
+  position: relative;
+  display: flex;
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
+}
+
+.artwork-scrub-host img {
+  -webkit-user-drag: none;
+  pointer-events: none;
+}
+
+/* Оверлей времени — отдельный слой поверх обложки, сама обложка не меняется.
+ * Стекло из токенов темы; появляется и гаснет через `swap` в motion. */
+.artwork-scrub-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  padding: var(--space-4);
+  border-radius: var(--radius-lg);
+  background: var(--glass-bg);
+  -webkit-backdrop-filter: var(--glass-blur);
+  backdrop-filter: var(--glass-blur);
+  box-shadow: var(--ring-1) var(--glass-border), var(--glass-highlight);
+  color: var(--text-primary);
+  text-align: center;
+  pointer-events: none;
+}
+
+/* Крупнее любой ступени `.type-*`: цифры должны читаться с вытянутой руки. */
+.artwork-scrub-time {
+  font-size: var(--text-4xl);
+  line-height: var(--leading-4xl);
+  letter-spacing: var(--tracking-4xl);
+}
