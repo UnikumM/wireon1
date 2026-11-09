@@ -595,6 +595,21 @@ size) stay in `style`.
 (dry run by default, `--write` to apply); anything it leaves is either
 data-driven or needs a hand.
 
+### Player core (4.0)
+
+One player, three bodies. `components/player/core/` holds what every body
+shares: `usePlayerTransport` / `usePlayerTimeline` / `useSleepTimer` (store
+selectors, once), `useFavoriteToggle` (state + toast copy, once),
+`NowPlayingArtwork` (the artwork with the shared `layoutId`
+`now-playing-artwork`: when a body opens or closes, the artwork flies between
+them instead of reappearing; `layoutCrossfade` is off and no ancestor may clip
+it with `overflow: hidden`), `NowPlayingTitles`, `AmbientLight` (two washes of
+the artwork colour drifting while playing, a scrim for contrast) and the phone
+buttons `RoundButton` / `LabelledButton`. `Player.Bar` / `Player.Stage` pick the
+body by shell: `PlayerIsland` + `PlayerStage` on the phone, `PlayerBar` +
+`FullscreenPlayer` on the desktop. Geometry of the bodies lives in
+`player.css` (`.player-island-*`, `.player-stage-*`, `.ambient-light-*`).
+
 ### Motion layer (4.0)
 
 `src/styles/motion.ts` is the JS side of §8: `DURATION`/`EASE` mirror the

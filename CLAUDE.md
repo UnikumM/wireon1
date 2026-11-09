@@ -10,6 +10,15 @@
   `services/` — вся логика (плеер `audioEngine.ts`, поиск источников `streamResolver.ts`,
   синхронизация `cloudSync.ts`/`librarySignal.ts`, сервер `nativeBridge.ts`, Android-обновления
   `androidUpdater.ts`), `data/changelog.ts` — «Что нового», `utils/appInfo.ts` — версия.
+- Плеер — `components/player/`: `Player.tsx` (`Player.Bar`/`Player.Stage` по оболочке),
+  ядро `core/` (хуки транспорта и избранного, обложка с общим `layoutId`, свет от обложки),
+  `PlayerIsland`/`PlayerStage` — телефон, `PlayerBar`/`FullscreenPlayer` — ПК, `mini/` — окно.
+- Движение: `styles/motion.ts` (пять глаголов поверх токенов `--dur-*`/`--ease-*`, библиотека
+  `motion`). Раскладка — классами из `global.css` («Раскладка и текст»), не `style={{}}`:
+  `tests/unit/designDrift.test.ts` не пустит.
+- Большие экраны разложены по папкам: `search/trackCard/`, `artist/hub/`, `modals/importPlaylist/`.
+- План 4.0 и решения владельца — `ROADMAP-4.0.md`. Снимки экранов: `npm run dev`, затем
+  `npm run shots` (Playwright, `tests/visual/out`, состояние через dev-объект `window.__wireon`).
 - `electron/` — главный процесс ПК: `main.ts`, `updater.ts` (автообновление), `ytdlp*.ts`.
 - `android/` — Capacitor-проект; версия в `android/app/build.gradle` (versionName/versionCode).
 - `server/` — Python-сервер музыки (`wireon_music/`), тесты `server/tests`, деплой `server/deploy.ps1`.
