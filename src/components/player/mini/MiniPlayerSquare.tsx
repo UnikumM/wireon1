@@ -58,16 +58,7 @@ export const MiniPlayerSquare: React.FC = () => {
     <div
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
-      style={{
-        position: 'relative',
-        width: '100%',
-        height: '100%',
-        display: 'flex',
-        flexDirection: 'column',
-        justifyContent: 'space-between',
-        overflow: 'hidden',
-        userSelect: 'none'
-      }}
+      className="relative w-full h-full stack justify-between overflow-hidden" style={{ userSelect: 'none' }}
       data-testid="mini-player-square"
     >
       {/* Background artwork */}
@@ -89,7 +80,7 @@ export const MiniPlayerSquare: React.FC = () => {
         }}
       >
         {!currentTrack?.artworkUrl && (
-          <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-faint)' }}>
+          <div className="w-full h-full row justify-center text-faint">
             <Music2 size={ICON.hero} />
           </div>
         )}
@@ -97,36 +88,24 @@ export const MiniPlayerSquare: React.FC = () => {
 
       {/* Gradient vignette overlay */}
       <div
-        style={{
-          position: 'absolute',
-          inset: 0,
-          background: 'var(--on-media-vignette)',
-          pointerEvents: 'none'
-        }}
+        className="no-events" style={{ position: 'absolute', inset: 0, background: 'var(--on-media-vignette)' }}
       />
 
       {/* Top track info */}
       <div
-        style={{
-          position: 'relative',
-          zIndex: 2,
-          padding: '12px 14px',
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'flex-start'
-        }}
+        className="relative row-start justify-between" style={{ zIndex: 2, padding: '12px 14px' }}
       >
-        <div style={{ minWidth: 0, flex: 1, textShadow: 'var(--text-shadow-md)' }}>
+        <div className="grow" style={{ textShadow: 'var(--text-shadow-md)' }}>
           <div
-            className="text-truncate"
-            style={{ fontSize: 'var(--text-base)', fontWeight: 'var(--weight-bold)', color: 'var(--on-media)', lineHeight: 1.2 }}
+            className="text-truncate text-base weight-bold"
+            style={{ color: 'var(--on-media)', lineHeight: 1.2 }}
             title={currentTrack?.title || 'Ничего не играет'}
           >
             {currentTrack?.title || 'Ничего не играет'}
           </div>
           <div
-            className="text-truncate"
-            style={{ fontSize: 'var(--text-xs)', color: 'var(--on-media-secondary)', marginTop: '2px' }}
+            className="text-truncate text-xs mt-px"
+            style={{ color: 'var(--on-media-secondary)' }}
             title={currentTrack?.artist || 'Выберите трек'}
           >
             {currentTrack?.artist || 'Выберите трек'}
@@ -134,7 +113,7 @@ export const MiniPlayerSquare: React.FC = () => {
         </div>
 
         {miniPlayerShowVisualizer && (
-          <div style={{ width: '48px', height: '24px', flexShrink: 0, opacity: 0.9 }}>
+          <div className="shrink-0" style={{ width: '48px', height: '24px', opacity: 0.9 }}>
             <AudioVisualizer preset={visualizerPreset} width={48} height={24} />
           </div>
         )}
@@ -142,29 +121,14 @@ export const MiniPlayerSquare: React.FC = () => {
 
       {/* Bottom Transport Panel */}
       <div
-        style={{
-          position: 'relative',
-          zIndex: 2,
-          padding: '12px 14px',
-          display: 'flex',
-          flexDirection: 'column',
-          gap: '8px'
-        }}
+        className="relative stack gap-2" style={{ zIndex: 2, padding: '12px 14px' }}
       >
         {/* Progress & Time */}
         {miniPlayerShowProgress && (
           <div>
             <div
               onClick={handleProgressBarClick}
-              style={{
-                position: 'relative',
-                width: '100%',
-                height: '4px',
-                backgroundColor: 'var(--on-media-border)',
-                borderRadius: 'var(--radius-full)',
-                cursor: 'pointer',
-                overflow: 'hidden'
-              }}
+              className="relative w-full radius-full pointer overflow-hidden" style={{ height: '4px', backgroundColor: 'var(--on-media-border)' }}
               data-testid="mini-square-progress-bar"
             >
               <div
@@ -179,7 +143,7 @@ export const MiniPlayerSquare: React.FC = () => {
                 }}
               />
             </div>
-            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 'var(--text-xs)', color: 'var(--on-media-secondary)', marginTop: '3px' }}>
+            <div className="row-stretch justify-between text-xs" style={{ color: 'var(--on-media-secondary)', marginTop: '3px' }}>
               <span data-numeric>{formatDuration(currentTime)}</span>
               <span data-numeric>{formatDuration(duration)}</span>
             </div>
@@ -188,31 +152,13 @@ export const MiniPlayerSquare: React.FC = () => {
 
         {/* Controls Pill */}
         <div
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            padding: '6px 12px',
-            backgroundColor: 'var(--on-media-panel)',
-            backdropFilter: 'blur(16px)',
-            borderRadius: 'var(--radius-full)',
-            border: '1px solid var(--on-media-border)',
-            boxShadow: 'var(--shadow-lg)'
-          }}
+          className="row justify-between radius-full" style={{ padding: '6px 12px', backgroundColor: 'var(--on-media-panel)', backdropFilter: 'blur(16px)', border: '1px solid var(--on-media-border)', boxShadow: 'var(--shadow-lg)' }}
         >
           {/* Like */}
           <button
             type="button"
             onClick={() => currentTrack && toggleFavorite(currentTrack)}
-            style={{
-              background: 'none',
-              border: 'none',
-              color: isFav ? 'var(--accent)' : 'var(--on-media-secondary)',
-              cursor: 'pointer',
-              padding: '4px',
-              display: 'flex',
-              alignItems: 'center'
-            }}
+            className="pointer row bg-none border-none p-1" style={{ color: isFav ? 'var(--accent)' : 'var(--on-media-secondary)' }}
             title={isFav ? 'В любимом' : 'Добавить в любимое'}
             data-testid="mini-square-fav-btn"
           >
@@ -223,15 +169,7 @@ export const MiniPlayerSquare: React.FC = () => {
           <button
             type="button"
             onClick={() => void dislikeAndSkipCurrentTrack()}
-            style={{
-              background: 'none',
-              border: 'none',
-              color: 'var(--on-media-secondary)',
-              cursor: 'pointer',
-              padding: '4px',
-              display: 'flex',
-              alignItems: 'center'
-            }}
+            className="pointer row bg-none border-none p-1" style={{ color: 'var(--on-media-secondary)' }}
             title="Не рекомендовать (Дизлайк)"
             data-testid="mini-square-dislike-btn"
           >
@@ -242,15 +180,7 @@ export const MiniPlayerSquare: React.FC = () => {
           <button
             type="button"
             onClick={() => prevTrack()}
-            style={{
-              background: 'none',
-              border: 'none',
-              color: 'var(--on-media)',
-              cursor: 'pointer',
-              padding: '4px',
-              display: 'flex',
-              alignItems: 'center'
-            }}
+            className="pointer row bg-none border-none p-1" style={{ color: 'var(--on-media)' }}
             title="Предыдущий трек"
             data-testid="mini-square-prev-btn"
           >
@@ -261,19 +191,7 @@ export const MiniPlayerSquare: React.FC = () => {
           <button
             type="button"
             onClick={() => togglePlayPause()}
-            style={{
-              width: 'var(--control-lg)',
-              height: 'var(--control-lg)',
-              borderRadius: 'var(--radius-full)',
-              backgroundColor: 'var(--accent)',
-              border: 'none',
-              color: 'var(--text-on-accent)',
-              cursor: 'pointer',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              boxShadow: 'var(--shadow-md)'
-            }}
+            className="control-lg radius-full pointer row justify-center bg-accent border-none" style={{ color: 'var(--text-on-accent)', boxShadow: 'var(--shadow-md)' }}
             title={showPause ? 'Пауза' : 'Играть'}
             data-testid="mini-square-play-btn"
           >
@@ -290,15 +208,7 @@ export const MiniPlayerSquare: React.FC = () => {
           <button
             type="button"
             onClick={() => nextTrack(true)}
-            style={{
-              background: 'none',
-              border: 'none',
-              color: 'var(--on-media)',
-              cursor: 'pointer',
-              padding: '4px',
-              display: 'flex',
-              alignItems: 'center'
-            }}
+            className="pointer row bg-none border-none p-1" style={{ color: 'var(--on-media)' }}
             title="Следующий трек"
             data-testid="mini-square-next-btn"
           >
@@ -309,15 +219,7 @@ export const MiniPlayerSquare: React.FC = () => {
           <button
             type="button"
             onClick={() => setAutoplayRadio(!autoplayRadio)}
-            style={{
-              background: 'none',
-              border: 'none',
-              color: autoplayRadio ? 'var(--accent)' : 'var(--on-media-secondary)',
-              cursor: 'pointer',
-              padding: '4px',
-              display: 'flex',
-              alignItems: 'center'
-            }}
+            className="pointer row bg-none border-none p-1" style={{ color: autoplayRadio ? 'var(--accent)' : 'var(--on-media-secondary)' }}
             title={autoplayRadio ? 'Автопоток включён' : 'Автопоток выключен'}
             data-testid="mini-square-radio-btn"
           >

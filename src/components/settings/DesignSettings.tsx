@@ -162,7 +162,7 @@ const PresetPreview: React.FC<{ vars: Record<string, string>; testId: string }> 
     <span style={PREVIEW_RAIL_STYLE} />
     <span style={PREVIEW_PANEL_STYLE}>
       <span style={PREVIEW_DOT_STYLE} />
-      <span style={{ display: 'flex', flexDirection: 'column', gap: '3px', flex: 1, minWidth: 0 }}>
+      <span className="stack grow" style={{ gap: '3px' }}>
         <span style={{ ...PREVIEW_BAR_STYLE, width: '62%' }} />
         <span style={{ ...PREVIEW_BAR_STYLE, width: '34%', background: 'var(--text-faint)' }} />
       </span>
@@ -204,7 +204,7 @@ export const DesignSettings: React.FC = () => {
       title="Оформление"
       description="Пресет задаёт характер: форму углов, плотность, скорость движения и частицы. Ручки ниже переопределяют пресет по одной — остальное продолжает следовать за ним."
     >
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-1)' }}>
+      <div className="stack gap-1">
         <h3 style={HEADING_STYLE}>Пресет</h3>
         <p style={HINT_STYLE}>
           Меняется всё сразу: скругления, отступы, длительности, стекло, зерно, частицы. Своя
@@ -262,7 +262,7 @@ export const DesignSettings: React.FC = () => {
 
       <div className="divider" role="presentation" />
 
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-1)' }}>
+      <div className="stack gap-1">
         <h3 style={HEADING_STYLE}>Шрифт</h3>
         <p style={HINT_STYLE}>
           Название каждой гарнитуры набрано ей же — по описанию шрифт не выбирают. Файлы лежат
@@ -273,11 +273,7 @@ export const DesignSettings: React.FC = () => {
       <div
         role="radiogroup"
         aria-label="Гарнитура"
-        style={{
-          display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))',
-          gap: 'var(--space-2)'
-        }}
+        className="grid gap-2" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))' }}
         data-testid="settings-design-fonts"
       >
         {FONT_OPTIONS.map((option) => (
@@ -379,8 +375,8 @@ export const DesignSettings: React.FC = () => {
 
       <div className="divider" role="presentation" />
 
-      <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 'var(--space-4)' }}>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-1)' }}>
+      <div className="row-stretch items-baseline justify-between gap-4">
+        <div className="stack gap-1">
           <h3 style={HEADING_STYLE}>Ручки</h3>
           <p style={HINT_STYLE}>
             Каждая ручка старше пресета и переживает его смену. «Как в пресете» возвращает её

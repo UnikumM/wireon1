@@ -52,39 +52,18 @@ export const AccountPrompt: React.FC = () => {
       data-testid="account-prompt"
     >
       <div
-        className="panel-raised animate-slide-up"
-        style={{
-          width: '100%',
-          maxWidth: '460px',
-          margin: 'auto',
-          flexShrink: 0,
-          padding: 'var(--space-6)',
-          display: 'flex',
-          flexDirection: 'column',
-          gap: 'var(--space-5)'
-        }}
+        className="panel-raised animate-slide-up w-full shrink-0 stack gap-5 p-6"
+        style={{ maxWidth: '460px', margin: 'auto' }}
       >
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' }}>
+        <div className="stack gap-2">
           <h2
             id="account-prompt-title"
-            style={{
-              margin: 0,
-              fontSize: 'var(--text-xl)',
-              lineHeight: 'var(--leading-xl)',
-              letterSpacing: 'var(--tracking-xl)',
-              fontWeight: 'var(--weight-semibold)',
-              color: 'var(--text-primary)'
-            }}
+            className="m-0 text-xl weight-semibold text-primary leading-xl tracking-xl"
           >
             Войдите, чтобы {accountPrompt}
           </h2>
           <p
-            style={{
-              margin: 0,
-              fontSize: 'var(--text-sm)',
-              lineHeight: 'var(--leading-sm)',
-              color: 'var(--text-secondary)'
-            }}
+            className="m-0 text-sm text-secondary leading-sm"
             data-testid="account-prompt-detail"
           >
             Медиатека привязана к аккаунту Discord: по нему сервер и узнаёт, чья она.
@@ -94,34 +73,27 @@ export const AccountPrompt: React.FC = () => {
         </div>
 
         <ul
-          style={{
-            margin: 0,
-            padding: 0,
-            listStyle: 'none',
-            display: 'flex',
-            flexDirection: 'column',
-            gap: 'var(--space-3)'
-          }}
+          className="m-0 p-0 stack gap-3 list-none"
         >
-          <li style={{ display: 'flex', gap: 'var(--space-3)', alignItems: 'flex-start' }}>
-            <span style={{ flexShrink: 0, display: 'inline-flex', paddingTop: '2px', color: 'var(--text-muted)' }}>
+          <li className="row-start gap-3">
+            <span className="shrink-0 inline-row text-muted pt-px">
               <CloudCog size={ICON.md} aria-hidden="true" />
             </span>
-            <span style={{ fontSize: 'var(--text-sm)', lineHeight: 'var(--leading-sm)', color: 'var(--text-secondary)' }}>
+            <span className="text-sm text-secondary leading-sm">
               Плейлисты и избранное сами держатся в одном виде на телефоне и на компьютере.
             </span>
           </li>
-          <li style={{ display: 'flex', gap: 'var(--space-3)', alignItems: 'flex-start' }}>
-            <span style={{ flexShrink: 0, display: 'inline-flex', paddingTop: '2px', color: 'var(--text-muted)' }}>
+          <li className="row-start gap-3">
+            <span className="shrink-0 inline-row text-muted pt-px">
               <ListMusic size={ICON.md} aria-hidden="true" />
             </span>
-            <span style={{ fontSize: 'var(--text-sm)', lineHeight: 'var(--leading-sm)', color: 'var(--text-secondary)' }}>
+            <span className="text-sm text-secondary leading-sm">
               Уже собранное на этом устройстве не пропадёт — оно уедет в аккаунт при входе.
             </span>
           </li>
         </ul>
 
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
+        <div className="stack gap-3">
           <DiscordLoginButton
             size="lg"
             fullWidth
@@ -139,15 +111,7 @@ export const AccountPrompt: React.FC = () => {
         </div>
 
         <p
-          style={{
-            margin: 0,
-            display: 'flex',
-            alignItems: 'flex-start',
-            gap: 'var(--space-2)',
-            fontSize: 'var(--text-xs)',
-            lineHeight: 'var(--leading-xs)',
-            color: 'var(--text-muted)'
-          }}
+          className="m-0 row-start gap-2 text-xs text-muted leading-xs"
         >
           {configured ? <ShieldCheck size={ICON.xs} aria-hidden="true" /> : <DiscordIcon size={ICON.xs} />}
           {configured

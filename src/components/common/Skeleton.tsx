@@ -38,7 +38,7 @@ export const Skeleton: React.FC<SkeletonProps> = ({
 
   return (
     <div
-      style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' }}
+      className="stack gap-2"
       aria-hidden="true"
       data-testid="skeleton-group"
     >

@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import clsx from 'clsx';
 import {
   Trash2,
   Play,
@@ -120,49 +121,29 @@ export const OfflineSection: React.FC<OfflineSectionProps> = ({ className = '' }
 
   return (
     <div
-      className={className}
-      style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-4)', width: '100%' }}
+      className={clsx('stack gap-4 w-full', className)}
       data-testid="offline-section"
     >
       {/* Header with stats and actions */}
       <div
-        style={{
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          gap: 'var(--space-4)',
-          flexWrap: 'wrap'
-        }}
+        className="row justify-between gap-4 wrap"
       >
         <div>
           <h2
-            style={{
-              margin: 0,
-              fontSize: 'var(--text-xl)',
-              lineHeight: 'var(--leading-xl)',
-              color: 'var(--text-primary)',
-              display: 'flex',
-              alignItems: 'center',
-              gap: 'var(--space-2)'
-            }}
+            className="m-0 text-xl text-primary row gap-2 leading-xl"
           >
-            <HardDrive size={ICON.lg} style={{ color: 'var(--text-secondary)' }} aria-hidden="true" />
+            <HardDrive size={ICON.lg} className="text-secondary" aria-hidden="true" />
             Офлайн
           </h2>
           <p
-            style={{
-              margin: 'var(--space-1) 0 0 0',
-              fontSize: 'var(--text-sm)',
-              lineHeight: 'var(--leading-sm)',
-              color: 'var(--text-secondary)'
-            }}
+            className="text-sm text-secondary leading-sm" style={{ margin: 'var(--space-1) 0 0 0' }}
             data-testid="offline-storage-indicator"
           >
             {pluralize(storageInfo.count, 'трек', 'трека', 'треков')} · занято {storageInfo.formattedSize}
           </p>
         </div>
 
-        <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>
+        <div className="row gap-2">
           {offlineRecords.length > 0 && (
             <>
               <Button
@@ -190,26 +171,16 @@ export const OfflineSection: React.FC<OfflineSectionProps> = ({ className = '' }
 
       {/* Whether the cache is still growing — the list alone cannot say that */}
       <div
-        style={{
-          display: 'flex',
-          alignItems: 'center',
-          gap: 'var(--space-2)',
-          padding: 'var(--space-2) var(--space-3)',
-          borderRadius: 'var(--radius-sm)',
-          backgroundColor: 'var(--surface-2)',
-          border: '1px solid var(--border-subtle)',
-          fontSize: 'var(--text-xs)',
-          color: 'var(--text-secondary)'
-        }}
+        className="row gap-2 radius-sm text-xs text-secondary py-2 px-3 bg-surface-2 border-subtle"
         data-testid="offline-mode-status"
         data-enabled={modeState.enabled ? 'true' : 'false'}
       >
         {modeState.enabled ? (
-          <HardDriveDownload size={ICON.sm} aria-hidden="true" style={{ color: 'var(--accent)', flexShrink: 0 }} />
+          <HardDriveDownload size={ICON.sm} aria-hidden="true" className="text-accent shrink-0" />
         ) : (
-          <WifiOff size={ICON.sm} aria-hidden="true" style={{ flexShrink: 0 }} />
+          <WifiOff size={ICON.sm} aria-hidden="true" className="shrink-0" />
         )}
-        <span style={{ flex: 1, minWidth: 0 }}>
+        <span className="grow">
           {modeState.enabled
             ? modeState.cachingTrackId
               ? `Сохраняем очередной трек — ${modeState.cachingProgress}%`
@@ -229,39 +200,20 @@ export const OfflineSection: React.FC<OfflineSectionProps> = ({ className = '' }
       {/* Toolbar / Search input */}
       {offlineRecords.length > 0 && (
         <div
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: 'var(--space-3)',
-            flexWrap: 'wrap'
-          }}
+          className="row gap-3 wrap"
         >
           <label
-            className="search-field"
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: 'var(--space-2)',
-              flex: '1 1 260px',
-              maxWidth: '360px',
-              padding: '0 var(--space-3)'
-            }}
+            className="search-field row gap-2 py-0 px-3"
+            style={{ flex: '1 1 260px', maxWidth: '360px' }}
           >
-            <Search size={ICON.md} aria-hidden="true" style={{ color: 'var(--text-muted)', flexShrink: 0 }} />
+            <Search size={ICON.md} aria-hidden="true" className="text-muted shrink-0" />
             <input
               type="text"
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               placeholder="Поиск среди офлайн-треков…"
               aria-label="Поиск среди офлайн-треков"
-              style={{
-                flex: 1,
-                minWidth: 0,
-                padding: 'var(--space-2) 0',
-                background: 'transparent',
-                border: 'none',
-                fontSize: 'var(--text-sm)'
-              }}
+              className="grow text-sm py-2 px-0 bg-transparent border-none"
               data-testid="offline-search-input"
             />
           </label>
@@ -292,21 +244,16 @@ export const OfflineSection: React.FC<OfflineSectionProps> = ({ className = '' }
         />
       ) : (
         <div
-          style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-1)' }}
+          className="stack gap-1"
           data-testid="offline-track-list"
         >
           {filteredRecords.map((record, index) => (
             <div
               key={record.id}
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: 'var(--space-2)',
-                position: 'relative'
-              }}
+              className="row gap-2 relative"
               data-testid={`offline-track-row-${index}`}
             >
-              <div style={{ flex: 1, minWidth: 0 }}>
+              <div className="grow">
                 <TrackCard
                   track={record.track}
                   index={index}
@@ -317,23 +264,11 @@ export const OfflineSection: React.FC<OfflineSectionProps> = ({ className = '' }
               </div>
 
               <div
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: 'var(--space-2)',
-                  flexShrink: 0
-                }}
+                className="row gap-2 shrink-0"
               >
                 <span
                   data-numeric
-                  style={{
-                    fontSize: 'var(--text-xs)',
-                    color: 'var(--text-muted)',
-                    padding: 'var(--space-1) var(--space-2)',
-                    backgroundColor: 'var(--surface-sunken)',
-                    borderRadius: 'var(--radius-xs)',
-                    border: '1px solid var(--border-subtle)'
-                  }}
+                  className="text-xs text-muted radius-xs py-1 px-2 bg-sunken border-subtle"
                   title={`Размер: ${offlineStorage.formatBytes(record.sizeBytes)}`}
                   data-testid={`offline-size-badge-${record.id}`}
                 >
@@ -350,7 +285,7 @@ export const OfflineSection: React.FC<OfflineSectionProps> = ({ className = '' }
                   title="Удалить офлайн-копию"
                   data-testid={`offline-delete-btn-${record.id}`}
                 >
-                  <Trash2 size={ICON.md} style={{ color: 'var(--text-secondary)' }} />
+                  <Trash2 size={ICON.md} className="text-secondary" />
                 </Button>
               </div>
             </div>

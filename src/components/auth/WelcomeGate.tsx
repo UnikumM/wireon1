@@ -130,17 +130,8 @@ export const WelcomeGate: React.FC = () => {
       data-testid="welcome-gate"
     >
       <div
-        className="panel-raised animate-slide-up"
-        style={{
-          width: '100%',
-          maxWidth: '520px',
-          margin: 'auto',
-          flexShrink: 0,
-          padding: 'var(--space-6)',
-          display: 'flex',
-          flexDirection: 'column',
-          gap: 'var(--space-5)'
-        }}
+        className="panel-raised animate-slide-up w-full shrink-0 stack gap-5 p-6"
+        style={{ maxWidth: '520px', margin: 'auto' }}
       >
         {/*
           * Было по шаблону посадочной страницы: надзаголовок «ДОБРО ПОЖАЛОВАТЬ»,
@@ -149,27 +140,15 @@ export const WelcomeGate: React.FC = () => {
           * никакого смысла вообще. Экран существует ради одного вопроса, поэтому
           * вопрос и стоит в заголовке.
           */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' }}>
+        <div className="stack gap-2">
           <h1
             id="welcome-gate-title"
-            style={{
-              margin: 0,
-              fontSize: 'var(--text-xl)',
-              lineHeight: 'var(--leading-xl)',
-              letterSpacing: 'var(--tracking-xl)',
-              fontWeight: 'var(--weight-semibold)',
-              color: 'var(--text-primary)'
-            }}
+            className="m-0 text-xl weight-semibold text-primary leading-xl tracking-xl"
           >
             Войти через Discord?
           </h1>
           <p
-            style={{
-              margin: 0,
-              fontSize: 'var(--text-sm)',
-              lineHeight: 'var(--leading-sm)',
-              color: 'var(--text-secondary)'
-            }}
+            className="m-0 text-sm text-secondary leading-sm"
           >
             Отдельного пароля здесь нет: вход через Discord — это и есть регистрация.
             Слушать можно и без аккаунта, но плейлисты и избранное появятся только с ним.
@@ -177,49 +156,28 @@ export const WelcomeGate: React.FC = () => {
         </div>
 
         <ul
-          style={{
-            margin: 0,
-            padding: 0,
-            listStyle: 'none',
-            display: 'flex',
-            flexDirection: 'column',
-            gap: 'var(--space-3)'
-          }}
+          className="m-0 p-0 stack gap-3 list-none"
         >
           {PERKS.map((perk) => (
-            <li key={perk.title} style={{ display: 'flex', gap: 'var(--space-3)' }}>
+            <li key={perk.title} className="row-stretch gap-3">
               {/*
                 * Иконка стоит без рамки и подложки. Плитка 32×32 вокруг неё ничего
                 * не отделяла — текст и так справа, — а три таких плитки в столбик
                 * превращали честный список в сетку «преимуществ».
                 */}
               <span
-                style={{
-                  flexShrink: 0,
-                  display: 'inline-flex',
-                  paddingTop: '2px',
-                  color: 'var(--text-muted)'
-                }}
+                className="shrink-0 inline-row text-muted pt-px"
               >
                 {perk.icon}
               </span>
-              <span style={{ display: 'flex', flexDirection: 'column', gap: '2px', minWidth: 0 }}>
+              <span className="stack gap-px min-0">
                 <span
-                  style={{
-                    fontSize: 'var(--text-sm)',
-                    lineHeight: 'var(--leading-sm)',
-                    fontWeight: 'var(--weight-medium)',
-                    color: 'var(--text-primary)'
-                  }}
+                  className="text-sm weight-medium text-primary leading-sm"
                 >
                   {perk.title}
                 </span>
                 <span
-                  style={{
-                    fontSize: 'var(--text-xs)',
-                    lineHeight: 'var(--leading-xs)',
-                    color: 'var(--text-muted)'
-                  }}
+                  className="text-xs text-muted leading-xs"
                 >
                   {perk.detail}
                 </span>
@@ -228,7 +186,7 @@ export const WelcomeGate: React.FC = () => {
           ))}
         </ul>
 
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
+        <div className="stack gap-3">
           <DiscordLoginButton
             size="lg"
             fullWidth
@@ -246,15 +204,7 @@ export const WelcomeGate: React.FC = () => {
         </div>
 
         <p
-          style={{
-            margin: 0,
-            display: 'flex',
-            alignItems: 'flex-start',
-            gap: 'var(--space-2)',
-            fontSize: 'var(--text-xs)',
-            lineHeight: 'var(--leading-xs)',
-            color: 'var(--text-muted)'
-          }}
+          className="m-0 row-start gap-2 text-xs text-muted leading-xs"
           data-testid="welcome-gate-scopes"
         >
           {configured ? <ShieldCheck size={ICON.xs} aria-hidden="true" /> : <DiscordIcon size={ICON.xs} />}

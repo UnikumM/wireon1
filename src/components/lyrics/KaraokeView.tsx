@@ -339,43 +339,27 @@ export const KaraokeView: React.FC<KaraokeViewProps> = ({ className = '', onClos
           zIndex: 2
         }}
       >
-        <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-3)', minWidth: 0 }}>
+        <div className="row gap-3 min-0">
           <div
-            style={{
-              width: '44px',
-              height: '44px',
-              flexShrink: 0,
-              borderRadius: 'var(--radius-sm)',
-              overflow: 'hidden',
-              border: '1px solid var(--border-subtle)',
-              backgroundColor: 'var(--surface-2)',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center'
-            }}
+            className="shrink-0 radius-sm overflow-hidden row justify-center border-subtle bg-surface-2" style={{ width: '44px', height: '44px' }}
           >
             {currentTrack?.artworkUrl ? (
               <img
                 src={currentTrack.artworkUrl}
                 alt=""
-                style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                className="fill-cover"
                 onError={(e) => {
                   e.currentTarget.style.display = 'none';
                 }}
               />
             ) : (
-              <Music2 size={ICON.lg} aria-hidden="true" style={{ color: 'var(--text-faint)' }} />
+              <Music2 size={ICON.lg} aria-hidden="true" className="text-faint" />
             )}
           </div>
 
-          <div style={{ minWidth: 0, display: 'flex', flexDirection: 'column', gap: '2px' }}>
+          <div className="min-0 stack gap-px">
             <div
-              className="text-truncate"
-              style={{
-                fontSize: 'var(--text-base)',
-                fontWeight: 'var(--weight-semibold)',
-                color: 'var(--text-primary)'
-              }}
+              className="text-truncate text-base weight-semibold text-primary"
               title={currentTrack?.title || 'Ничего не играет'}
               data-testid="karaoke-track-title"
             >
@@ -393,8 +377,7 @@ export const KaraokeView: React.FC<KaraokeViewProps> = ({ className = '', onClos
               }}
             >
               <span
-                className="text-truncate"
-                style={{ fontSize: 'var(--text-xs)', color: 'var(--text-secondary)' }}
+                className="text-truncate text-xs text-secondary"
                 data-testid="karaoke-track-artist"
               >
                 {currentTrack?.artist || 'Исполнитель неизвестен'}
@@ -402,12 +385,8 @@ export const KaraokeView: React.FC<KaraokeViewProps> = ({ className = '', onClos
 
               {lyrics?.synced ? (
                 <span
-                  className="badge"
-                  style={{
-                    color: 'var(--accent)',
-                    backgroundColor: 'var(--accent-soft)',
-                    borderColor: 'var(--border-accent)'
-                  }}
+                  className="badge text-accent bg-accent-soft"
+                  style={{ borderColor: 'var(--border-accent)' }}
                   data-testid="karaoke-synced-badge"
                 >
                   <Mic size={ICON.xs} aria-hidden="true" />
@@ -415,12 +394,8 @@ export const KaraokeView: React.FC<KaraokeViewProps> = ({ className = '', onClos
                 </span>
               ) : hasLines ? (
                 <span
-                  className="badge"
-                  style={{
-                    color: 'var(--text-muted)',
-                    backgroundColor: 'var(--surface-sunken)',
-                    borderColor: 'var(--border-subtle)'
-                  }}
+                  className="badge text-muted bg-sunken"
+                  style={{ borderColor: 'var(--border-subtle)' }}
                   data-testid="karaoke-plain-badge"
                 >
                   Без синхронизации
@@ -429,12 +404,8 @@ export const KaraokeView: React.FC<KaraokeViewProps> = ({ className = '', onClos
 
               {lyrics?.manual && (
                 <span
-                  className="badge"
-                  style={{
-                    color: 'var(--text-secondary)',
-                    backgroundColor: 'var(--surface-sunken)',
-                    borderColor: 'var(--border-subtle)'
-                  }}
+                  className="badge text-secondary bg-sunken"
+                  style={{ borderColor: 'var(--border-subtle)' }}
                   data-testid="karaoke-manual-badge"
                 >
                   <Check size={ICON.xs} aria-hidden="true" />
@@ -459,15 +430,7 @@ export const KaraokeView: React.FC<KaraokeViewProps> = ({ className = '', onClos
           {/* Подстройка тайминга — только когда её есть к чему применить */}
           {lyrics?.synced && (
             <div
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: 'var(--space-1)',
-                padding: '2px',
-                borderRadius: 'var(--radius-full)',
-                backgroundColor: 'var(--surface-2)',
-                border: '1px solid var(--border-subtle)'
-              }}
+              className="row gap-1 radius-full bg-surface-2 border-subtle" style={{ padding: '2px' }}
               data-testid="karaoke-offset-controls"
             >
               <Button
@@ -485,12 +448,7 @@ export const KaraokeView: React.FC<KaraokeViewProps> = ({ className = '', onClos
                 data-numeric
                 data-testid="karaoke-offset-value"
                 title="Сдвиг текста относительно звука"
-                style={{
-                  minWidth: '54px',
-                  textAlign: 'center',
-                  fontSize: 'var(--text-xs)',
-                  color: offsetSeconds === 0 ? 'var(--text-muted)' : 'var(--accent)'
-                }}
+                className="text-center text-xs" style={{ minWidth: '54px', color: offsetSeconds === 0 ? 'var(--text-muted)' : 'var(--accent)' }}
               >
                 {offsetSeconds > 0 ? '+' : ''}
                 {offsetSeconds.toFixed(1)} с
@@ -570,20 +528,9 @@ export const KaraokeView: React.FC<KaraokeViewProps> = ({ className = '', onClos
         <div
           role="status"
           data-testid="karaoke-low-confidence"
-          style={{
-            position: 'relative',
-            zIndex: 2,
-            display: 'flex',
-            alignItems: 'center',
-            gap: 'var(--space-2)',
-            padding: 'var(--space-2) var(--space-6)',
-            backgroundColor: 'var(--warning-soft)',
-            borderBottom: '1px solid var(--border-subtle)',
-            fontSize: 'var(--text-xs)',
-            color: 'var(--text-secondary)'
-          }}
+          className="relative row gap-2 text-xs text-secondary py-2 px-6 bg-warning-soft border-b-subtle" style={{ zIndex: 2 }}
         >
-          <AlertTriangle size={ICON.sm} aria-hidden="true" style={{ color: 'var(--warning)', flexShrink: 0 }} />
+          <AlertTriangle size={ICON.sm} aria-hidden="true" className="text-warning shrink-0" />
           <span>
             Текст подобран приблизительно
             {lyrics?.trackName ? ` — «${lyrics.trackName}»` : ''}
@@ -600,26 +547,15 @@ export const KaraokeView: React.FC<KaraokeViewProps> = ({ className = '', onClos
         <section
           aria-label="Выбор текста песни"
           data-testid="karaoke-picker"
-          style={{
-            position: 'relative',
-            zIndex: 2,
-            display: 'flex',
-            flexDirection: 'column',
-            gap: 'var(--space-3)',
-            padding: 'var(--space-4) var(--space-6)',
-            borderBottom: '1px solid var(--border-subtle)',
-            backgroundColor: 'var(--surface-1)',
-            maxHeight: '46vh',
-            overflowY: 'auto'
-          }}
-          className="scrollbar-thin"
+          style={{ zIndex: 2, maxHeight: '46vh', overflowY: 'auto' }}
+          className="scrollbar-thin relative stack gap-3 py-4 px-6 border-b-subtle bg-surface-1"
         >
           <form
             onSubmit={(e) => {
               e.preventDefault();
               void runCandidateSearch(pickerQuery);
             }}
-            style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}
+            className="row gap-2"
           >
             <input
               type="search"
@@ -628,7 +564,7 @@ export const KaraokeView: React.FC<KaraokeViewProps> = ({ className = '', onClos
               placeholder="Исполнитель и название — если автопоиск промахнулся"
               aria-label="Запрос для поиска текста"
               data-testid="karaoke-picker-input"
-              style={{ flex: 1, minWidth: 0 }}
+              className="grow"
             />
             <Button
               type="submit"
@@ -666,7 +602,7 @@ export const KaraokeView: React.FC<KaraokeViewProps> = ({ className = '', onClos
 
           {!isSearching && candidates.length === 0 && hasSearched && (
             <p
-              style={{ margin: 0, fontSize: 'var(--text-sm)', color: 'var(--text-secondary)' }}
+              className="m-0 text-sm text-secondary"
               data-testid="karaoke-picker-empty"
             >
               Ничего не нашлось. Попробуйте написать название иначе — например, латиницей.
@@ -697,32 +633,26 @@ export const KaraokeView: React.FC<KaraokeViewProps> = ({ className = '', onClos
                   color: 'var(--text-primary)'
                 }}
               >
-                <span style={{ minWidth: 0 }}>
+                <span className="min-0">
                   <span
-                    className="text-truncate"
-                    style={{ display: 'block', fontSize: 'var(--text-sm)', fontWeight: 'var(--weight-medium)' }}
+                    className="text-truncate block text-sm weight-medium"
                   >
                     {candidate.result.trackName || 'Без названия'}
                     {candidate.result.artistName ? ` — ${candidate.result.artistName}` : ''}
                   </span>
                   <span
-                    style={{ display: 'block', fontSize: 'var(--text-xs)', color: 'var(--text-secondary)' }}
+                    className="block text-xs text-secondary"
                   >
                     {candidate.result.synced ? 'по времени' : 'обычный текст'}
                     {candidate.notes.length > 0 ? ` · ${candidate.notes.join(', ')}` : ''}
                   </span>
                 </span>
                 <span
-                  className="badge"
+                  className="badge shrink-0"
                   data-testid={`karaoke-candidate-confidence-${index}`}
-                  style={{
-                    flexShrink: 0,
-                    color: candidate.confidence === 'high' ? 'var(--accent)' : 'var(--text-muted)',
-                    backgroundColor:
-                      candidate.confidence === 'high' ? 'var(--accent-soft)' : 'var(--surface-sunken)',
-                    borderColor:
-                      candidate.confidence === 'high' ? 'var(--border-accent)' : 'var(--border-subtle)'
-                  }}
+                  style={{ color: candidate.confidence === 'high' ? 'var(--accent)' : 'var(--text-muted)', backgroundColor:
+                      candidate.confidence === 'high' ? 'var(--accent-soft)' : 'var(--surface-sunken)', borderColor:
+                      candidate.confidence === 'high' ? 'var(--border-accent)' : 'var(--border-subtle)' }}
                 >
                   {candidate.confidence === 'high'
                     ? 'похоже'
@@ -739,52 +669,29 @@ export const KaraokeView: React.FC<KaraokeViewProps> = ({ className = '', onClos
       <div
         ref={scrollContainerRef}
         onScroll={handleScroll}
-        className="scrollbar-thin"
-        style={{
-          position: 'relative',
-          flex: 1,
-          overflowY: 'auto',
-          overflowX: 'hidden',
-          padding: isMobile
+        className="scrollbar-thin relative flex-1 stack-center"
+        style={{ overflowY: 'auto', overflowX: 'hidden', padding: isMobile
             ? 'var(--space-4) var(--space-2) calc(var(--safe-bottom) + var(--space-6))'
-            : 'var(--space-8) var(--space-6) var(--space-8)',
-          display: 'flex',
-          flexDirection: 'column',
-          alignItems: 'center',
-          userSelect: 'none'
-        }}
+            : 'var(--space-8) var(--space-6) var(--space-8)', userSelect: 'none' }}
         data-testid="karaoke-scroll-container"
       >
         {isLoading && (
           <div
-            style={{
-              width: '100%',
-              maxWidth: '680px',
-              display: 'flex',
-              flexDirection: 'column',
-              gap: 'var(--space-4)',
-              padding: 'var(--space-6) 0'
-            }}
+            className="w-full stack gap-4 py-6 px-0" style={{ maxWidth: '680px' }}
             data-testid="karaoke-loading"
           >
-            <Skeleton style={{ height: '36px', width: '70%', borderRadius: 'var(--radius-sm)' }} />
-            <Skeleton style={{ height: '36px', width: '90%', borderRadius: 'var(--radius-sm)' }} />
-            <Skeleton style={{ height: '36px', width: '60%', borderRadius: 'var(--radius-sm)' }} />
-            <Skeleton style={{ height: '36px', width: '80%', borderRadius: 'var(--radius-sm)' }} />
-            <Skeleton style={{ height: '36px', width: '75%', borderRadius: 'var(--radius-sm)' }} />
-            <Skeleton style={{ height: '36px', width: '85%', borderRadius: 'var(--radius-sm)' }} />
+            <Skeleton className="radius-sm" style={{ height: '36px', width: '70%' }} />
+            <Skeleton className="radius-sm" style={{ height: '36px', width: '90%' }} />
+            <Skeleton className="radius-sm" style={{ height: '36px', width: '60%' }} />
+            <Skeleton className="radius-sm" style={{ height: '36px', width: '80%' }} />
+            <Skeleton className="radius-sm" style={{ height: '36px', width: '75%' }} />
+            <Skeleton className="radius-sm" style={{ height: '36px', width: '85%' }} />
           </div>
         )}
 
         {!isLoading && !currentTrack && (
           <div
-            style={{
-              flex: 1,
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              padding: 'var(--space-6)'
-            }}
+            className="flex-1 row justify-center p-6"
           >
             <EmptyState
               icon={<Music2 size={ICON.display} />}
@@ -797,13 +704,7 @@ export const KaraokeView: React.FC<KaraokeViewProps> = ({ className = '', onClos
 
         {!isLoading && currentTrack && lyrics?.instrumental && (
           <div
-            style={{
-              flex: 1,
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              padding: 'var(--space-6)'
-            }}
+            className="flex-1 row justify-center p-6"
           >
             <EmptyState
               icon={<Music2 size={ICON.display} />}
@@ -816,20 +717,14 @@ export const KaraokeView: React.FC<KaraokeViewProps> = ({ className = '', onClos
 
         {!isLoading && currentTrack && !lyrics?.instrumental && !hasLines && (
           <div
-            style={{
-              flex: 1,
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              padding: 'var(--space-6)'
-            }}
+            className="flex-1 row justify-center p-6"
           >
             <EmptyState
               icon={<MicOff size={ICON.display} />}
               title="Текст не найден"
               description={`Для «${currentTrack.title}» текста в базе нет. Иногда помогает поиск по другому написанию названия.`}
               action={
-                <div style={{ display: 'flex', gap: 'var(--space-2)', justifyContent: 'center' }}>
+                <div className="row-stretch gap-2 justify-center">
                   <Button variant="secondary" size="sm" onClick={openPicker} data-testid="karaoke-search-manually">
                     Поискать вручную
                   </Button>
@@ -845,15 +740,7 @@ export const KaraokeView: React.FC<KaraokeViewProps> = ({ className = '', onClos
 
         {!isLoading && hasLines && lyrics && (
           <div
-            style={{
-              width: '100%',
-              maxWidth: '740px',
-              display: 'flex',
-              flexDirection: 'column',
-              gap: lyrics.synced ? 'var(--space-4)' : 'var(--space-3)',
-              padding: 'var(--space-6) var(--space-4)',
-              textAlign: 'center'
-            }}
+            className="w-full stack text-center py-6 px-4" style={{ maxWidth: '740px', gap: lyrics.synced ? 'var(--space-4)' : 'var(--space-3)' }}
             data-testid="karaoke-lyrics-list"
           >
             {lyrics.lines.map((line, index) => {

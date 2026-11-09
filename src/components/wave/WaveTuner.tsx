@@ -88,24 +88,16 @@ const AxisSlider: React.FC<AxisSliderProps> = ({
   valueText,
   onChange
 }) => (
-  <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' }}>
-    <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 'var(--space-2)' }}>
-      <span style={{ display: 'inline-flex', color: 'var(--text-secondary)' }}>{icon}</span>
+  <div className="stack gap-2">
+    <div className="row wrap gap-2">
+      <span className="inline-row text-secondary">{icon}</span>
       <span
-        style={{
-          fontSize: 'var(--text-sm)',
-          fontWeight: 'var(--weight-semibold)',
-          color: 'var(--text-primary)'
-        }}
+        className="text-sm weight-semibold text-primary"
       >
         {label}
       </span>
       <span
-        style={{
-          marginLeft: 'auto',
-          fontSize: 'var(--text-xs)',
-          color: 'var(--text-secondary)'
-        }}
+        className="ml-auto text-xs text-secondary"
         data-testid={`wave-slider-value-${id}`}
       >
         {valueText}
@@ -137,12 +129,7 @@ const AxisSlider: React.FC<AxisSliderProps> = ({
     />
 
     <div
-      style={{
-        display: 'flex',
-        justifyContent: 'space-between',
-        fontSize: 'var(--text-xs)',
-        color: 'var(--text-muted)'
-      }}
+      className="row-stretch justify-between text-xs text-muted"
     >
       <span>{minLabel}</span>
       <span>{maxLabel}</span>
@@ -206,21 +193,11 @@ export const WaveTuner: React.FC<WaveTunerProps> = ({ className = '', restartOnC
 
   return (
     <div
-      className={`wave-tuner ${className}`}
-      style={{
-        display: 'flex',
-        flexDirection: 'column',
-        gap: 'var(--space-5)',
-        width: '100%'
-      }}
+      className={`wave-tuner ${className} stack gap-5 w-full`}
       data-testid="wave-tuner"
     >
       <div
-        style={{
-          display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 240px), 1fr))',
-          gap: 'var(--space-5)'
-        }}
+        className="grid gap-5" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 240px), 1fr))' }}
       >
         <AxisSlider
           id="novelty"
@@ -246,44 +223,24 @@ export const WaveTuner: React.FC<WaveTunerProps> = ({ className = '', restartOnC
       </div>
 
       <p
-        style={{
-          margin: 0,
-          padding: 'var(--space-3)',
-          borderRadius: 'var(--radius-md)',
-          backgroundColor: 'var(--surface-2)',
-          border: '1px solid var(--border-subtle)',
-          fontSize: 'var(--text-sm)',
-          color: 'var(--text-secondary)'
-        }}
+        className="m-0 p-3 radius-md text-sm text-secondary bg-surface-2 border-subtle"
         data-testid="wave-axes-summary"
       >
         Сейчас в Потоке: {describeWaveAxes(novelty, energy)}
         {activeGenre ? `, жанр — ${activeGenre}` : ''}.
       </p>
 
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' }} data-testid="wave-genre-picker">
+      <div className="stack gap-2" data-testid="wave-genre-picker">
         <div
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: 'var(--space-2)',
-            color: 'var(--text-muted)'
-          }}
+          className="row gap-2 text-muted"
         >
           <Music size={ICON.sm} />
           <span className="section-label">Жанр — если нужен</span>
         </div>
 
         <div
-          className="scrollbar-thin"
-          style={{
-            display: 'flex',
-            flexWrap: 'wrap',
-            gap: 'var(--space-1)',
-            maxHeight: '96px',
-            overflowY: 'auto',
-            padding: '2px'
-          }}
+          className="scrollbar-thin row-stretch wrap gap-1"
+          style={{ maxHeight: '96px', overflowY: 'auto', padding: '2px' }}
         >
           <button
             type="button"
@@ -308,12 +265,9 @@ export const WaveTuner: React.FC<WaveTunerProps> = ({ className = '', restartOnC
                 key={genre.slug}
                 type="button"
                 onClick={() => handleGenre(genre.value)}
-                className="chip"
+                className="chip text-xs"
                 aria-pressed={isActive}
-                style={{
-                  fontSize: 'var(--text-xs)',
-                  fontWeight: isActive ? 'var(--weight-semibold)' : 'var(--weight-normal)'
-                }}
+                style={{ fontWeight: isActive ? 'var(--weight-semibold)' : 'var(--weight-normal)' }}
                 data-testid={`wave-genre-chip-${genre.slug}`}
               >
                 {genre.label}

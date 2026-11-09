@@ -210,17 +210,12 @@ export const MobileSearchView: React.FC = () => {
   const hasQuery = searchQuery.trim().length > 0;
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-4)' }} data-testid="mobile-search">
-      <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
+    <div className="stack gap-4" data-testid="mobile-search">
+      <div className="relative row">
         <SearchIcon
           size={ICON.lg}
           aria-hidden="true"
-          style={{
-            position: 'absolute',
-            left: 'var(--space-3)',
-            color: 'var(--text-faint)',
-            pointerEvents: 'none'
-          }}
+          className="text-faint no-events" style={{ position: 'absolute', left: 'var(--space-3)' }}
         />
         <input
           value={draft}
@@ -230,39 +225,19 @@ export const MobileSearchView: React.FC = () => {
           }}
           placeholder="Треки и исполнители"
           aria-label="Поиск музыки"
-          style={{
-            width: '100%',
-            minHeight: '48px',
-            padding: '0 var(--space-7) 0 calc(var(--space-3) * 2 + 20px)',
-            borderRadius: 'var(--radius-pill)',
-            background: 'var(--surface-2)',
-            border: '1px solid var(--border)',
-            color: 'var(--text-primary)',
-            fontSize: 'var(--text-base)'
-          }}
+          className="w-full text-primary text-base bg-surface-2 border-line" style={{ minHeight: '48px', padding: '0 var(--space-7) 0 calc(var(--space-3) * 2 + 20px)', borderRadius: 'var(--radius-pill)' }}
           data-testid="mobile-search-input"
         />
         {draft && (
           <button
             type="button"
-            className="press focus-ring"
+            className="press focus-ring row justify-center text-muted pointer"
             onClick={() => {
               setDraft('');
               setSearchQuery('');
             }}
             aria-label="Очистить поиск"
-            style={{
-              position: 'absolute',
-              right: 'var(--space-1)',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              width: '44px',
-              height: '44px',
-              borderRadius: 'var(--radius-pill)',
-              color: 'var(--text-muted)',
-              cursor: 'pointer'
-            }}
+            style={{ position: 'absolute', right: 'var(--space-1)', width: '44px', height: '44px', borderRadius: 'var(--radius-pill)' }}
             data-testid="mobile-search-clear"
           >
             <X size={ICON.md} aria-hidden="true" />
@@ -272,12 +247,7 @@ export const MobileSearchView: React.FC = () => {
 
       {hasQuery && (
         <div
-          style={{
-            display: 'flex',
-            gap: 'var(--space-2)',
-            overflowX: 'auto',
-            scrollbarWidth: 'none'
-          }}
+          className="row-stretch gap-2" style={{ overflowX: 'auto', scrollbarWidth: 'none' }}
           role="tablist"
           aria-label="Что искать"
         >
@@ -286,16 +256,10 @@ export const MobileSearchView: React.FC = () => {
               key={item.value}
               type="button"
               role="tab"
-              className="chip press"
+              className="chip press shrink-0 pointer py-0 px-4"
               aria-selected={kind === item.value}
               onClick={() => setKind(item.value)}
-              style={{
-                flexShrink: 0,
-                minHeight: '38px',
-                padding: '0 var(--space-4)',
-                borderRadius: 'var(--radius-pill)',
-                cursor: 'pointer'
-              }}
+              style={{ minHeight: '38px', borderRadius: 'var(--radius-pill)' }}
               data-testid={`mobile-search-tab-${item.value}`}
             >
               {item.label}
@@ -310,52 +274,27 @@ export const MobileSearchView: React.FC = () => {
             <section data-testid="mobile-search-recent">
               <SectionTitle>Недавние запросы</SectionTitle>
               {recent.map((query) => (
-                <div key={query} style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>
+                <div key={query} className="row gap-2">
                   <button
                     type="button"
-                    className="press"
+                    className="press row gap-3 grow text-left text-primary pointer"
                     onClick={() => submit(query)}
-                    style={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: 'var(--space-3)',
-                      flex: 1,
-                      minWidth: 0,
-                      minHeight: '48px',
-                      textAlign: 'left',
-                      color: 'var(--text-primary)',
-                      cursor: 'pointer'
-                    }}
+                    style={{ minHeight: '48px' }}
                     data-testid={`mobile-search-recent-${query}`}
                   >
-                    <Clock size={ICON.md} style={{ flexShrink: 0, color: 'var(--text-faint)' }} aria-hidden="true" />
+                    <Clock size={ICON.md} className="shrink-0 text-faint" aria-hidden="true" />
                     <span
-                      className="text-truncate"
-                      style={{
-                        fontSize: 'var(--text-base)',
-                        lineHeight: 'var(--leading-base)',
-                        letterSpacing: 'var(--tracking-base)'
-                      }}
+                      className="text-truncate text-base leading-base tracking-base"
                     >
                       {query}
                     </span>
                   </button>
                   <button
                     type="button"
-                    className="press focus-ring"
+                    className="press focus-ring row justify-center shrink-0 text-faint pointer"
                     onClick={() => persistRecent(recentRef.current.filter((q) => q !== query))}
                     aria-label={`Убрать «${query}» из недавних`}
-                    style={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      width: '44px',
-                      height: '44px',
-                      flexShrink: 0,
-                      borderRadius: 'var(--radius-pill)',
-                      color: 'var(--text-faint)',
-                      cursor: 'pointer'
-                    }}
+                    style={{ width: '44px', height: '44px', borderRadius: 'var(--radius-pill)' }}
                   >
                     <X size={ICON.sm} aria-hidden="true" />
                   </button>
@@ -372,28 +311,16 @@ export const MobileSearchView: React.FC = () => {
               * экрана ради подсказок.
               */}
             <div
-              className="scroll-x-quiet"
-              style={{
-                display: 'flex',
-                gap: 'var(--space-2)',
-                overflowX: 'auto',
-                margin: '0 calc(var(--mobile-content-pad, var(--space-4)) * -1)',
-                padding: '0 var(--space-4)'
-              }}
+              className="scroll-x-quiet row-stretch gap-2 py-0 px-4"
+              style={{ overflowX: 'auto', margin: '0 calc(var(--mobile-content-pad, var(--space-4)) * -1)' }}
             >
               {QUICK_TAGS.map((tag) => (
                 <button
                   key={tag.label}
                   type="button"
-                  className="chip press"
+                  className="chip press shrink-0 pointer py-0 px-4"
                   onClick={() => submit(tag.query)}
-                  style={{
-                    flexShrink: 0,
-                    minHeight: '38px',
-                    padding: '0 var(--space-4)',
-                    borderRadius: 'var(--radius-pill)',
-                    cursor: 'pointer'
-                  }}
+                  style={{ minHeight: '38px', borderRadius: 'var(--radius-pill)' }}
                   data-testid={`mobile-search-tag-${tag.label}`}
                 >
                   {tag.label}
@@ -406,14 +333,7 @@ export const MobileSearchView: React.FC = () => {
 
       {isLoading && (
         <div
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            gap: 'var(--space-2)',
-            padding: 'var(--space-6) 0',
-            color: 'var(--text-muted)'
-          }}
+          className="row justify-center gap-2 text-muted py-6 px-0"
           data-testid="mobile-search-loading"
         >
           <Loader2 size={ICON.lg} className="animate-spin" aria-hidden="true" />
@@ -423,31 +343,15 @@ export const MobileSearchView: React.FC = () => {
 
       {error && !isLoading && (
         <div
-          style={{
-            display: 'flex',
-            flexDirection: 'column',
-            gap: 'var(--space-3)',
-            padding: 'var(--space-4)',
-            borderRadius: 'var(--radius-lg)',
-            background: 'var(--danger-soft)',
-            color: 'var(--text-primary)'
-          }}
+          className="stack gap-3 p-4 radius-lg text-primary bg-danger-soft"
           data-testid="mobile-search-error"
         >
-          <span style={{ fontSize: 'var(--text-sm)', lineHeight: 'var(--leading-sm)' }}>{error}</span>
+          <span className="text-sm leading-sm">{error}</span>
           <button
             type="button"
-            className="press"
+            className="press self-start text-primary pointer py-0 px-4 border-line"
             onClick={handleRetry}
-            style={{
-              alignSelf: 'flex-start',
-              minHeight: '40px',
-              padding: '0 var(--space-4)',
-              borderRadius: 'var(--radius-pill)',
-              border: '1px solid var(--border)',
-              color: 'var(--text-primary)',
-              cursor: 'pointer'
-            }}
+            style={{ minHeight: '40px', borderRadius: 'var(--radius-pill)' }}
           >
             Попробовать снова
           </button>
@@ -456,13 +360,7 @@ export const MobileSearchView: React.FC = () => {
 
       {kind === 'tracks' && !isLoading && !error && hasQuery && results.length === 0 && (
         <p
-          style={{
-            margin: 0,
-            padding: 'var(--space-5) 0',
-            fontSize: 'var(--text-sm)',
-            lineHeight: 'var(--leading-sm)',
-            color: 'var(--text-muted)'
-          }}
+          className="m-0 text-sm text-muted py-5 px-0 leading-sm"
           data-testid="mobile-search-empty"
         >
           Ничего не нашлось. Попробуйте другие слова.
@@ -486,14 +384,7 @@ export const MobileSearchView: React.FC = () => {
 
       {kind !== 'tracks' && isLoadingCollections && (
         <div
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            gap: 'var(--space-2)',
-            padding: 'var(--space-6) 0',
-            color: 'var(--text-muted)'
-          }}
+          className="row justify-center gap-2 text-muted py-6 px-0"
           data-testid="mobile-search-collections-loading"
         >
           <Loader2 size={ICON.lg} className="animate-spin" aria-hidden="true" />
@@ -504,24 +395,14 @@ export const MobileSearchView: React.FC = () => {
       {kind !== 'tracks' && !isLoadingCollections && hasQuery && (
         shownCollections.length === 0 ? (
           <p
-            style={{
-              margin: 0,
-              padding: 'var(--space-5) 0',
-              fontSize: 'var(--text-sm)',
-              lineHeight: 'var(--leading-sm)',
-              color: 'var(--text-muted)'
-            }}
+            className="m-0 text-sm text-muted py-5 px-0 leading-sm"
             data-testid="mobile-search-collections-empty"
           >
             Подборок такого вида не нашлось. Попробуйте вкладку «Треки».
           </p>
         ) : (
           <div
-            style={{
-              display: 'grid',
-              gridTemplateColumns: 'repeat(2, minmax(0, 1fr))',
-              gap: 'var(--space-4)'
-            }}
+            className="grid gap-4" style={{ gridTemplateColumns: 'repeat(2, minmax(0, 1fr))' }}
             data-testid="mobile-search-collections"
           >
             {shownCollections.map((item) => (
@@ -559,14 +440,7 @@ const TAB_KIND: Record<Exclude<SearchKind, 'tracks'>, CollectionKind> = {
 
 const SectionTitle: React.FC<{ children: React.ReactNode }> = ({ children }) => (
   <h2
-    style={{
-      margin: '0 0 var(--space-2)',
-      fontSize: 'var(--text-lg)',
-      lineHeight: 'var(--leading-lg)',
-      letterSpacing: 'var(--tracking-lg)',
-      fontWeight: 'var(--weight-semibold)',
-      color: 'var(--text-primary)'
-    }}
+    className="text-lg weight-semibold text-primary leading-lg tracking-lg" style={{ margin: '0 0 var(--space-2)' }}
   >
     {children}
   </h2>

@@ -318,9 +318,9 @@ export const MobilePlaylistView: React.FC = () => {
 
   if (!playlist) {
     return (
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-4)' }}>
+      <div className="stack gap-4">
         <BackRow onBack={back} />
-        <p style={{ margin: 0, fontSize: 'var(--text-sm)', color: 'var(--text-muted)' }}>
+        <p className="m-0 text-sm text-muted">
           Плейлист не найден — возможно, он был удалён.
         </p>
       </div>
@@ -328,26 +328,16 @@ export const MobilePlaylistView: React.FC = () => {
   }
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-4)' }} data-testid="mobile-playlist">
-      <header style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>
+    <div className="stack gap-4" data-testid="mobile-playlist">
+      <header className="row gap-2">
         <BackRow onBack={back} />
-        <span style={{ flex: 1 }} />
+        <span className="flex-1" />
         <button
           type="button"
-          className="press focus-ring"
+          className="press focus-ring row justify-center shrink-0 text-secondary pointer"
           onClick={() => setMenuOpen(true)}
           aria-label={`Действия с плейлистом «${playlist.title}»`}
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            width: '44px',
-            height: '44px',
-            flexShrink: 0,
-            borderRadius: 'var(--radius-pill)',
-            color: 'var(--text-secondary)',
-            cursor: 'pointer'
-          }}
+          style={{ width: '44px', height: '44px', borderRadius: 'var(--radius-pill)' }}
           data-testid="mobile-playlist-menu"
         >
           <MoreVertical size={ICON.lg} aria-hidden="true" />
@@ -361,17 +351,16 @@ export const MobilePlaylistView: React.FC = () => {
         * размером с ноготь на экране шириной в ладонь. В витринном языке самое
         * крупное на экране — то, что слушают, а не строка с подписью.
         */}
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-4)' }}>
+      <div className="stack gap-4">
         {/*
           * Обложка — она же кнопка выбора картинки, как на большом экране:
           * нажимают на то, что меняют. Отдельной кнопки рядом нет, на телефоне
           * ей и места бы не нашлось.
           */}
-        <div style={{ position: 'relative', width: '100%' }}>
+        <div className="relative w-full">
           <button
             type="button"
-            className="cover-button focus-ring"
-            style={{ width: '100%' }}
+            className="cover-button focus-ring w-full"
             onClick={() => coverInputRef.current?.click()}
             aria-label={playlist.coverUrl ? 'Сменить обложку плейлиста' : 'Поставить обложку плейлиста'}
             data-testid="mobile-playlist-cover-btn"
@@ -405,28 +394,15 @@ export const MobilePlaylistView: React.FC = () => {
             </button>
           )}
         </div>
-        <div style={{ display: 'flex', flexDirection: 'column', minWidth: 0, gap: 'var(--space-1)' }}>
+        <div className="stack min-0 gap-1">
           <h1
-            style={{
-              margin: 0,
-              fontFamily: 'var(--font-display)',
-              fontSize: 'var(--text-3xl)',
-              lineHeight: 'var(--leading-3xl)',
-              letterSpacing: 'var(--tracking-3xl)',
-              fontWeight: 'var(--weight-semibold)',
-              color: 'var(--text-primary)',
-              overflowWrap: 'anywhere'
-            }}
+            className="m-0 weight-semibold text-primary type-3xl" style={{ fontFamily: 'var(--font-display)', overflowWrap: 'anywhere' }}
             data-testid="mobile-playlist-title"
           >
             {playlist.title}
           </h1>
           <span
-            style={{
-              fontSize: 'var(--text-sm)',
-              lineHeight: 'var(--leading-sm)',
-              color: 'var(--text-muted)'
-            }}
+            className="text-sm text-muted leading-sm"
           >
             {pluralize(tracks.length, 'трек', 'трека', 'треков')}
           </span>
@@ -434,7 +410,7 @@ export const MobilePlaylistView: React.FC = () => {
       </div>
 
       {tracks.length > 0 && selected === null && (
-        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 'var(--space-2)' }}>
+        <div className="row-stretch wrap gap-2">
           <ActionButton
             icon={<Play size={ICON.md} fill="currentColor" aria-hidden="true" />}
             label="Слушать"
@@ -457,14 +433,14 @@ export const MobilePlaylistView: React.FC = () => {
       )}
 
       {tracks.length > 8 && selected === null && (
-        <div style={{ display: 'flex', gap: 'var(--space-2)', alignItems: 'center' }} data-testid="mobile-playlist-toolbar">
+        <div className="row gap-2" data-testid="mobile-playlist-toolbar">
           <input
             type="search"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             placeholder="Найти в плейлисте"
             aria-label="Найти в плейлисте"
-            style={{ flex: 1, minWidth: 0 }}
+            className="grow"
             data-testid="mobile-playlist-filter"
           />
           <select
@@ -512,20 +488,14 @@ export const MobilePlaylistView: React.FC = () => {
 
       {tracks.length === 0 ? (
         <p
-          style={{
-            margin: 0,
-            padding: 'var(--space-5) 0',
-            fontSize: 'var(--text-sm)',
-            lineHeight: 'var(--leading-sm)',
-            color: 'var(--text-muted)'
-          }}
+          className="m-0 text-sm text-muted py-5 px-0 leading-sm"
           data-testid="mobile-playlist-empty"
         >
           Плейлист пуст. Треки добавляются из листа действий — нажмите на песню и подержите.
         </p>
       ) : listTracks.length === 0 ? (
         <p
-          style={{ margin: 0, padding: 'var(--space-5) 0', fontSize: 'var(--text-sm)', color: 'var(--text-muted)' }}
+          className="m-0 text-sm text-muted py-5 px-0"
           data-testid="mobile-playlist-filter-empty"
         >
           Ничего не нашлось.
@@ -630,12 +600,7 @@ export const MobilePlaylistView: React.FC = () => {
       >
         {playlists.filter((item) => item.id !== playlist.id).length === 0 ? (
           <p
-            style={{
-              margin: 0,
-              padding: 'var(--space-4)',
-              fontSize: 'var(--text-sm)',
-              color: 'var(--text-muted)'
-            }}
+            className="m-0 p-4 text-sm text-muted"
             data-testid="mobile-playlist-move-empty"
           >
             Других плейлистов пока нет. Создайте его в медиатеке.
@@ -679,7 +644,7 @@ export const MobilePlaylistView: React.FC = () => {
         title="Новое название"
         data-testid="mobile-playlist-rename-sheet"
       >
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)', padding: '0 var(--space-4)' }}>
+        <div className="stack gap-3 py-0 px-4">
           <input
             autoFocus
             value={draftTitle}
@@ -688,15 +653,7 @@ export const MobilePlaylistView: React.FC = () => {
               if (event.key === 'Enter') void handleRename();
             }}
             aria-label="Название плейлиста"
-            style={{
-              minHeight: '48px',
-              padding: '0 var(--space-3)',
-              borderRadius: 'var(--radius-md)',
-              background: 'var(--surface-2)',
-              border: '1px solid var(--border)',
-              color: 'var(--text-primary)',
-              fontSize: 'var(--text-base)'
-            }}
+            className="radius-md text-primary text-base py-0 px-3 bg-surface-2 border-line" style={{ minHeight: '48px' }}
             data-testid="mobile-playlist-rename-input"
           />
           <ActionButton
@@ -714,21 +671,10 @@ export const MobilePlaylistView: React.FC = () => {
 const BackRow: React.FC<{ onBack: () => void }> = ({ onBack }) => (
   <button
     type="button"
-    className="press focus-ring"
+    className="press focus-ring row justify-center shrink-0 text-secondary pointer"
     onClick={onBack}
     aria-label="Назад"
-    style={{
-      display: 'flex',
-      alignItems: 'center',
-      justifyContent: 'center',
-      width: '44px',
-      height: '44px',
-      flexShrink: 0,
-      marginLeft: 'calc(var(--space-3) * -1)',
-      borderRadius: 'var(--radius-pill)',
-      color: 'var(--text-secondary)',
-      cursor: 'pointer'
-    }}
+    style={{ width: '44px', height: '44px', marginLeft: 'calc(var(--space-3) * -1)', borderRadius: 'var(--radius-pill)' }}
     data-testid="mobile-playlist-back"
   >
     <ChevronLeft size={ICON.xl} aria-hidden="true" />

@@ -92,12 +92,7 @@ export const MiniPlayerView: React.FC = () => {
       >
         {/* Left: Drag indicator & Layout Switcher */}
         <div
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: 'var(--space-1)',
-            WebkitAppRegion: 'no-drag'
-          }}
+          className="row gap-1" style={{ WebkitAppRegion: 'no-drag' }}
         >
           {/*
             Выбранный вид отмечается `isActive`, а не инлайновым цветом. Инлайн в
@@ -144,12 +139,7 @@ export const MiniPlayerView: React.FC = () => {
 
         {/* Right: Actions */}
         <div
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: 'var(--space-1)',
-            WebkitAppRegion: 'no-drag'
-          }}
+          className="row gap-1" style={{ WebkitAppRegion: 'no-drag' }}
         >
           {/* Always on top toggle */}
           <Button
@@ -201,7 +191,7 @@ export const MiniPlayerView: React.FC = () => {
       </div>
 
       {/* Main Body */}
-      <div style={{ flex: 1, minHeight: 0, position: 'relative', overflow: 'hidden' }}>
+      <div className="flex-1 relative overflow-hidden min-h-0">
         {miniPlayerLayout === 'compact' && <MiniPlayerCompact />}
         {miniPlayerLayout === 'square' && <MiniPlayerSquare />}
         {miniPlayerLayout === 'expanded' && <MiniPlayerExpanded />}

@@ -10,39 +10,20 @@ export interface SettingsSectionProps {
 /** A titled panel. Every settings group is one of these. */
 export const SettingsSection: React.FC<SettingsSectionProps> = ({ id, title, description, children }) => (
   <section
-    className="panel"
+    className="panel p-5 radius-lg stack gap-4"
     aria-labelledby={`${id}-heading`}
-    style={{
-      padding: 'var(--space-5)',
-      borderRadius: 'var(--radius-lg)',
-      display: 'flex',
-      flexDirection: 'column',
-      gap: 'var(--space-4)'
-    }}
     data-testid={`settings-section-${id}`}
   >
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-1)' }}>
+    <div className="stack gap-1">
       <h2
         id={`${id}-heading`}
-        style={{
-          margin: 0,
-          fontSize: 'var(--text-lg)',
-          lineHeight: 'var(--leading-lg)',
-          letterSpacing: 'var(--tracking-lg)',
-          fontWeight: 'var(--weight-semibold)',
-          color: 'var(--text-primary)'
-        }}
+        className="m-0 text-lg weight-semibold text-primary leading-lg tracking-lg"
       >
         {title}
       </h2>
       {description && (
         <p
-          style={{
-            margin: 0,
-            fontSize: 'var(--text-sm)',
-            lineHeight: 'var(--leading-sm)',
-            color: 'var(--text-muted)'
-          }}
+          className="m-0 text-sm text-muted leading-sm"
         >
           {description}
         </p>
@@ -94,36 +75,18 @@ export const SettingRow: React.FC<SettingRowProps> = ({
       * строки настроек как раз `stacked`.
       */}
     <div
-      style={{
-        display: 'flex',
-        flexDirection: 'column',
-        gap: '2px',
-        minWidth: 0,
-        flex: stacked ? '0 0 auto' : '1 1 220px'
-      }}
+      className="stack gap-px min-0" style={{ flex: stacked ? '0 0 auto' : '1 1 220px' }}
     >
       <label
         htmlFor={controlId}
-        style={{
-          fontSize: 'var(--text-sm)',
-          lineHeight: 'var(--leading-sm)',
-          fontWeight: 'var(--weight-medium)',
-          color: 'var(--text-primary)',
-          cursor: 'pointer'
-        }}
+        className="text-sm weight-medium text-primary pointer leading-sm"
       >
         {label}
       </label>
       {description && (
         <p
           id={`${controlId}-description`}
-          style={{
-            margin: 0,
-            fontSize: 'var(--text-xs)',
-            lineHeight: 'var(--leading-xs)',
-            color: 'var(--text-muted)',
-            maxWidth: '62ch'
-          }}
+          className="m-0 text-xs text-muted leading-xs" style={{ maxWidth: '62ch' }}
         >
           {description}
         </p>
@@ -169,26 +132,15 @@ export const InfoRow: React.FC<InfoRowProps> = ({ label, description, children }
       gap: 'var(--space-5)'
     }}
   >
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', minWidth: 0, flex: '1 1 220px' }}>
+    <div className="stack gap-px min-0" style={{ flex: '1 1 220px' }}>
       <span
-        style={{
-          fontSize: 'var(--text-sm)',
-          lineHeight: 'var(--leading-sm)',
-          fontWeight: 'var(--weight-medium)',
-          color: 'var(--text-primary)'
-        }}
+        className="text-sm weight-medium text-primary leading-sm"
       >
         {label}
       </span>
       {description && (
         <p
-          style={{
-            margin: 0,
-            fontSize: 'var(--text-xs)',
-            lineHeight: 'var(--leading-xs)',
-            color: 'var(--text-muted)',
-            maxWidth: '62ch'
-          }}
+          className="m-0 text-xs text-muted leading-xs" style={{ maxWidth: '62ch' }}
         >
           {description}
         </p>
@@ -280,7 +232,7 @@ export const SliderSetting: React.FC<SliderSettingProps> = ({
 
   return (
     <SettingRow label={label} controlId={id} description={description} stacked>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-3)' }}>
+      <div className="row gap-3">
         <input
           id={id}
           type="range"
@@ -303,13 +255,7 @@ export const SliderSetting: React.FC<SliderSettingProps> = ({
         />
         <span
           data-numeric
-          style={{
-            width: '62px',
-            textAlign: 'right',
-            fontSize: 'var(--text-xs)',
-            color: 'var(--text-secondary)',
-            flexShrink: 0
-          }}
+          className="text-right text-xs text-secondary shrink-0" style={{ width: '62px' }}
           data-testid={`${id}-value`}
         >
           {format(value)}

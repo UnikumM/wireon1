@@ -235,16 +235,8 @@ export const ArtistHubView: React.FC<ArtistHubViewProps> = ({
   if (isLoading) {
     return (
       <div
-        className={`scrollbar-thin ${className}`}
-        style={{
-          flex: 1,
-          height: '100%',
-          overflowY: 'auto',
-          padding: 'var(--space-6)',
-          display: 'flex',
-          flexDirection: 'column',
-          gap: 'var(--space-6)'
-        }}
+        className={`scrollbar-thin ${className} flex-1 h-full stack gap-6 p-6`}
+        style={{ overflowY: 'auto' }}
         data-testid="artist-hub-loading"
       >
         <div style={{
@@ -260,7 +252,7 @@ export const ArtistHubView: React.FC<ArtistHubViewProps> = ({
           <Skeleton width="100px" height="36px" radius="var(--radius-sm)" />
         </div>
         <Skeleton width="100%" height="280px" radius="var(--radius-lg)" />
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
+        <div className="stack gap-3">
           <Skeleton width="200px" height="28px" radius="var(--radius-xs)" />
           {Array.from({ length: 5 }).map((_, i) => (
             <Skeleton key={i} width="100%" height="56px" radius="var(--radius-sm)" />
@@ -281,18 +273,8 @@ export const ArtistHubView: React.FC<ArtistHubViewProps> = ({
 
     return (
       <div
-        className={`scrollbar-thin ${className}`}
-        style={{
-          flex: 1,
-          height: '100%',
-          overflowY: 'auto',
-          padding: 'var(--space-6)',
-          display: 'flex',
-          flexDirection: 'column',
-          alignItems: 'center',
-          justifyContent: 'center',
-          gap: 'var(--space-4)'
-        }}
+        className={`scrollbar-thin ${className} flex-1 h-full stack-center justify-center gap-4 p-6`}
+        style={{ overflowY: 'auto' }}
         data-testid="artist-hub-error"
       >
         <EmptyState
@@ -411,12 +393,7 @@ export const ArtistHubView: React.FC<ArtistHubViewProps> = ({
 
         {/* Top bar back navigation button */}
         <div
-          style={{
-            position: 'relative',
-            zIndex: 2,
-            marginBottom: 'auto',
-            paddingBottom: 'var(--space-4)'
-          }}
+          className="relative pb-4" style={{ zIndex: 2, marginBottom: 'auto' }}
         >
           <Button
             variant="ghost"
@@ -432,49 +409,29 @@ export const ArtistHubView: React.FC<ArtistHubViewProps> = ({
 
         {/* Artist Identity & Controls */}
         <div
-          style={{
-            position: 'relative',
-            zIndex: 2,
-            display: 'flex',
-            alignItems: 'flex-end',
-            gap: 'var(--space-6)',
-            flexWrap: 'wrap'
-          }}
+          className="relative row-end gap-6 wrap" style={{ zIndex: 2 }}
         >
           {/* Avatar Tile */}
           <div
-            style={{
-              width: '128px',
-              maxWidth: '100%',
-              aspectRatio: '1 / 1',
-              borderRadius: 'var(--radius-full)',
-              overflow: 'hidden',
-              flexShrink: 0,
-              border: '3px solid var(--border)',
-              boxShadow: 'var(--shadow-lg)',
-              backgroundColor: 'var(--surface-3)',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center'
-            }}
+            className="radius-full overflow-hidden shrink-0 row justify-center max-w-full bg-surface-3" style={{ width: '128px', aspectRatio: '1 / 1', border: '3px solid var(--border)', boxShadow: 'var(--shadow-lg)' }}
             data-testid="artist-avatar"
           >
             {profile.avatarUrl || profile.bannerUrl ? (
               <img
                 src={profile.avatarUrl || profile.bannerUrl}
                 alt={profile.name}
-                style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                className="fill-cover"
                 onError={(e) => {
                   e.currentTarget.style.display = 'none';
                 }}
               />
             ) : (
-              <User size={ICON.hero} style={{ color: 'var(--text-faint)' }} />
+              <User size={ICON.hero} className="text-faint" />
             )}
           </div>
 
           {/* Name & Listener Stats */}
-          <div style={{ flex: '1 1 240px', minWidth: 0, display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' }}>
+          <div className="min-0 stack gap-2" style={{ flex: '1 1 240px' }}>
             <h1
               style={{
                 margin: 0,
@@ -500,12 +457,7 @@ export const ArtistHubView: React.FC<ArtistHubViewProps> = ({
                 listeners" line any more — nothing reports that number to us. */}
             {profile.subscriberCount && (
               <p
-                style={{
-                  margin: 0,
-                  fontSize: 'var(--text-sm)',
-                  color: 'var(--text-secondary)',
-                  fontWeight: 'var(--weight-medium)'
-                }}
+                className="m-0 text-sm text-secondary weight-medium"
                 data-testid="artist-subscribers"
               >
                 {profile.subscriberCount}
@@ -514,13 +466,7 @@ export const ArtistHubView: React.FC<ArtistHubViewProps> = ({
 
             {/* Quick Action Buttons */}
             <div
-              style={{
-                display: 'flex',
-                flexWrap: 'wrap',
-                alignItems: 'center',
-                gap: 'var(--space-3)',
-                marginTop: 'var(--space-3)'
-              }}
+              className="row wrap gap-3 mt-3"
             >
               <Button
                 variant="primary"
@@ -582,38 +528,18 @@ export const ArtistHubView: React.FC<ArtistHubViewProps> = ({
             * `minWidth: 0` разрешает переноситься заголовку — он длиннее.
             */}
           <div
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-              gap: 'var(--space-3)',
-              marginBottom: 'var(--space-4)'
-            }}
+            className="row justify-between gap-3 mb-4"
           >
             <h2
               id="artist-top-tracks-heading"
-              style={{
-                margin: 0,
-                minWidth: 0,
-                fontSize: 'var(--text-xl)',
-                fontWeight: 'var(--weight-semibold)',
-                color: 'var(--text-primary)',
-                display: 'flex',
-                alignItems: 'center',
-                gap: 'var(--space-2)'
-              }}
+              className="m-0 min-0 text-xl weight-semibold text-primary row gap-2"
             >
               {/* Про популярность, а не про волшебство: значок и должен быть про рост. */}
-              <TrendingUp size={ICON.lg} style={{ color: 'var(--text-secondary)', flexShrink: 0 }} aria-hidden="true" />
+              <TrendingUp size={ICON.lg} className="text-secondary shrink-0" aria-hidden="true" />
               Популярные треки
             </h2>
             <span
-              style={{
-                fontSize: 'var(--text-xs)',
-                color: 'var(--text-muted)',
-                flexShrink: 0,
-                whiteSpace: 'nowrap'
-              }}
+              className="text-xs text-muted shrink-0 nowrap"
             >
               {pluralize(profile.topTracks.length, 'трек', 'трека', 'треков')}
             </span>
@@ -628,15 +554,7 @@ export const ArtistHubView: React.FC<ArtistHubViewProps> = ({
             />
           ) : (
             <div
-              style={{
-                display: 'flex',
-                flexDirection: 'column',
-                gap: 'var(--space-1)',
-                backgroundColor: 'var(--surface-1)',
-                padding: 'var(--space-2)',
-                borderRadius: 'var(--radius-md)',
-                border: '1px solid var(--border-subtle)'
-              }}
+              className="stack gap-1 p-2 radius-md bg-surface-1 border-subtle"
             >
               {profile.topTracks.map((track, index) => (
                 <TrackCard
@@ -657,26 +575,14 @@ export const ArtistHubView: React.FC<ArtistHubViewProps> = ({
           <section aria-labelledby="artist-discography-heading" data-testid="artist-discography-section">
             <h2
               id="artist-discography-heading"
-              style={{
-                margin: '0 0 var(--space-4) 0',
-                fontSize: 'var(--text-xl)',
-                fontWeight: 'var(--weight-semibold)',
-                color: 'var(--text-primary)',
-                display: 'flex',
-                alignItems: 'center',
-                gap: 'var(--space-2)'
-              }}
+              className="text-xl weight-semibold text-primary row gap-2" style={{ margin: '0 0 var(--space-4) 0' }}
             >
-              <Disc size={ICON.lg} style={{ color: 'var(--text-secondary)' }} aria-hidden="true" />
+              <Disc size={ICON.lg} className="text-secondary" aria-hidden="true" />
               Дискография
             </h2>
 
             <div
-              style={{
-                display: 'grid',
-                gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))',
-                gap: 'var(--space-4)'
-              }}
+              className="grid gap-4" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))' }}
             >
               {profile.albums.map((album, index) => (
                 <button
@@ -710,60 +616,35 @@ export const ArtistHubView: React.FC<ArtistHubViewProps> = ({
                   data-testid={`artist-album-${album.id}`}
                 >
                   <div
-                    style={{
-                      position: 'relative',
-                      width: '100%',
-                      aspectRatio: '1/1',
-                      borderRadius: 'var(--radius-sm)',
-                      overflow: 'hidden',
-                      backgroundColor: 'var(--surface-3)',
-                      border: '1px solid var(--border-subtle)',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center'
-                    }}
+                    className="relative w-full radius-sm overflow-hidden row justify-center bg-surface-3 border-subtle" style={{ aspectRatio: '1/1' }}
                   >
                     {album.coverUrl ? (
                       <img
                         src={album.coverUrl}
                         alt={album.title}
                         loading="lazy"
-                        style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                        className="fill-cover"
                         onError={(e) => {
                           e.currentTarget.style.display = 'none';
                         }}
                       />
                     ) : (
-                      <Disc size={ICON.display} style={{ color: 'var(--text-faint)' }} />
+                      <Disc size={ICON.display} className="text-faint" />
                     )}
                     {/* Знак того, что на обложку можно нажать. Без него карточка
                         выглядит ровно так же, как когда она ничего не делала. */}
                     <span
                       aria-hidden="true"
-                      style={{
-                        position: 'absolute',
-                        inset: 0,
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        backgroundColor: 'var(--scrim)',
-                        color: 'var(--text-on-accent)',
-                        transition: 'opacity var(--dur-fast) var(--ease-out)'
-                      }}
-                      className="album-play-veil"
+                      style={{ position: 'absolute', inset: 0, backgroundColor: 'var(--scrim)', color: 'var(--text-on-accent)', transition: 'opacity var(--dur-fast) var(--ease-out)' }}
+                      className="album-play-veil row justify-center"
                     >
                       <Play size={ICON.xl} fill="currentColor" />
                     </span>
                   </div>
 
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', minWidth: 0 }}>
+                  <div className="stack gap-px min-0">
                     <span
-                      className="text-truncate"
-                      style={{
-                        fontSize: 'var(--text-sm)',
-                        fontWeight: 'var(--weight-semibold)',
-                        color: 'var(--text-primary)'
-                      }}
+                      className="text-truncate text-sm weight-semibold text-primary"
                     >
                       {album.title}
                     </span>
@@ -779,9 +660,9 @@ export const ArtistHubView: React.FC<ArtistHubViewProps> = ({
                         color: 'var(--text-muted)'
                       }}
                     >
-                      <span style={{ whiteSpace: 'nowrap' }}>{album.year || 'Релиз'}</span>
+                      <span className="nowrap">{album.year || 'Релиз'}</span>
                       {album.trackCount !== undefined && (
-                        <span style={{ whiteSpace: 'nowrap' }}>
+                        <span className="nowrap">
                           {pluralize(album.trackCount, 'трек', 'трека', 'треков')}
                         </span>
                       )}
@@ -802,17 +683,9 @@ export const ArtistHubView: React.FC<ArtistHubViewProps> = ({
         <section aria-labelledby="artist-similar-heading" data-testid="artist-similar-section">
           <h2
             id="artist-similar-heading"
-            style={{
-              margin: '0 0 var(--space-4) 0',
-              fontSize: 'var(--text-xl)',
-              fontWeight: 'var(--weight-semibold)',
-              color: 'var(--text-primary)',
-              display: 'flex',
-              alignItems: 'center',
-              gap: 'var(--space-2)'
-            }}
+            className="text-xl weight-semibold text-primary row gap-2" style={{ margin: '0 0 var(--space-4) 0' }}
           >
-            <Users size={ICON.lg} style={{ color: 'var(--text-secondary)' }} aria-hidden="true" />
+            <Users size={ICON.lg} className="text-secondary" aria-hidden="true" />
             Похожие исполнители
           </h2>
 
@@ -874,50 +747,29 @@ export const ArtistHubView: React.FC<ArtistHubViewProps> = ({
                   data-testid={`similar-artist-card-${idx}`}
                 >
                   <div
-                    style={{
-                      width: '80px',
-                      height: '80px',
-                      borderRadius: 'var(--radius-full)',
-                      overflow: 'hidden',
-                      backgroundColor: 'var(--surface-3)',
-                      border: '2px solid var(--border-accent)',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center'
-                    }}
+                    className="radius-full overflow-hidden row justify-center bg-surface-3" style={{ width: '80px', height: '80px', border: '2px solid var(--border-accent)' }}
                   >
                     {item.imageUrl ? (
                       <img
                         src={item.imageUrl}
                         alt={item.name}
                         loading="lazy"
-                        style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                        className="fill-cover"
                         onError={(e) => {
                           e.currentTarget.style.display = 'none';
                         }}
                       />
                     ) : (
-                      <User size={ICON.display} style={{ color: 'var(--text-faint)' }} />
+                      <User size={ICON.display} className="text-faint" />
                     )}
                   </div>
                   <span
-                    className="text-truncate"
-                    style={{
-                      width: '100%',
-                      fontSize: 'var(--text-sm)',
-                      fontWeight: 'var(--weight-medium)',
-                      color: 'var(--text-primary)'
-                    }}
+                    className="text-truncate w-full text-sm weight-medium text-primary"
                   >
                     {item.name}
                   </span>
                   <span
-                    className="text-truncate"
-                    style={{
-                      width: '100%',
-                      fontSize: 'var(--text-xs)',
-                      color: 'var(--text-muted)'
-                    }}
+                    className="text-truncate w-full text-xs text-muted"
                     data-testid={`similar-artist-reason-${idx}`}
                   >
                     {SIMILAR_ORIGIN_LABELS[item.origin]}
@@ -932,42 +784,19 @@ export const ArtistHubView: React.FC<ArtistHubViewProps> = ({
         {bio.length > 0 && (
           <section
             aria-labelledby="artist-bio-heading"
-            className="panel"
-            style={{
-              padding: 'var(--space-6)',
-              borderRadius: 'var(--radius-lg)',
-              display: 'flex',
-              flexDirection: 'column',
-              gap: 'var(--space-3)',
-              backgroundColor: 'var(--surface-1)',
-              border: '1px solid var(--border-subtle)'
-            }}
+            className="panel radius-lg stack gap-3 p-6 bg-surface-1 border-subtle"
             data-testid="artist-bio-section"
           >
             <h2
               id="artist-bio-heading"
-              style={{
-                margin: 0,
-                fontSize: 'var(--text-lg)',
-                fontWeight: 'var(--weight-semibold)',
-                color: 'var(--text-primary)',
-                display: 'flex',
-                alignItems: 'center',
-                gap: 'var(--space-2)'
-              }}
+              className="m-0 text-lg weight-semibold text-primary row gap-2"
             >
-              <Info size={ICON.md} style={{ color: 'var(--text-secondary)' }} aria-hidden="true" />
+              <Info size={ICON.md} className="text-secondary" aria-hidden="true" />
               Об исполнителе
             </h2>
 
             <p
-              style={{
-                margin: 0,
-                fontSize: 'var(--text-sm)',
-                lineHeight: 'var(--leading-relaxed, 1.6)',
-                color: 'var(--text-secondary)',
-                whiteSpace: 'pre-line'
-              }}
+              className="m-0 text-sm text-secondary" style={{ lineHeight: 'var(--leading-relaxed, 1.6)', whiteSpace: 'pre-line' }}
               data-testid="artist-bio-text"
             >
               {displayedBio}
@@ -975,7 +804,7 @@ export const ArtistHubView: React.FC<ArtistHubViewProps> = ({
 
             {profile.bioSource && (
               <span
-                style={{ fontSize: 'var(--text-xs)', color: 'var(--text-faint)' }}
+                className="text-xs text-faint"
                 data-testid="artist-bio-source"
               >
                 {BIO_SOURCE_LABELS[profile.bioSource]}

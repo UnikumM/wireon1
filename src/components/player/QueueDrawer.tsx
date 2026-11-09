@@ -71,13 +71,13 @@ const RowArtwork: React.FC<{ track: UnifiedTrack }> = ({ track }) => (
       <img
         src={track.artworkUrl}
         alt=""
-        style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+        className="fill-cover"
         onError={(event) => {
           event.currentTarget.style.display = 'none';
         }}
       />
     ) : (
-      <Music2 size={ICON.md} aria-hidden="true" style={{ color: 'var(--text-faint)' }} />
+      <Music2 size={ICON.md} aria-hidden="true" className="text-faint" />
     )}
   </span>
 );
@@ -278,13 +278,8 @@ export const QueueDrawer: React.FC<QueueDrawerProps> = ({ className = '' }) => {
     <div style={{ position: 'fixed', inset: 0, zIndex: 'calc(var(--z-overlay) + 1)' }}>
       <div
         {...backdropProps}
-        className="animate-fade-in"
-        style={{
-          position: 'absolute',
-          inset: 0,
-          backgroundColor: 'var(--surface-sunken)',
-          opacity: 0.72
-        }}
+        className="animate-fade-in bg-sunken"
+        style={{ position: 'absolute', inset: 0, opacity: 0.72 }}
         data-testid="queue-drawer-backdrop"
       />
 
@@ -314,32 +309,16 @@ export const QueueDrawer: React.FC<QueueDrawerProps> = ({ className = '' }) => {
         data-testid="queue-drawer"
       >
         <header
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            gap: 'var(--space-3)',
-            padding: 'calc(var(--safe-top) + var(--space-4)) calc(var(--safe-right) + var(--space-4)) var(--space-3) calc(var(--safe-left) + var(--space-4))',
-            borderBottom: '1px solid var(--border-subtle)'
-          }}
+          className="row justify-between gap-3 border-b-subtle" style={{ padding: 'calc(var(--safe-top) + var(--space-4)) calc(var(--safe-right) + var(--space-4)) var(--space-3) calc(var(--safe-left) + var(--space-4))' }}
         >
           <h2
             id="queue-drawer-title"
-            style={{
-              margin: 0,
-              display: 'flex',
-              alignItems: 'center',
-              gap: 'var(--space-2)',
-              fontSize: 'var(--text-lg)',
-              letterSpacing: 'var(--tracking-lg)',
-              fontWeight: 'var(--weight-semibold)',
-              color: 'var(--text-primary)'
-            }}
+            className="m-0 row gap-2 text-lg weight-semibold text-primary tracking-lg"
           >
-            <ListMusic size={ICON.lg} aria-hidden="true" style={{ color: 'var(--text-muted)' }} />
+            <ListMusic size={ICON.lg} aria-hidden="true" className="text-muted" />
             Очередь
           </h2>
-          <span style={{ flex: 1 }} />
+          <span className="flex-1" />
           {(currentTrack || userQueue.length > 0 || upcomingFromSource.length > 0) && (
             <Button
               variant="ghost"
@@ -360,7 +339,7 @@ export const QueueDrawer: React.FC<QueueDrawerProps> = ({ className = '' }) => {
             title="Закрыть очередь"
             aria-label="Закрыть очередь"
             data-autofocus
-            style={{ width: 'var(--control-md)', height: 'var(--control-md)' }}
+            className="control-md"
             data-testid="queue-drawer-close"
           >
             <X size={ICON.md} />
@@ -372,16 +351,8 @@ export const QueueDrawer: React.FC<QueueDrawerProps> = ({ className = '' }) => {
         </div>
 
         <div
-          className="scrollbar-thin"
-          style={{
-            flex: 1,
-            minHeight: 0,
-            overflowY: 'auto',
-            padding: 'var(--space-4) calc(var(--safe-right) + var(--space-4)) calc(var(--safe-bottom) + var(--space-4)) calc(var(--safe-left) + var(--space-4))',
-            display: 'flex',
-            flexDirection: 'column',
-            gap: 'var(--space-5)'
-          }}
+          className="scrollbar-thin flex-1 stack gap-5 min-h-0"
+          style={{ overflowY: 'auto', padding: 'var(--space-4) calc(var(--safe-right) + var(--space-4)) calc(var(--safe-bottom) + var(--space-4)) calc(var(--safe-left) + var(--space-4))' }}
         >
           <section aria-labelledby="queue-now-playing-label">
             <div style={SECTION_LABEL} id="queue-now-playing-label">
@@ -390,22 +361,13 @@ export const QueueDrawer: React.FC<QueueDrawerProps> = ({ className = '' }) => {
 
             {currentTrack ? (
               <div
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: 'var(--space-3)',
-                  padding: 'var(--space-2) var(--space-3)',
-                  borderRadius: 'var(--radius-sm)',
-                  backgroundColor: 'var(--accent-soft)',
-                  border: '1px solid var(--border-accent)'
-                }}
+                className="row gap-3 radius-sm py-2 px-3 bg-accent-soft" style={{ border: '1px solid var(--border-accent)' }}
                 data-testid="queue-now-playing"
               >
                 <RowArtwork track={currentTrack} />
-                <div style={{ flex: 1, minWidth: 0 }}>
+                <div className="grow">
                   <div
-                    className="text-truncate"
-                    style={{ fontSize: 'var(--text-sm)', fontWeight: 'var(--weight-semibold)', color: 'var(--accent)' }}
+                    className="text-truncate text-sm weight-semibold text-accent"
                   >
                     {currentTrack.title}
                   </div>
@@ -446,7 +408,7 @@ export const QueueDrawer: React.FC<QueueDrawerProps> = ({ className = '' }) => {
                 icon={<Music2 size={ICON.xl} />}
                 title="Ничего не играет"
                 description="Включите трек — он появится здесь."
-                style={{ padding: 'var(--space-5) var(--space-4)', gap: 'var(--space-2)' }}
+                className="py-5 px-4 gap-2"
                 data-testid="queue-now-playing-empty"
               />
             )}
@@ -463,7 +425,7 @@ export const QueueDrawer: React.FC<QueueDrawerProps> = ({ className = '' }) => {
                   size="xs"
                   onClick={handleClearUpNext}
                   title="Убрать всё, что вы поставили в очередь"
-                  style={{ color: 'var(--danger)' }}
+                  className="text-danger"
                   data-testid="clear-user-queue-btn"
                 >
                   Очистить
@@ -476,13 +438,13 @@ export const QueueDrawer: React.FC<QueueDrawerProps> = ({ className = '' }) => {
                 icon={<ListMusic size={ICON.xl} />}
                 title="Очередь пуста"
                 description="«В очередь» в меню любого трека поставит его сюда — он заиграет раньше остального."
-                style={{ padding: 'var(--space-5) var(--space-4)', gap: 'var(--space-2)' }}
+                className="py-5 px-4 gap-2"
                 data-testid="queue-up-next-empty"
               />
             ) : (
               <ul
                 ref={listRef}
-                style={{ listStyle: 'none', margin: 0, padding: 0, display: 'flex', flexDirection: 'column' }}
+                className="m-0 p-0 stack list-none"
               >
                 {userQueue.map((track, index) => (
                   <li
@@ -508,7 +470,7 @@ export const QueueDrawer: React.FC<QueueDrawerProps> = ({ className = '' }) => {
                     <span
                       aria-hidden="true"
                       title="Перетащите, чтобы поменять порядок"
-                      style={{ display: 'inline-flex', cursor: 'grab', color: 'var(--text-faint)', flexShrink: 0 }}
+                      className="inline-row text-faint shrink-0" style={{ cursor: 'grab' }}
                     >
                       <GripVertical size={ICON.md} />
                     </span>
@@ -517,23 +479,13 @@ export const QueueDrawer: React.FC<QueueDrawerProps> = ({ className = '' }) => {
                       onClick={() => jumpToUserQueueTrack(index)}
                       title={`Включить «${track.title}»`}
                       aria-label={`Включить «${track.title}». Alt со стрелками меняет порядок.`}
-                      style={{
-                        flex: 1,
-                        minWidth: 0,
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: 'var(--space-2)',
-                        padding: 0,
-                        justifyContent: 'flex-start',
-                        textAlign: 'left'
-                      }}
+                      className="grow row gap-2 p-0 justify-start text-left"
                       data-testid={`play-queue-item-${index}`}
                     >
                       <RowArtwork track={track} />
-                      <span style={{ flex: 1, minWidth: 0, display: 'block' }}>
+                      <span className="grow block">
                         <span
-                          className="text-truncate"
-                          style={{ display: 'block', fontSize: 'var(--text-sm)', color: 'var(--text-primary)' }}
+                          className="text-truncate block text-sm text-primary"
                         >
                           {/*
                             * Значок у подобранного трека.
@@ -548,11 +500,7 @@ export const QueueDrawer: React.FC<QueueDrawerProps> = ({ className = '' }) => {
                             <Sparkles
                               size={ICON.xs}
                               aria-hidden="true"
-                              style={{
-                                color: 'var(--accent)',
-                                marginRight: 'var(--space-1)',
-                                verticalAlign: '-1px'
-                              }}
+                              className="text-accent mr-1" style={{ verticalAlign: '-1px' }}
                             />
                           )}
                           {track.title}
@@ -588,7 +536,7 @@ export const QueueDrawer: React.FC<QueueDrawerProps> = ({ className = '' }) => {
                       </span>
                     </button>
 
-                    <span data-numeric style={{ fontSize: 'var(--text-xs)', color: 'var(--text-muted)', flexShrink: 0 }}>
+                    <span data-numeric className="text-xs text-muted shrink-0">
                       {formatDuration(track.duration)}
                     </span>
 
@@ -601,7 +549,7 @@ export const QueueDrawer: React.FC<QueueDrawerProps> = ({ className = '' }) => {
                       }}
                       title="Убрать из очереди"
                       aria-label={`Убрать «${track.title}» из очереди`}
-                      style={{ width: 'var(--control-sm)', height: 'var(--control-sm)', color: 'var(--text-muted)' }}
+                      className="control-sm text-muted"
                       data-testid={`remove-queue-item-${index}`}
                     >
                       <Trash2 size={ICON.sm} />
@@ -619,7 +567,7 @@ export const QueueDrawer: React.FC<QueueDrawerProps> = ({ className = '' }) => {
                 {upcomingFromSource.length > 0 && <span data-numeric> ({upcomingFromSource.length})</span>}
               </span>
               {isShuffled && (
-                <span className="badge" style={{ color: 'var(--accent)', borderColor: 'var(--border-accent)' }}>
+                <span className="badge text-accent" style={{ borderColor: 'var(--border-accent)' }}>
                   <Shuffle size={ICON.xs} aria-hidden="true" />
                   Вперемешку
                 </span>
@@ -631,21 +579,13 @@ export const QueueDrawer: React.FC<QueueDrawerProps> = ({ className = '' }) => {
                 icon={<Play size={ICON.xl} />}
                 title="Список пуст"
                 description="Включите плейлист, альбом или результаты поиска — остальные треки выстроятся здесь."
-                style={{ padding: 'var(--space-5) var(--space-4)', gap: 'var(--space-2)' }}
+                className="py-5 px-4 gap-2"
                 data-testid="queue-source-empty"
               />
             ) : (
               <ul
                 ref={sourceVirtual.containerRef}
-                style={{
-                  listStyle: 'none',
-                  margin: 0,
-                  padding: 0,
-                  display: 'flex',
-                  flexDirection: 'column',
-                  paddingTop: sourceVirtual.paddingTop,
-                  paddingBottom: sourceVirtual.paddingBottom
-                }}
+                className="m-0 p-0 stack list-none" style={{ paddingTop: sourceVirtual.paddingTop, paddingBottom: sourceVirtual.paddingBottom }}
               >
                 {upcomingFromSource
                   .slice(sourceVirtual.startIndex, sourceVirtual.endIndex)
@@ -662,14 +602,12 @@ export const QueueDrawer: React.FC<QueueDrawerProps> = ({ className = '' }) => {
                           ? `Включить «${track.title}» — подобрано для вас`
                           : `Включить «${track.title}»`
                       }
-                      className="menu-item-hover"
-                      style={{ gap: 'var(--space-2)', padding: 'var(--space-1) var(--space-2)' }}
+                      className="menu-item-hover gap-2 py-1 px-2"
                     >
                       <RowArtwork track={track} />
-                      <span style={{ flex: 1, minWidth: 0, display: 'block' }}>
+                      <span className="grow block">
                         <span
-                          className="text-truncate"
-                          style={{ display: 'block', fontSize: 'var(--text-sm)', color: 'var(--text-primary)' }}
+                          className="text-truncate block text-sm text-primary"
                         >
                           {track.title}
                         </span>
@@ -702,7 +640,7 @@ export const QueueDrawer: React.FC<QueueDrawerProps> = ({ className = '' }) => {
                           {track.artist}
                         </span>
                       </span>
-                      <span data-numeric style={{ fontSize: 'var(--text-xs)', color: 'var(--text-muted)', flexShrink: 0 }}>
+                      <span data-numeric className="text-xs text-muted shrink-0">
                         {formatDuration(track.duration)}
                       </span>
                     </button>
@@ -715,27 +653,27 @@ export const QueueDrawer: React.FC<QueueDrawerProps> = ({ className = '' }) => {
           {recentlyPlayed.length > 0 && (
             <section aria-labelledby="queue-recent-label" data-testid="queue-recent">
               <div style={SECTION_LABEL} id="queue-recent-label">
-                <span className="section-label" style={{ display: 'inline-flex', alignItems: 'center', gap: 'var(--space-1)' }}>
+                <span className="section-label inline-row gap-1">
                   <History size={ICON.xs} aria-hidden="true" /> Недавно играло
                 </span>
               </div>
-              <ul style={{ listStyle: 'none', margin: 0, padding: 0, display: 'flex', flexDirection: 'column' }}>
+              <ul className="m-0 p-0 stack list-none">
                 {recentlyPlayed.map((track, index) => (
                   <li key={`${track.id}_recent`}>
                     <button
                       type="button"
                       onClick={() => replayRecent(track)}
                       aria-label={`Снова включить «${track.title}»`}
-                      className="menu-item-hover"
-                      style={{ gap: 'var(--space-2)', padding: 'var(--space-1) var(--space-2)', opacity: 0.72 }}
+                      className="menu-item-hover gap-2 py-1 px-2"
+                      style={{ opacity: 0.72 }}
                       data-testid={`queue-recent-${index}`}
                     >
                       <RowArtwork track={track} />
-                      <span style={{ flex: 1, minWidth: 0, display: 'block' }}>
-                        <span className="text-truncate" style={{ display: 'block', fontSize: 'var(--text-sm)', color: 'var(--text-primary)' }}>
+                      <span className="grow block">
+                        <span className="text-truncate block text-sm text-primary">
                           {track.title}
                         </span>
-                        <span className="text-truncate" style={{ display: 'block', fontSize: 'var(--text-xs)', color: 'var(--text-secondary)' }}>
+                        <span className="text-truncate block text-xs text-secondary">
                           {track.artist}
                         </span>
                       </span>

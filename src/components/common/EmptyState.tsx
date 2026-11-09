@@ -45,39 +45,25 @@ export const EmptyState: React.FC<EmptyStateProps> = ({
         // на экране вообще нечего разглядывать, и висящая иконка отличает
         // «здесь пока ничего нет» от «здесь что-то не загрузилось».
         <span
-          className="animate-float"
-          style={{ color: 'var(--text-faint)', display: 'inline-flex' }}
+          className="animate-float text-faint inline-row"
           aria-hidden="true"
         >
           {icon}
         </span>
       )}
       <h3
-        style={{
-          margin: 0,
-          fontSize: 'var(--text-lg)',
-          lineHeight: 'var(--leading-lg)',
-          letterSpacing: 'var(--tracking-lg)',
-          fontWeight: 'var(--weight-semibold)',
-          color: 'var(--text-primary)'
-        }}
+        className="m-0 text-lg weight-semibold text-primary leading-lg tracking-lg"
       >
         {title}
       </h3>
       {description && (
         <p
-          style={{
-            margin: 0,
-            maxWidth: '44ch',
-            fontSize: 'var(--text-sm)',
-            lineHeight: 'var(--leading-sm)',
-            color: 'var(--text-secondary)'
-          }}
+          className="m-0 text-sm text-secondary leading-sm" style={{ maxWidth: '44ch' }}
         >
           {description}
         </p>
       )}
-      {action && <div style={{ marginTop: 'var(--space-2)' }}>{action}</div>}
+      {action && <div className="mt-2">{action}</div>}
     </div>
   );
 };

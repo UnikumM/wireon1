@@ -126,11 +126,7 @@ function SkinGrid<T extends string>({
     <div
       role="radiogroup"
       aria-label={ariaLabel}
-      style={{
-        display: 'grid',
-        gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))',
-        gap: 'var(--space-2)'
-      }}
+      className="grid gap-2" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))' }}
       data-testid={`${testIdPrefix}-skins`}
     >
       {options.map((skin, index) => (
@@ -159,21 +155,12 @@ function SkinGrid<T extends string>({
           data-testid={`${testIdPrefix}-skin-${skin.id}`}
         >
           <span
-            style={{
-              fontSize: 'var(--text-sm)',
-              lineHeight: 'var(--leading-sm)',
-              fontWeight: 'var(--weight-semibold)',
-              color: 'var(--text-primary)'
-            }}
+            className="text-sm weight-semibold text-primary leading-sm"
           >
             {skin.name}
           </span>
           <span
-            style={{
-              fontSize: 'var(--text-xs)',
-              lineHeight: 'var(--leading-xs)',
-              color: 'var(--text-muted)'
-            }}
+            className="text-xs text-muted leading-xs"
           >
             {skin.hint}
           </span>
@@ -211,8 +198,8 @@ export const PlayerLayoutSettings: React.FC = () => {
       title="Плеер"
       description="Состав полосы плеера и её плотность. Скрытый элемент не рисуется вовсе — не прячется, а перестаёт существовать."
     >
-      <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 'var(--space-4)' }}>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-1)' }}>
+      <div className="row-stretch items-baseline justify-between gap-4">
+        <div className="stack gap-1">
           <h3 style={HEADING_STYLE}>Облик</h3>
           <p style={HINT_STYLE}>
             Чем плеер является: полосой во всю ширину, парящей таблеткой, стеклом, тонкой линией.
@@ -241,7 +228,7 @@ export const PlayerLayoutSettings: React.FC = () => {
 
       <div className="divider" role="presentation" />
 
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-1)' }}>
+      <div className="stack gap-1">
         <h3 style={HEADING_STYLE}>Форма мини-плеера</h3>
         <p style={HINT_STYLE}>
           У каждой формы свой размер, и на нём помещается всё, что она показывает. Громкость в
@@ -258,7 +245,7 @@ export const PlayerLayoutSettings: React.FC = () => {
         testIdPrefix="settings-mini-form"
       />
 
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-1)' }}>
+      <div className="stack gap-1">
         <h3 style={HEADING_STYLE}>Облик мини-плеера</h3>
         <p style={HINT_STYLE}>
           Отдельное окно поверх остальных: у него своя жизнь и свой вид. «Винил» вращает обложку,
@@ -277,7 +264,7 @@ export const PlayerLayoutSettings: React.FC = () => {
 
       <div className="divider" role="presentation" />
 
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-1)' }}>
+      <div className="stack gap-1">
         <h3 style={HEADING_STYLE}>Элементы полосы</h3>
         <p style={HINT_STYLE}>
           Транспорт (назад, пауза, вперёд) и таймлайн убрать нельзя — без них полоса перестаёт
@@ -298,7 +285,7 @@ export const PlayerLayoutSettings: React.FC = () => {
 
       <div className="divider" role="presentation" />
 
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-1)' }}>
+      <div className="stack gap-1">
         <h3 style={HEADING_STYLE}>Полноэкранный режим</h3>
         <p style={HINT_STYLE}>Что остаётся на большом экране. Название, транспорт и таймлайн остаются всегда.</p>
       </div>

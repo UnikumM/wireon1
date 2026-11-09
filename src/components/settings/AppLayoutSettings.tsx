@@ -53,7 +53,7 @@ export const AppLayoutSettings: React.FC = () => {
         <OrderButtons label={HOME_BLOCK_LABELS[id]} index={index} length={blocks.length} onMove={(to) => move(platform, 'homeBlocks', id, layout.homeBlocks.indexOf(blocks[to]))} />
       </div>)}
       <p>Блоки с музыкой появятся, когда для них есть история или подборки. Блоки также можно двигать прямо на главной кнопкой «Настроить главную».</p>
-      <Button variant="ghost" style={{ whiteSpace: 'normal', minWidth: 0, textAlign: 'left' }} icon={<RotateCcw size={ICON.md} />} onClick={() => reset(platform)}>Сбросить раскладку {platform === 'mobile' ? 'телефона' : 'компьютера'}</Button>
+      <Button variant="ghost" className="min-0 text-left" style={{ whiteSpace: 'normal' }} icon={<RotateCcw size={ICON.md} />} onClick={() => reset(platform)}>Сбросить раскладку {platform === 'mobile' ? 'телефона' : 'компьютера'}</Button>
     </section>
   );
 };

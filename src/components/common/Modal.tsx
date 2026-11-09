@@ -161,29 +161,12 @@ export const Modal: React.FC<ModalProps> = ({
       >
         {(title || !hideCloseButton) && (
           <div
-            className="wireon-modal-header"
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-              gap: 'var(--space-4)',
-              padding: 'var(--space-4) var(--overlay-content-padding)',
-              flexShrink: 0,
-              borderBottom: '1px solid var(--border-subtle)'
-            }}
+            className="wireon-modal-header row justify-between gap-4 shrink-0 border-b-subtle"
+            style={{ padding: 'var(--space-4) var(--overlay-content-padding)' }}
           >
             <h3
               id={titleId}
-              style={{
-                fontSize: 'var(--text-lg)',
-                lineHeight: 'var(--leading-lg)',
-                letterSpacing: 'var(--tracking-lg)',
-                fontWeight: 'var(--weight-semibold)',
-                color: 'var(--text-primary)',
-                margin: 0,
-                minWidth: 0,
-                overflowWrap: 'anywhere'
-              }}
+              className="text-lg weight-semibold text-primary m-0 min-0 leading-lg tracking-lg" style={{ overflowWrap: 'anywhere' }}
             >
               {title}
             </h3>
@@ -192,7 +175,7 @@ export const Modal: React.FC<ModalProps> = ({
                 variant="icon"
                 onClick={onClose}
                 aria-label="Закрыть окно"
-                style={{ width: '44px', height: '44px', flexShrink: 0 }}
+                className="shrink-0" style={{ width: '44px', height: '44px' }}
                 data-testid="modal-close-btn"
               >
                 <X size={ICON.md} />
@@ -202,18 +185,13 @@ export const Modal: React.FC<ModalProps> = ({
         )}
 
         <div
-          className="wireon-modal-content scrollbar-thin"
-          style={{ padding: 'var(--overlay-content-padding)', overflowY: 'auto', flex: 1, minHeight: 0, minWidth: 0, overscrollBehavior: 'contain', overflowWrap: 'anywhere' }}
+          className="wireon-modal-content scrollbar-thin grow min-h-0"
+          style={{ padding: 'var(--overlay-content-padding)', overflowY: 'auto', overscrollBehavior: 'contain', overflowWrap: 'anywhere' }}
         >
           {description && (
             <p
               id={descriptionId}
-              style={{
-                margin: '0 0 var(--space-4) 0',
-                fontSize: 'var(--text-sm)',
-                lineHeight: 'var(--leading-sm)',
-                color: 'var(--text-secondary)'
-              }}
+              className="text-sm text-secondary leading-sm" style={{ margin: '0 0 var(--space-4) 0' }}
             >
               {description}
             </p>
@@ -223,17 +201,8 @@ export const Modal: React.FC<ModalProps> = ({
 
         {footer && (
           <div
-            className="wireon-modal-footer"
-            style={{
-              padding: 'var(--space-4) var(--overlay-content-padding)',
-              borderTop: '1px solid var(--border-subtle)',
-              display: 'flex',
-              flexWrap: 'wrap',
-              flexShrink: 0,
-              alignItems: 'center',
-              justifyContent: 'flex-end',
-              gap: 'var(--space-3)'
-            }}
+            className="wireon-modal-footer row wrap shrink-0 justify-end gap-3 border-t-subtle"
+            style={{ padding: 'var(--space-4) var(--overlay-content-padding)' }}
           >
             {footer}
           </div>

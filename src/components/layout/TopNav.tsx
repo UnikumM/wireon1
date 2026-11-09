@@ -88,7 +88,7 @@ export const TopNav: React.FC<TopNavProps> = ({ className = '' }) => {
         data-testid="topnav-brand"
       >
         {/* Парящий знак — единственное украшение в полосе разделов. */}
-        <span className="animate-float" aria-hidden="true" style={{ display: 'inline-flex' }}>
+        <span className="animate-float inline-row" aria-hidden="true">
           <img
             className="topnav-brand-mark"
             src={`${import.meta.env.BASE_URL}brand-mark.png`}

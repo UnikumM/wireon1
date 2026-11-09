@@ -90,8 +90,8 @@ export const CreatePlaylistModal: React.FC<CreatePlaylistModalProps> = ({
       isOpen={isOpen}
       onClose={handleClose}
       title={
-        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 'var(--space-2)' }}>
-          <ListMusic size={ICON.lg} aria-hidden="true" style={{ color: 'var(--text-secondary)' }} />
+        <span className="inline-row gap-2">
+          <ListMusic size={ICON.lg} aria-hidden="true" className="text-secondary" />
           Новый плейлист
         </span>
       }
@@ -100,20 +100,12 @@ export const CreatePlaylistModal: React.FC<CreatePlaylistModalProps> = ({
     >
       <form
         onSubmit={handleSubmit}
-        style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-4)' }}
+        className="stack gap-4"
       >
         {error && (
           <div
             role="alert"
-            style={{
-              padding: 'var(--space-2) var(--space-3)',
-              backgroundColor: 'var(--danger-soft)',
-              border: '1px solid var(--danger-soft)',
-              borderRadius: 'var(--radius-sm)',
-              color: 'var(--danger)',
-              fontSize: 'var(--text-sm)',
-              lineHeight: 'var(--leading-sm)'
-            }}
+            className="radius-sm text-danger text-sm py-2 px-3 bg-danger-soft leading-sm" style={{ border: '1px solid var(--danger-soft)' }}
             data-testid="create-playlist-error"
           >
             {error}
@@ -134,14 +126,14 @@ export const CreatePlaylistModal: React.FC<CreatePlaylistModalProps> = ({
             }}
             placeholder="Ночная дорога"
             autoFocus
-            style={{ width: '100%' }}
+            className="w-full"
             data-testid="create-playlist-title-input"
           />
         </div>
 
         <div>
           <label htmlFor="playlist-desc" style={labelStyle}>
-            Описание <span style={{ color: 'var(--text-faint)' }}>(необязательно)</span>
+            Описание <span className="text-faint">(необязательно)</span>
           </label>
           <textarea
             id="playlist-desc"
@@ -149,20 +141,13 @@ export const CreatePlaylistModal: React.FC<CreatePlaylistModalProps> = ({
             onChange={(e) => setDescription(e.target.value)}
             placeholder="О чём этот плейлист?"
             rows={3}
-            style={{ width: '100%', fontSize: 'var(--text-sm)' }}
+            className="w-full text-sm"
             data-testid="create-playlist-desc-input"
           />
         </div>
 
         <div
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'flex-end',
-            gap: 'var(--space-3)',
-            paddingTop: 'var(--space-4)',
-            borderTop: '1px solid var(--border-subtle)'
-          }}
+          className="row justify-end gap-3 pt-4 border-t-subtle"
         >
           <Button variant="ghost" type="button" onClick={handleClose} disabled={isSaving}>
             Отмена

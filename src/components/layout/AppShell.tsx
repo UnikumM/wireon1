@@ -78,15 +78,7 @@ export const AppShell: React.FC<AppShellProps> = ({
         data-testid="app-shell"
       >
         <div
-          style={{
-            flex: 1,
-            display: 'flex',
-            flexDirection: 'column',
-            minWidth: 0,
-            height: '100%',
-            overflow: 'hidden',
-            position: 'relative'
-          }}
+          className="grow stack h-full overflow-hidden relative"
         >
           <Header showNavigation={layout.navigationPosition === 'top'} />
 

@@ -109,7 +109,7 @@ export const LibrarySettings: React.FC = () => {
       description="Всё хранится на этом устройстве. Резервная копия — один JSON-файл, который можно перенести куда угодно."
     >
       <InfoRow label="Хранится локально" description="Данные из локальной базы IndexedDB этой установки.">
-        <span data-numeric style={{ fontSize: 'var(--text-sm)', color: 'var(--text-secondary)' }}>
+        <span data-numeric className="text-sm text-secondary">
           {playlists.length} плейлистов · {favorites.length} избранных · {history.length} прослушано
         </span>
       </InfoRow>

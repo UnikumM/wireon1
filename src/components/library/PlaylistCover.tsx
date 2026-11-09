@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import clsx from 'clsx';
 import { ListMusic, Music2 } from 'lucide-react';
 import { UnifiedTrack } from '../../types/music';
 import { distinctArtwork } from './trackSummary';
@@ -70,12 +71,12 @@ export const PlaylistCover: React.FC<PlaylistCoverProps> = ({
   if (usable.length === 0) {
     return (
       <div
-        className={className}
-        style={{ ...frame, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+        className={clsx('row justify-center', className)}
+        style={frame}
         data-testid="playlist-cover"
         data-tiles="0"
       >
-        <ListMusic size={ICON['2xl']} aria-hidden="true" style={{ color: 'var(--text-faint)' }} />
+        <ListMusic size={ICON['2xl']} aria-hidden="true" className="text-faint" />
       </div>
     );
   }
@@ -103,21 +104,14 @@ export const PlaylistCover: React.FC<PlaylistCoverProps> = ({
             alt=""
             loading="lazy"
             onError={() => setFailed((prev) => (prev.includes(url) ? prev : [...prev, url]))}
-            style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
+            className="fill-cover block"
           />
         ) : (
           <span
             key={`placeholder-${index}`}
-            style={{
-              width: '100%',
-              height: '100%',
-              backgroundColor: 'var(--surface-2)',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center'
-            }}
+            className="w-full h-full row justify-center bg-surface-2"
           >
-            <Music2 size={ICON.sm} aria-hidden="true" style={{ color: 'var(--text-faint)' }} />
+            <Music2 size={ICON.sm} aria-hidden="true" className="text-faint" />
           </span>
         )
       )}

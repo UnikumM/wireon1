@@ -141,20 +141,10 @@ export const MobileHomeView: React.FC = () => {
       toolsAside={
           <button
             type="button"
-            className="press focus-ring"
+            className="press focus-ring row justify-center shrink-0 text-secondary pointer"
             onClick={() => setActiveView('settings')}
             aria-label="Настройки"
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              width: '44px',
-              height: '44px',
-              flexShrink: 0,
-              borderRadius: 'var(--radius-pill)',
-              color: 'var(--text-secondary)',
-              cursor: 'pointer'
-            }}
+            style={{ width: '44px', height: '44px', borderRadius: 'var(--radius-pill)' }}
             data-testid="mobile-home-settings"
           >
             <Settings size={ICON.lg} aria-hidden="true" />
@@ -164,71 +154,45 @@ export const MobileHomeView: React.FC = () => {
 
       {/* --- Герой: то, на чём остановились ------------------------------- */}
       <section
-        style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-4)' }}
+        className="stack gap-4"
         data-testid="mobile-home-hero" data-home-block="hero"
       >
         <div
-          style={{
-            width: '100%',
-            aspectRatio: '1',
-            borderRadius: 'var(--radius-xl)',
-            overflow: 'hidden',
-            background: 'var(--surface-2)',
-            boxShadow: 'var(--shadow-lg)',
-            display: heroTrack ? 'flex' : 'none',
-            alignItems: 'center',
-            justifyContent: 'center',
-            color: 'var(--text-faint)'
-          }}
+          className="w-full overflow-hidden items-center justify-center text-faint bg-surface-2" style={{ aspectRatio: '1', borderRadius: 'var(--radius-xl)', boxShadow: 'var(--shadow-lg)', display: heroTrack ? 'flex' : 'none' }}
         >
           {heroTrack?.artworkUrl ? (
             <img
               src={heroTrack.artworkUrl}
               alt=""
-              style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+              className="fill-cover"
             />
           ) : (
             <Music2 size={ICON.display} aria-hidden="true" />
           )}
         </div>
 
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' }}>
+        <div className="stack gap-2">
           <span
-            style={{
-              fontSize: 'var(--text-xs)',
-              letterSpacing: '0.14em',
-              textTransform: 'uppercase',
-              color: 'var(--info)',
-              fontWeight: 'var(--weight-semibold)'
-            }}
+            className="text-xs weight-semibold" style={{ letterSpacing: '0.14em', textTransform: 'uppercase', color: 'var(--info)' }}
           >
             {heroKicker}
           </span>
 
           <h1
-            style={{
-              margin: 0,
-              fontFamily: 'var(--font-display)',
-              fontSize: 'var(--text-3xl)',
-              lineHeight: 'var(--leading-3xl)',
-              letterSpacing: 'var(--tracking-3xl)',
-              fontWeight: 'var(--weight-semibold)',
-              color: 'var(--text-primary)',
-              overflowWrap: 'anywhere'
-            }}
+            className="m-0 weight-semibold text-primary type-3xl" style={{ fontFamily: 'var(--font-display)', overflowWrap: 'anywhere' }}
             data-testid="mobile-home-hero-title"
           >
             {heroTrack?.title ?? 'Здесь появится то, на чём вы остановитесь'}
           </h1>
 
           {heroTrack && (
-            <span style={{ fontSize: 'var(--text-base)', color: 'var(--text-secondary)' }}>
+            <span className="text-base text-secondary">
               {heroTrack.artist}
             </span>
           )}
         </div>
 
-        <div style={{ display: 'flex', gap: 'var(--space-2)' }}>
+        <div className="row-stretch gap-2">
           <HeroButton
             label={resumePosition ? 'Продолжить' : 'Слушать'}
             primary
@@ -256,29 +220,15 @@ export const MobileHomeView: React.FC = () => {
             * палец и без прокрутки.
             */}
           <div
-            style={{
-              display: 'grid',
-              gridTemplateColumns: 'repeat(2, minmax(0, 1fr))',
-              gap: 'var(--space-2)'
-            }}
+            className="grid gap-2" style={{ gridTemplateColumns: 'repeat(2, minmax(0, 1fr))' }}
           >
             {recent.map((track) => (
               <button
                 key={track.id}
                 type="button"
-                className="press card-interactive"
+                className="press card-interactive row gap-2 min-0 radius-sm overflow-hidden text-left pointer"
                 onClick={() => void playTrack(track, history, history.indexOf(track))}
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: 'var(--space-2)',
-                  minWidth: 0,
-                  height: '64px',
-                  borderRadius: 'var(--radius-sm)',
-                  overflow: 'hidden',
-                  textAlign: 'left',
-                  cursor: 'pointer'
-                }}
+                style={{ height: '64px' }}
                 data-testid={`mobile-home-recent-${track.id}`}
               >
                 <Artwork track={track} artSize={64} radius="0" />
@@ -323,60 +273,29 @@ export const MobileHomeView: React.FC = () => {
       <section data-home-block="wave">
         <button
           type="button"
-          className="press card-interactive"
+          className="press card-interactive row gap-4 w-full p-4 radius-lg text-left pointer"
           onClick={handleStartWave}
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: 'var(--space-4)',
-            width: '100%',
-            minHeight: '88px',
-            padding: 'var(--space-4)',
-            borderRadius: 'var(--radius-lg)',
-            textAlign: 'left',
-            cursor: 'pointer'
-          }}
+          style={{ minHeight: '88px' }}
           data-testid="mobile-home-wave"
         >
           <span
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              width: '56px',
-              height: '56px',
-              flexShrink: 0,
-              borderRadius: 'var(--radius-md)',
-              background: 'var(--accent-soft)',
-              color: 'var(--accent)'
-            }}
+            className="row justify-center shrink-0 radius-md text-accent bg-accent-soft" style={{ width: '56px', height: '56px' }}
           >
             <Radio size={ICON.xl} aria-hidden="true" />
           </span>
-          <span style={{ display: 'flex', flexDirection: 'column', minWidth: 0, flex: 1, gap: '2px' }}>
+          <span className="stack grow gap-px">
             <span
-              style={{
-                fontSize: 'var(--text-lg)',
-                lineHeight: 'var(--leading-lg)',
-                letterSpacing: 'var(--tracking-lg)',
-                fontWeight: 'var(--weight-semibold)',
-                color: 'var(--text-primary)'
-              }}
+              className="text-lg weight-semibold text-primary leading-lg tracking-lg"
             >
               Поток
             </span>
             <span
-              style={{
-                fontSize: 'var(--text-sm)',
-                lineHeight: 'var(--leading-sm)',
-                letterSpacing: 'var(--tracking-sm)',
-                color: 'var(--text-muted)'
-              }}
+              className="text-sm text-muted leading-sm tracking-sm"
             >
               Бесконечный подбор
             </span>
           </span>
-          <ChevronRight size={ICON.md} style={{ flexShrink: 0, color: 'var(--text-faint)' }} aria-hidden="true" />
+          <ChevronRight size={ICON.md} className="shrink-0 text-faint" aria-hidden="true" />
         </button>
       </section>
 
@@ -390,60 +309,29 @@ export const MobileHomeView: React.FC = () => {
       <section data-home-block="stats">
         <button
           type="button"
-          className="press card-interactive"
+          className="press card-interactive row gap-4 w-full p-4 radius-lg text-left pointer"
           onClick={() => setActiveView('foryou')}
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: 'var(--space-4)',
-            width: '100%',
-            minHeight: '72px',
-            padding: 'var(--space-4)',
-            borderRadius: 'var(--radius-lg)',
-            textAlign: 'left',
-            cursor: 'pointer'
-          }}
+          style={{ minHeight: '72px' }}
           data-testid="mobile-home-stats"
         >
           <span
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              width: '44px',
-              height: '44px',
-              flexShrink: 0,
-              borderRadius: 'var(--radius-md)',
-              background: 'var(--accent-soft)',
-              color: 'var(--accent)'
-            }}
+            className="row justify-center shrink-0 radius-md text-accent bg-accent-soft" style={{ width: '44px', height: '44px' }}
           >
             <BarChart3 size={ICON.lg} aria-hidden="true" />
           </span>
-          <span style={{ display: 'flex', flexDirection: 'column', minWidth: 0, flex: 1, gap: '2px' }}>
+          <span className="stack grow gap-px">
             <span
-              style={{
-                fontSize: 'var(--text-base)',
-                lineHeight: 'var(--leading-base)',
-                letterSpacing: 'var(--tracking-base)',
-                fontWeight: 'var(--weight-semibold)',
-                color: 'var(--text-primary)'
-              }}
+              className="text-base weight-semibold text-primary leading-base tracking-base"
             >
               Итоги прослушанного
             </span>
             <span
-              style={{
-                fontSize: 'var(--text-sm)',
-                lineHeight: 'var(--leading-sm)',
-                letterSpacing: 'var(--tracking-sm)',
-                color: 'var(--text-muted)'
-              }}
+              className="text-sm text-muted leading-sm tracking-sm"
             >
               За неделю, месяц и всё время
             </span>
           </span>
-          <ChevronRight size={ICON.md} style={{ flexShrink: 0, color: 'var(--text-faint)' }} aria-hidden="true" />
+          <ChevronRight size={ICON.md} className="shrink-0 text-faint" aria-hidden="true" />
         </button>
       </section>
 
@@ -496,13 +384,7 @@ export const MobileHomeView: React.FC = () => {
 
       {recent.length === 0 && mixes.length === 0 && (
         <p
-          style={{
-            margin: 0,
-            fontSize: 'var(--text-sm)',
-            lineHeight: 'var(--leading-sm)',
-            letterSpacing: 'var(--tracking-sm)',
-            color: 'var(--text-muted)'
-          }}
+          className="m-0 text-sm text-muted leading-sm tracking-sm"
           data-testid="mobile-home-empty"
         >
           Здесь появится то, что вы слушали. Начните с поиска или запустите Поток — он соберёт музыку сам.
@@ -540,14 +422,7 @@ const HeroButton: React.FC<{
 
 const SectionTitle: React.FC<{ children: React.ReactNode }> = ({ children }) => (
   <h2
-    style={{
-      margin: '0 0 var(--space-3)',
-      fontSize: 'var(--text-lg)',
-      lineHeight: 'var(--leading-lg)',
-      letterSpacing: 'var(--tracking-lg)',
-      fontWeight: 'var(--weight-semibold)',
-      color: 'var(--text-primary)'
-    }}
+    className="text-lg weight-semibold text-primary leading-lg tracking-lg" style={{ margin: '0 0 var(--space-3)' }}
   >
     {children}
   </h2>
@@ -636,40 +511,25 @@ const ShelfCard: React.FC<ShelfCardProps> = ({ title, subtitle, artworkUrl, roun
         }}
       >
         {failed || !artworkUrl ? (
-          <Music2 size={ICON.hero} style={{ color: 'var(--text-faint)' }} aria-hidden="true" />
+          <Music2 size={ICON.hero} className="text-faint" aria-hidden="true" />
         ) : (
           <img
             src={artworkUrl}
             alt=""
             loading="lazy"
-            style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+            className="fill-cover"
             onError={() => setFailed(true)}
           />
         )}
       </span>
       <span
-        className="text-truncate"
-        style={{
-          width: '100%',
-          fontSize: 'var(--text-sm)',
-          lineHeight: 'var(--leading-sm)',
-          letterSpacing: 'var(--tracking-sm)',
-          fontWeight: 'var(--weight-medium)',
-          color: 'var(--text-primary)'
-        }}
+        className="text-truncate w-full text-sm weight-medium text-primary leading-sm tracking-sm"
       >
         {title}
       </span>
       {subtitle && (
         <span
-          className="text-truncate"
-          style={{
-            width: '100%',
-            fontSize: 'var(--text-xs)',
-            lineHeight: 'var(--leading-xs)',
-            letterSpacing: 'var(--tracking-xs)',
-            color: 'var(--text-muted)'
-          }}
+          className="text-truncate w-full text-xs text-muted leading-xs tracking-xs"
         >
           {subtitle}
         </span>
@@ -695,13 +555,13 @@ const Artwork: React.FC<{ track: UnifiedTrack; artSize: number; radius: string }
       }}
     >
       {failed || !track.artworkUrl ? (
-        <Music2 size={ICON.lg} style={{ color: 'var(--text-faint)' }} aria-hidden="true" />
+        <Music2 size={ICON.lg} className="text-faint" aria-hidden="true" />
       ) : (
         <img
           src={track.artworkUrl}
           alt=""
           loading="lazy"
-          style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+          className="fill-cover"
           onError={() => setFailed(true)}
         />
       )}

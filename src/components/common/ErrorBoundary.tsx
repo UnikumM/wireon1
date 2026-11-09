@@ -82,62 +82,31 @@ export class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoun
     return (
       <div
         role="alert"
-        style={{
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          minHeight: '100%',
-          padding: 'var(--space-6)',
-          backgroundColor: 'var(--bg-base)'
-        }}
+        className="row justify-center p-6 bg-base" style={{ minHeight: '100%' }}
         data-testid="error-boundary-fallback"
       >
         <div
-          className="card"
-          style={{
-            maxWidth: '560px',
-            width: '100%',
-            padding: 'var(--space-5)',
-            display: 'flex',
-            flexDirection: 'column',
-            gap: 'var(--space-4)'
-          }}
+          className="card w-full p-5 stack gap-4"
+          style={{ maxWidth: '560px' }}
         >
-          <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-3)' }}>
-            <AlertTriangle size={ICON.lg} aria-hidden="true" style={{ color: 'var(--danger)', flexShrink: 0 }} />
+          <div className="row gap-3">
+            <AlertTriangle size={ICON.lg} aria-hidden="true" className="text-danger shrink-0" />
             <h2
-              style={{
-                margin: 0,
-                fontSize: 'var(--text-xl)',
-                lineHeight: 'var(--leading-xl)',
-                letterSpacing: 'var(--tracking-xl)',
-                fontWeight: 'var(--weight-semibold)',
-                color: 'var(--text-primary)'
-              }}
+              className="m-0 text-xl weight-semibold text-primary leading-xl tracking-xl"
             >
               Что-то сломалось при отрисовке
             </h2>
           </div>
 
           <p
-            style={{
-              margin: 0,
-              fontSize: 'var(--text-sm)',
-              lineHeight: 'var(--leading-sm)',
-              color: 'var(--text-secondary)'
-            }}
+            className="m-0 text-sm text-secondary leading-sm"
             data-testid="error-boundary-message"
           >
             {error.message || 'Неизвестная ошибка.'}
           </p>
 
           <p
-            style={{
-              margin: 0,
-              fontSize: 'var(--text-xs)',
-              lineHeight: 'var(--leading-xs)',
-              color: 'var(--text-muted)'
-            }}
+            className="m-0 text-xs text-muted leading-xs"
           >
             «Попробовать снова» перерисовывает только этот экран — музыка не
             прервётся. Отчёт содержит версию, среду и стек; ни токена, ни ваших
@@ -146,30 +115,16 @@ export class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoun
 
           {isDev && componentStack && (
             <details
-              className="panel-inset"
-              style={{ padding: 'var(--space-3)', borderRadius: 'var(--radius-sm)' }}
+              className="panel-inset p-3 radius-sm"
             >
               <summary
-                style={{
-                  cursor: 'pointer',
-                  fontSize: 'var(--text-sm)',
-                  color: 'var(--text-muted)'
-                }}
+                className="pointer text-sm text-muted"
               >
                 Стек компонентов
               </summary>
               <pre
-                className="scrollbar-thin"
-                style={{
-                  margin: 'var(--space-2) 0 0 0',
-                  maxHeight: '220px',
-                  overflow: 'auto',
-                  fontFamily: 'var(--font-mono)',
-                  fontSize: 'var(--text-xs)',
-                  lineHeight: 'var(--leading-xs)',
-                  color: 'var(--text-muted)',
-                  whiteSpace: 'pre-wrap'
-                }}
+                className="scrollbar-thin text-xs text-muted leading-xs"
+                style={{ margin: 'var(--space-2) 0 0 0', maxHeight: '220px', overflow: 'auto', fontFamily: 'var(--font-mono)', whiteSpace: 'pre-wrap' }}
               >
                 {componentStack.trim()}
               </pre>
@@ -177,23 +132,12 @@ export class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoun
           )}
 
           <div
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'flex-end',
-              gap: 'var(--space-2)',
-              flexWrap: 'wrap'
-            }}
+            className="row justify-end gap-2 wrap"
           >
             {copyState !== 'idle' && (
               <span
                 role="status"
-                style={{
-                  marginRight: 'auto',
-                  fontSize: 'var(--text-xs)',
-                  lineHeight: 'var(--leading-xs)',
-                  color: copyState === 'copied' ? 'var(--success)' : 'var(--danger)'
-                }}
+                className="text-xs leading-xs" style={{ marginRight: 'auto', color: copyState === 'copied' ? 'var(--success)' : 'var(--danger)' }}
                 data-testid="error-boundary-copy-state"
               >
                 {copyState === 'copied'

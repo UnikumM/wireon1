@@ -304,8 +304,7 @@ export const SearchResults: React.FC<SearchResultsProps> = ({ className = '' }) 
       // Появление экрана — на корне и только здесь: ниже лежат области, которые
       // перерисовываются на каждую букву запроса, и анимация входа на любой из
       // них мигала бы при наборе.
-      className={`wireon-search-view animate-view-in ${className}`}
-      style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-5)', width: '100%' }}
+      className={`wireon-search-view animate-view-in ${className} stack gap-5 w-full`}
       data-testid="search-view"
     >
       <SearchBar
@@ -318,7 +317,7 @@ export const SearchResults: React.FC<SearchResultsProps> = ({ className = '' }) 
 
       {/* Вкладки выдачи: треки и три вида подборок. */}
       <div
-        style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)', flexWrap: 'wrap' }}
+        className="row gap-2 wrap"
         role="tablist"
         aria-label="Что искать"
       >
@@ -339,7 +338,7 @@ export const SearchResults: React.FC<SearchResultsProps> = ({ className = '' }) 
 
       {/* Source filter — re-queries through the same single search path. */}
       <div
-        style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)', flexWrap: 'wrap' }}
+        className="row gap-2 wrap"
         role="group"
         aria-label="Фильтр по источнику"
       >
@@ -354,7 +353,7 @@ export const SearchResults: React.FC<SearchResultsProps> = ({ className = '' }) 
           >
             {f.label}
             {kind === 'tracks' && hasQuery && !isLoading && results.length > 0 && (
-              <span data-numeric style={{ color: 'var(--text-muted)' }}>
+              <span data-numeric className="text-muted">
                 {f.value === 'all'
                   ? results.length
                   : results.filter((t) => t.source === f.value).length}
@@ -366,35 +365,23 @@ export const SearchResults: React.FC<SearchResultsProps> = ({ className = '' }) 
 
       {/* Per-source outage — non-blocking, results from healthy sources stay. */}
       {failedSources.length > 0 && (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' }}>
+        <div className="stack gap-2">
           {failedSources.map((source) => (
             <div
               key={source}
-              className="card"
+              className="card row gap-3 py-3 px-4 bg-warning-soft"
               role="status"
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: 'var(--space-3)',
-                padding: 'var(--space-3) var(--space-4)',
-                borderColor: 'var(--warning)',
-                background: 'var(--warning-soft)',
-              }}
+              style={{ borderColor: 'var(--warning)' }}
               data-testid={`search-source-error-${source}`}
             >
-              <AlertTriangle size={ICON.lg} style={{ color: 'var(--warning)', flexShrink: 0 }} aria-hidden="true" />
-              <div style={{ flex: 1, minWidth: 0 }}>
+              <AlertTriangle size={ICON.lg} className="text-warning shrink-0" aria-hidden="true" />
+              <div className="grow">
                 <p
-                  style={{
-                    margin: 0,
-                    fontSize: 'var(--text-sm)',
-                    fontWeight: 'var(--weight-medium)',
-                    color: 'var(--text-primary)',
-                  }}
+                  className="m-0 text-sm weight-medium text-primary"
                 >
                   {SOURCE_LABELS[source] ?? source} не отвечает
                 </p>
-                <p style={{ margin: 0, fontSize: 'var(--text-sm)', color: 'var(--text-secondary)' }}>
+                <p className="m-0 text-sm text-secondary">
                   {sourceErrors[source]}
                 </p>
               </div>
@@ -415,31 +402,19 @@ export const SearchResults: React.FC<SearchResultsProps> = ({ className = '' }) 
       {/* Whole-search failure (the aggregator itself rejected). */}
       {!isLoading && error && (
         <div
-          className="card"
+          className="card row gap-3 p-4 bg-danger-soft"
           role="alert"
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: 'var(--space-3)',
-            padding: 'var(--space-4)',
-            borderColor: 'var(--danger)',
-            background: 'var(--danger-soft)',
-          }}
+          style={{ borderColor: 'var(--danger)' }}
           data-testid="search-error"
         >
-          <AlertTriangle size={ICON.lg} style={{ color: 'var(--danger)', flexShrink: 0 }} aria-hidden="true" />
-          <div style={{ flex: 1, minWidth: 0 }}>
+          <AlertTriangle size={ICON.lg} className="text-danger shrink-0" aria-hidden="true" />
+          <div className="grow">
             <p
-              style={{
-                margin: 0,
-                fontSize: 'var(--text-base)',
-                fontWeight: 'var(--weight-semibold)',
-                color: 'var(--text-primary)',
-              }}
+              className="m-0 text-base weight-semibold text-primary"
             >
               Поиск не удался
             </p>
-            <p style={{ margin: 0, fontSize: 'var(--text-sm)', color: 'var(--text-secondary)' }}>{error}</p>
+            <p className="m-0 text-sm text-secondary">{error}</p>
           </div>
           <Button variant="secondary" size="sm" icon={<RotateCcw size={ICON.sm} />} onClick={handleRetry}>
             Повторить
@@ -450,7 +425,7 @@ export const SearchResults: React.FC<SearchResultsProps> = ({ className = '' }) 
       {/* Loading skeletons */}
       {((kind === 'tracks' && isLoading) || (kind !== 'tracks' && isLoadingCollections)) && (
         <div
-          style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}
+          className="stack gap-3"
           aria-busy="true"
           aria-live="polite"
           data-testid="search-skeletons"
@@ -463,11 +438,7 @@ export const SearchResults: React.FC<SearchResultsProps> = ({ className = '' }) 
       {/* Подборки: альбомы, исполнители, плейлисты. */}
       {kind !== 'tracks' && !isLoadingCollections && hasQuery && shownCollections.length > 0 && (
         <div
-          style={{
-            display: 'grid',
-            gridTemplateColumns: 'repeat(auto-fill, minmax(150px, 1fr))',
-            gap: 'var(--space-3)'
-          }}
+          className="grid gap-3" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(150px, 1fr))' }}
           data-testid="search-collection-grid"
         >
           {shownCollections.map((item) => (
@@ -497,36 +468,24 @@ export const SearchResults: React.FC<SearchResultsProps> = ({ className = '' }) 
 
       {/* Results */}
       {kind === 'tracks' && !isLoading && !error && hasQuery && results.length > 0 && (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-5)' }}>
+        <div className="stack gap-5">
           <div
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: 'var(--space-3)',
-              flexWrap: 'wrap',
-            }}
+            className="row gap-3 wrap"
           >
             <h2
-              style={{
-                margin: 0,
-                fontSize: 'var(--text-xl)',
-                lineHeight: 'var(--leading-xl)',
-                letterSpacing: 'var(--tracking-xl)',
-                fontWeight: 'var(--weight-semibold)',
-                color: 'var(--text-primary)',
-              }}
+              className="m-0 text-xl weight-semibold text-primary leading-xl tracking-xl"
             >
               Найдено
             </h2>
             <span
-              style={{ fontSize: 'var(--text-sm)', color: 'var(--text-muted)' }}
+              className="text-sm text-muted"
               data-testid="search-result-count"
             >
               <span data-numeric>{results.length}</span>{' '}
               {plural(results.length, 'трек', 'трека', 'треков')} по запросу «{searchQuery.trim()}»
             </span>
 
-            <div style={{ display: 'flex', gap: 'var(--space-2)', marginLeft: 'auto' }}>
+            <div className="row-stretch gap-2 ml-auto">
               <Button
                 variant="primary"
                 size="sm"
@@ -560,13 +519,13 @@ export const SearchResults: React.FC<SearchResultsProps> = ({ className = '' }) 
 
           {restResults.length > 0 && (
             <div>
-              <h3 className="section-label" style={{ marginBottom: 'var(--space-3)' }}>
+              <h3 className="section-label mb-3">
                 Остальное
               </h3>
               <div
                 role="list"
                 onKeyDown={handleListKeyDown}
-                style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}
+                className="stack gap-px"
                 data-testid="search-result-list"
               >
                 {restResults.map((t, idx) => (
@@ -608,57 +567,40 @@ export const SearchResults: React.FC<SearchResultsProps> = ({ className = '' }) 
 
       {/* Nothing typed yet: recent searches + starting points. */}
       {!hasQuery && !isLoading && (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-6)' }}>
+        <div className="stack gap-6">
           {recentSearches.length > 0 && (
             <section data-testid="recent-searches">
               <div
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: 'var(--space-2)',
-                  marginBottom: 'var(--space-3)',
-                }}
+                className="row gap-2 mb-3"
               >
                 <h3 className="section-label">Недавние запросы</h3>
                 <button
                   type="button"
                   onClick={() => persistRecent([])}
-                  style={{
-                    marginLeft: 'auto',
-                    fontSize: 'var(--text-sm)',
-                    color: 'var(--text-secondary)',
-                    cursor: 'pointer',
-                    padding: 'var(--space-1) var(--space-2)',
-                  }}
+                  className="ml-auto text-sm text-secondary pointer py-1 px-2"
                   data-testid="recent-clear-all"
                 >
                   Очистить
                 </button>
               </div>
 
-              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 'var(--space-2)' }}>
+              <div className="row-stretch wrap gap-2">
                 {recentSearches.map((q) => (
-                  <span key={q} className="chip" style={{ paddingRight: 'var(--space-1)' }}>
+                  <span key={q} className="chip pr-1">
                     <button
                       type="button"
                       onClick={() => setSearchQuery(q)}
-                      style={{ color: 'inherit', font: 'inherit', cursor: 'pointer' }}
+                      className="text-inherit pointer" style={{ font: 'inherit' }}
                       data-testid={`recent-search-${q}`}
                     >
                       {q}
                     </button>
                     <button
                       type="button"
-                      className="press"
+                      className="press inline-row radius-full text-muted pointer"
                       onClick={() => handleRemoveRecent(q)}
                       aria-label={`Убрать «${q}» из недавних запросов`}
-                      style={{
-                        display: 'inline-flex',
-                        padding: '3px',
-                        borderRadius: 'var(--radius-full)',
-                        color: 'var(--text-muted)',
-                        cursor: 'pointer',
-                      }}
+                      style={{ padding: '3px' }}
                     >
                       <X size={ICON.xs} />
                     </button>

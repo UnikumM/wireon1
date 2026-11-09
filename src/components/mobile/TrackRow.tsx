@@ -76,13 +76,8 @@ export const TrackRow: React.FC<TrackRowProps> = ({
 
   return (
     <div
-      className="mobile-track-row"
-      style={{
-        display: 'flex',
-        alignItems: 'center',
-        gap: 'var(--space-3)',
-        minHeight: '72px'
-      }}
+      className="mobile-track-row row gap-3"
+      style={{ minHeight: '72px' }}
       data-testid={testId}
     >
       {/*
@@ -91,71 +86,38 @@ export const TrackRow: React.FC<TrackRowProps> = ({
         */}
       <button
         type="button"
-        className="press"
+        className="press row gap-3 grow text-left pointer py-2 px-0"
         onClick={handleClick}
         aria-pressed={isSelectable ? isSelected : undefined}
         {...handlers}
-        style={{
-          display: 'flex',
-          alignItems: 'center',
-          gap: 'var(--space-3)',
-          flex: 1,
-          minWidth: 0,
-          padding: 'var(--space-2) 0',
-          textAlign: 'left',
-          cursor: 'pointer'
-        }}
         data-testid={testId ? `${testId}-play` : undefined}
       >
         <span
-          style={{
-            position: 'relative',
-            width: '56px',
-            height: '56px',
-            flexShrink: 0,
-            borderRadius: 'var(--radius-sm)',
-            overflow: 'hidden',
-            background: 'var(--surface-sunken)',
-            border: '1px solid var(--border-subtle)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center'
-          }}
+          className="relative shrink-0 radius-sm overflow-hidden row justify-center bg-sunken border-subtle" style={{ width: '56px', height: '56px' }}
         >
           {artworkFailed || !track.artworkUrl ? (
-            <Music2 size={ICON.lg} style={{ color: 'var(--text-faint)' }} aria-hidden="true" />
+            <Music2 size={ICON.lg} className="text-faint" aria-hidden="true" />
           ) : (
             <img
               src={track.artworkUrl}
               alt=""
               loading="lazy"
-              style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+              className="fill-cover"
               onError={() => setArtworkFailed(true)}
             />
           )}
         </span>
 
-        <span style={{ display: 'flex', flexDirection: 'column', minWidth: 0, flex: 1, gap: '2px' }}>
+        <span className="stack grow gap-px">
           <span
-            className="text-truncate"
-            style={{
-              fontSize: 'var(--text-base)',
-              lineHeight: 'var(--leading-base)',
-              letterSpacing: 'var(--tracking-base)',
-              color: isCurrent ? 'var(--accent)' : 'var(--text-primary)'
-            }}
+            className="text-truncate text-base leading-base tracking-base"
+            style={{ color: isCurrent ? 'var(--accent)' : 'var(--text-primary)' }}
             data-testid={testId ? `${testId}-title` : undefined}
           >
             {track.title}
           </span>
           <span
-            className="text-truncate"
-            style={{
-              fontSize: 'var(--text-sm)',
-              lineHeight: 'var(--leading-sm)',
-              letterSpacing: 'var(--tracking-sm)',
-              color: 'var(--text-muted)'
-            }}
+            className="text-truncate text-sm text-muted leading-sm tracking-sm"
           >
             {track.artist}
           </span>
@@ -172,15 +134,7 @@ export const TrackRow: React.FC<TrackRowProps> = ({
           */
         <span
           aria-hidden="true"
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            width: '48px',
-            height: '48px',
-            flexShrink: 0,
-            color: isSelected ? 'var(--text-on-accent)' : 'var(--text-muted)'
-          }}
+          className="row justify-center shrink-0" style={{ width: '48px', height: '48px', color: isSelected ? 'var(--text-on-accent)' : 'var(--text-muted)' }}
         >
           <span
             style={{

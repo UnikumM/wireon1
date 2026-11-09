@@ -53,21 +53,16 @@ export const ConfirmDialog: React.FC<ConfirmDialogProps> = ({
         </>
       }
     >
-      <div style={{ display: 'flex', gap: 'var(--space-3)', alignItems: 'flex-start' }}>
+      <div className="row-start gap-3">
         {danger && (
           <AlertTriangle
             size={ICON.lg}
             aria-hidden="true"
-            style={{ color: 'var(--danger)', flexShrink: 0, marginTop: '2px' }}
+            className="text-danger shrink-0 mt-px"
           />
         )}
         <p
-          style={{
-            margin: 0,
-            fontSize: 'var(--text-base)',
-            lineHeight: 'var(--leading-base)',
-            color: 'var(--text-secondary)'
-          }}
+          className="m-0 text-base text-secondary leading-base"
           data-testid="confirm-dialog-description"
         >
           {description ?? 'Это действие нельзя отменить.'}

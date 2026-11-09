@@ -192,13 +192,13 @@ const SpotifyLibraryBlock: React.FC<{ onPicked: (title: string, items: ParsedPla
   };
 
   return (
-    <div style={{ marginTop: 'var(--space-5)', paddingTop: 'var(--space-4)', borderTop: '1px solid var(--border-subtle)' }}>
-      <p style={{ margin: '0 0 var(--space-3)', fontSize: 'var(--text-sm)', color: 'var(--text-secondary)' }}>
+    <div className="mt-5 pt-4 border-t-subtle">
+      <p className="text-sm text-secondary" style={{ margin: '0 0 var(--space-3)' }}>
         Или войдите в Spotify — тогда можно перенести «Любимые» и выбрать плейлист из своего списка.
       </p>
 
       {error && (
-        <p style={{ margin: '0 0 var(--space-2)', fontSize: 'var(--text-xs)', color: 'var(--danger)' }}>{error}</p>
+        <p className="text-xs text-danger" style={{ margin: '0 0 var(--space-2)' }}>{error}</p>
       )}
 
       {!playlists && (
@@ -208,7 +208,7 @@ const SpotifyLibraryBlock: React.FC<{ onPicked: (title: string, items: ParsedPla
       )}
 
       {playlists && (
-        <ul style={{ listStyle: 'none', margin: 0, padding: 0, display: 'grid', gap: 'var(--space-2)', maxHeight: '260px', overflowY: 'auto' }}>
+        <ul className="m-0 p-0 grid gap-2 list-none" style={{ maxHeight: '260px', overflowY: 'auto' }}>
           <li>
             <Button variant="secondary" onClick={() => pick('liked')} disabled={busy} data-testid="spotify-liked-btn">
               Любимые треки
@@ -590,57 +590,41 @@ export const ImportPlaylistModal: React.FC<ImportPlaylistModalProps> = ({
       isOpen={isOpen}
       onClose={onClose}
       title={
-        <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>
+        <div className="row gap-2">
           {/* Значок переноса, а не звёздочки: окно ровно про перенос. */}
-          <Import size={ICON.lg} style={{ color: 'var(--text-secondary)' }} aria-hidden="true" />
+          <Import size={ICON.lg} className="text-secondary" aria-hidden="true" />
           <span>Перенести плейлист</span>
         </div>
       }
       maxWidth="560px"
       data-testid="import-playlist-modal"
     >
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-4)' }}>
+      <div className="stack gap-4">
         {/* Error Banner */}
         {error && (
           <div
             role="alert"
             // Отказ появляется в ответ на нажатие — и обязан быть замечен.
-            className="animate-drop-in"
-            style={{
-              padding: 'var(--space-3) var(--space-4)',
-              backgroundColor: 'var(--danger-soft)',
-              border: '1px solid var(--danger)',
-              borderRadius: 'var(--radius-md)',
-              color: 'var(--danger)',
-              fontSize: 'var(--text-sm)',
-              display: 'flex',
-              alignItems: 'flex-start',
-              gap: 'var(--space-2)'
-            }}
+            className="animate-drop-in radius-md text-danger text-sm row-start gap-2 py-3 px-4 bg-danger-soft"
+            style={{ border: '1px solid var(--danger)' }}
             data-testid="import-error-banner"
           >
-            <AlertCircle size={ICON.md} style={{ flexShrink: 0, marginTop: '2px' }} />
-            <div style={{ flex: 1 }}>{error}</div>
+            <AlertCircle size={ICON.md} className="shrink-0 mt-px" />
+            <div className="flex-1">{error}</div>
           </div>
         )}
 
         {/* Step 1: Input URL */}
         {step === 'input' && (
-          <form onSubmit={handleFetchMetadata} style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-4)' }}>
+          <form onSubmit={handleFetchMetadata} className="stack gap-4">
             <div>
               <label
                 htmlFor="import-url-input"
-                style={{
-                  display: 'block',
-                  fontSize: 'var(--text-sm)',
-                  fontWeight: 'var(--weight-medium)',
-                  color: 'var(--text-secondary)',
-                  marginBottom: 'var(--space-2)'
-                }}
+                className="block text-sm weight-medium text-secondary mb-2"
               >
                 Ссылка на плейлист или альбом
               </label>
-              <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
+              <div className="relative row">
                 <input
                   id="import-url-input"
                   type="url"
@@ -651,10 +635,7 @@ export const ImportPlaylistModal: React.FC<ImportPlaylistModalProps> = ({
                   }}
                   placeholder="https://open.spotify.com/playlist/… либо Яндекс Музыка, VK, Apple Music, YouTube, SoundCloud"
                   autoFocus
-                  style={{
-                    width: '100%',
-                    paddingRight: detectedPlatform ? '140px' : 'var(--space-3)'
-                  }}
+                  className="w-full" style={{ paddingRight: detectedPlatform ? '140px' : 'var(--space-3)' }}
                   data-testid="import-url-input"
                 />
 
@@ -685,10 +666,10 @@ export const ImportPlaylistModal: React.FC<ImportPlaylistModalProps> = ({
 
             {/* Platform indicators */}
             <div>
-              <div style={{ fontSize: 'var(--text-xs)', color: 'var(--text-muted)', marginBottom: 'var(--space-2)' }}>
+              <div className="text-xs text-muted mb-2">
                 Откуда можно переносить:
               </div>
-              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 'var(--space-2)' }}>
+              <div className="row-stretch wrap gap-2">
                 {(['spotify', 'yandex', 'vk', 'apple'] as PlatformType[]).map((p) => {
                   const cfg = PLATFORM_CONFIG[p];
                   const isMatch = detectedPlatform === p;
@@ -733,22 +714,13 @@ export const ImportPlaylistModal: React.FC<ImportPlaylistModalProps> = ({
 
             {/* Файл плейлиста — второй способ переноса */}
             <div
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'space-between',
-                gap: 'var(--space-3)',
-                padding: 'var(--space-3)',
-                borderRadius: 'var(--radius-md)',
-                border: '1px dashed var(--border-subtle)',
-                backgroundColor: 'var(--surface-2)'
-              }}
+              className="row justify-between gap-3 p-3 radius-md bg-surface-2" style={{ border: '1px dashed var(--border-subtle)' }}
             >
-              <div style={{ minWidth: 0 }}>
-                <div style={{ fontSize: 'var(--text-sm)', color: 'var(--text-primary)', fontWeight: 'var(--weight-medium)' }}>
+              <div className="min-0">
+                <div className="text-sm text-primary weight-medium">
                   Или откройте файл плейлиста
                 </div>
-                <div style={{ fontSize: 'var(--text-xs)', color: 'var(--text-muted)', marginTop: '2px' }}>
+                <div className="text-xs text-muted mt-px">
                   Wireon Sounds (.json), .m3u8 из другого плеера, таблица .csv
                 </div>
               </div>
@@ -774,7 +746,7 @@ export const ImportPlaylistModal: React.FC<ImportPlaylistModalProps> = ({
               />
             </div>
 
-            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 'var(--space-3)', marginTop: 'var(--space-2)' }}>
+            <div className="row-stretch justify-end gap-3 mt-2">
               <Button type="button" variant="ghost" onClick={onClose}>
                 Отмена
               </Button>
@@ -814,83 +786,42 @@ export const ImportPlaylistModal: React.FC<ImportPlaylistModalProps> = ({
            * без класса: он появляется вместе с самим окном, и второе появление
            * поверх входа окна складывалось бы с ним.
            */
-          <div className="animate-drop-in" style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-4)' }}>
+          <div className="animate-drop-in stack gap-4">
             <div
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: 'var(--space-3)',
-                padding: 'var(--space-3)',
-                backgroundColor: 'var(--surface-3)',
-                borderRadius: 'var(--radius-md)',
-                border: '1px solid var(--border-subtle)'
-              }}
+              className="row gap-3 p-3 radius-md bg-surface-3 border-subtle"
             >
               <div
-                style={{
-                  width: '48px',
-                  height: '48px',
-                  borderRadius: 'var(--radius-sm)',
-                  backgroundColor: 'var(--surface-2)',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  flexShrink: 0
-                }}
+                className="radius-sm row justify-center shrink-0 bg-surface-2" style={{ width: '48px', height: '48px' }}
               >
                 {preview.coverUrl ? (
                   <img
                     src={preview.coverUrl}
                     alt={preview.title}
-                    style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: 'var(--radius-sm)' }}
+                    className="fill-cover radius-sm"
                   />
                 ) : (
-                  <Music size={ICON.xl} style={{ color: 'var(--text-faint)' }} />
+                  <Music size={ICON.xl} className="text-faint" />
                 )}
               </div>
 
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>
+              <div className="grow">
+                <div className="row gap-2">
                   <h4
-                    style={{
-                      margin: 0,
-                      fontSize: 'var(--text-base)',
-                      fontWeight: 'var(--weight-semibold)',
-                      color: 'var(--text-primary)'
-                    }}
-                    className="text-truncate"
+                    className="text-truncate m-0 text-base weight-semibold text-primary"
                     data-testid="preview-playlist-title"
                   >
                     {preview.title}
                   </h4>
                   {preview.origin.kind === 'platform' ? (
                     <span
-                      style={{
-                        padding: '2px 6px',
-                        borderRadius: 'var(--radius-xs)',
-                        backgroundColor: PLATFORM_CONFIG[preview.origin.platform].bg,
-                        color: PLATFORM_CONFIG[preview.origin.platform].color,
-                        fontSize: 'var(--text-xs)',
-                        fontWeight: 'var(--weight-semibold)'
-                      }}
+                      className="radius-xs text-xs weight-semibold" style={{ padding: '2px 6px', backgroundColor: PLATFORM_CONFIG[preview.origin.platform].bg, color: PLATFORM_CONFIG[preview.origin.platform].color }}
                     >
                       {PLATFORM_CONFIG[preview.origin.platform].name}
                     </span>
                   ) : (
                     <span
-                      style={{
-                        display: 'inline-flex',
-                        alignItems: 'center',
-                        gap: '4px',
-                        padding: '2px 6px',
-                        borderRadius: 'var(--radius-xs)',
-                        backgroundColor: 'var(--surface-2)',
-                        color: 'var(--text-secondary)',
-                        fontSize: 'var(--text-xs)',
-                        fontWeight: 'var(--weight-semibold)',
-                        maxWidth: '190px'
-                      }}
-                      className="text-truncate"
+                      style={{ padding: '2px 6px', maxWidth: '190px' }}
+                      className="text-truncate inline-row radius-xs text-secondary text-xs weight-semibold gap-1 bg-surface-2"
                       data-testid="preview-file-badge"
                     >
                       <FileText size={ICON.xs} aria-hidden="true" />
@@ -898,7 +829,7 @@ export const ImportPlaylistModal: React.FC<ImportPlaylistModalProps> = ({
                     </span>
                   )}
                 </div>
-                <div style={{ fontSize: 'var(--text-xs)', color: 'var(--text-muted)', marginTop: '2px' }}>
+                <div className="text-xs text-muted mt-px">
                   Найдено {pluralize(previewCount, 'трек', 'трека', 'треков')}
                   {preview.readyTracks.length > 0 && preview.items.length > 0 && (
                     <> · {preview.readyTracks.length} уже готовы к прослушиванию</>
@@ -909,19 +840,12 @@ export const ImportPlaylistModal: React.FC<ImportPlaylistModalProps> = ({
 
             {/* Track list preview */}
             <div>
-              <div style={{ fontSize: 'var(--text-xs)', color: 'var(--text-secondary)', marginBottom: 'var(--space-2)' }}>
+              <div className="text-xs text-secondary mb-2">
                 Список треков ({previewCount}):
               </div>
               <div
-                className="scrollbar-thin"
-                style={{
-                  maxHeight: '220px',
-                  overflowY: 'auto',
-                  border: '1px solid var(--border-subtle)',
-                  borderRadius: 'var(--radius-md)',
-                  backgroundColor: 'var(--surface-2)',
-                  padding: 'var(--space-1)'
-                }}
+                className="scrollbar-thin radius-md p-1 border-subtle bg-surface-2"
+                style={{ maxHeight: '220px', overflowY: 'auto' }}
                 data-testid="preview-track-list"
               >
                 {[
@@ -934,28 +858,21 @@ export const ImportPlaylistModal: React.FC<ImportPlaylistModalProps> = ({
                 ].map((item, idx, all) => (
                   <div
                     key={idx}
-                    style={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'space-between',
-                      padding: 'var(--space-2) var(--space-3)',
-                      borderBottom: idx < all.length - 1 ? '1px solid var(--border-subtle)' : 'none',
-                      fontSize: 'var(--text-sm)'
-                    }}
+                    className="row justify-between text-sm py-2 px-3" style={{ borderBottom: idx < all.length - 1 ? '1px solid var(--border-subtle)' : 'none' }}
                   >
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)', minWidth: 0, flex: 1 }}>
-                      <span style={{ color: 'var(--text-muted)', fontSize: 'var(--text-xs)', width: '20px' }}>
+                    <div className="row gap-2 grow">
+                      <span className="text-muted text-xs" style={{ width: '20px' }}>
                         {idx + 1}
                       </span>
                       <div className="text-truncate">
-                        <span style={{ color: 'var(--text-primary)', fontWeight: 'var(--weight-medium)' }}>{item.title}</span>
-                        <span style={{ color: 'var(--text-secondary)', marginLeft: 'var(--space-2)' }}>
+                        <span className="text-primary weight-medium">{item.title}</span>
+                        <span className="text-secondary ml-2">
                           — {item.artist || UNKNOWN_ARTIST}
                         </span>
                       </div>
                     </div>
                     {item.duration ? (
-                      <span data-numeric style={{ color: 'var(--text-muted)', fontSize: 'var(--text-xs)', flexShrink: 0 }}>
+                      <span data-numeric className="text-muted text-xs shrink-0">
                         {formatDuration(item.duration)}
                       </span>
                     ) : null}
@@ -964,7 +881,7 @@ export const ImportPlaylistModal: React.FC<ImportPlaylistModalProps> = ({
               </div>
             </div>
 
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 'var(--space-2)' }}>
+            <div className="row justify-between mt-2">
               <Button
                 variant="ghost"
                 size="sm"
@@ -978,7 +895,7 @@ export const ImportPlaylistModal: React.FC<ImportPlaylistModalProps> = ({
                 Другой источник
               </Button>
 
-              <div style={{ display: 'flex', gap: 'var(--space-2)' }}>
+              <div className="row-stretch gap-2">
                 <Button variant="ghost" onClick={onClose}>
                   Отмена
                 </Button>
@@ -999,46 +916,31 @@ export const ImportPlaylistModal: React.FC<ImportPlaylistModalProps> = ({
 
         {/* Step 3: Resolving Parallel Batch Search */}
         {step === 'resolving' && (
-          <div className="animate-drop-in" style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-4)', padding: 'var(--space-3) 0' }}>
-            <div style={{ textAlign: 'center' }}>
+          <div className="animate-drop-in stack gap-4 py-3 px-0">
+            <div className="text-center">
               <div
-                style={{
-                  width: '56px',
-                  height: '56px',
-                  borderRadius: '50%',
-                  backgroundColor: 'var(--accent-soft)',
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  marginBottom: 'var(--space-3)'
-                }}
+                className="inline-row justify-center mb-3 bg-accent-soft" style={{ width: '56px', height: '56px', borderRadius: '50%' }}
               >
-                <Loader2 size={ICON['2xl']} className="animate-spin" style={{ color: 'var(--accent)' }} />
+                <Loader2 size={ICON['2xl']} className="animate-spin text-accent" />
               </div>
-              <h4 style={{ margin: 0, fontSize: 'var(--text-lg)', color: 'var(--text-primary)', fontWeight: 'var(--weight-semibold)' }}>
+              <h4 className="m-0 text-lg text-primary weight-semibold">
                 Ищем треки по источникам…
               </h4>
-              <p style={{ margin: 'var(--space-1) 0 0 0', fontSize: 'var(--text-sm)', color: 'var(--text-secondary)' }}>
+              <p className="text-sm text-secondary" style={{ margin: 'var(--space-1) 0 0 0' }}>
                 Сверяем название, исполнителя и длительность — чтобы не подсунуть чужую версию
               </p>
             </div>
 
             {/* Live Progress Bar */}
             <div>
-              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 'var(--text-xs)', color: 'var(--text-secondary)', marginBottom: 'var(--space-1)' }}>
+              <div className="row-stretch justify-between text-xs text-secondary mb-1">
                 <span>
                   Обработано {progress.resolved} из {progress.total}
                 </span>
-                <span style={{ fontWeight: 'var(--weight-semibold)', color: 'var(--accent)' }}>{percentComplete}%</span>
+                <span className="weight-semibold text-accent">{percentComplete}%</span>
               </div>
               <div
-                style={{
-                  width: '100%',
-                  height: '8px',
-                  backgroundColor: 'var(--surface-3)',
-                  borderRadius: 'var(--radius-full)',
-                  overflow: 'hidden'
-                }}
+                className="w-full radius-full overflow-hidden bg-surface-3" style={{ height: '8px' }}
                 data-testid="import-progress-bar-container"
               >
                 <div
@@ -1059,21 +961,11 @@ export const ImportPlaylistModal: React.FC<ImportPlaylistModalProps> = ({
 
             {progress.current && (
               <div
-                style={{
-                  padding: 'var(--space-2) var(--space-3)',
-                  backgroundColor: 'var(--surface-2)',
-                  borderRadius: 'var(--radius-sm)',
-                  fontSize: 'var(--text-xs)',
-                  color: 'var(--text-secondary)',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: 'var(--space-2)'
-                }}
-                className="text-truncate"
+                className="text-truncate radius-sm text-xs text-secondary row gap-2 py-2 px-3 bg-surface-2"
                 data-testid="current-resolving-track"
               >
-                <Music size={ICON.sm} style={{ color: 'var(--text-secondary)', flexShrink: 0 }} />
-                <span>Сейчас ищем: <strong style={{ color: 'var(--text-primary)' }}>{progress.current}</strong></span>
+                <Music size={ICON.sm} className="text-secondary shrink-0" />
+                <span>Сейчас ищем: <strong className="text-primary">{progress.current}</strong></span>
               </div>
             )}
           </div>
@@ -1081,27 +973,18 @@ export const ImportPlaylistModal: React.FC<ImportPlaylistModalProps> = ({
 
         {/* Step 4: Import Complete */}
         {step === 'complete' && preview && (
-          <div className="animate-drop-in" style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-4)', padding: 'var(--space-2) 0' }}>
-            <div style={{ textAlign: 'center' }}>
+          <div className="animate-drop-in stack gap-4 py-2 px-0">
+            <div className="text-center">
               <div
-                style={{
-                  width: '60px',
-                  height: '60px',
-                  borderRadius: '50%',
-                  backgroundColor: 'var(--success-soft)',
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  margin: '0 auto var(--space-3) auto'
-                }}
+                className="inline-row justify-center bg-success-soft" style={{ width: '60px', height: '60px', borderRadius: '50%', margin: '0 auto var(--space-3) auto' }}
               >
-                <CheckCircle2 size={ICON.display} style={{ color: 'var(--success)' }} />
+                <CheckCircle2 size={ICON.display} className="text-success" />
               </div>
 
-              <h4 style={{ margin: 0, fontSize: 'var(--text-lg)', color: 'var(--text-primary)', fontWeight: 'var(--weight-semibold)' }}>
+              <h4 className="m-0 text-lg text-primary weight-semibold">
                 Готово!
               </h4>
-              <p style={{ margin: 'var(--space-1) 0 0 0', fontSize: 'var(--text-sm)', color: 'var(--text-secondary)' }}>
+              <p className="text-sm text-secondary" style={{ margin: 'var(--space-1) 0 0 0' }}>
                 В плейлист «<strong>{preview.title}</strong>» перенесено треков: <strong>{resolvedTracks.length}</strong>
                 {unmatched.length > 0 && <> из {matches.length + preview.readyTracks.length}</>}.
               </p>
@@ -1110,26 +993,13 @@ export const ImportPlaylistModal: React.FC<ImportPlaylistModalProps> = ({
             {/* Отчёт о ненайденном: раньше эти строки просто исчезали */}
             {unmatched.length > 0 && (
               <div
-                style={{
-                  border: '1px solid var(--border-subtle)',
-                  borderRadius: 'var(--radius-md)',
-                  backgroundColor: 'var(--surface-2)',
-                  overflow: 'hidden'
-                }}
+                className="radius-md overflow-hidden border-subtle bg-surface-2"
                 data-testid="import-unmatched-list"
               >
                 <div
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: 'var(--space-2)',
-                    padding: 'var(--space-2) var(--space-3)',
-                    borderBottom: '1px solid var(--border-subtle)',
-                    fontSize: 'var(--text-xs)',
-                    color: 'var(--text-secondary)'
-                  }}
+                  className="row gap-2 text-xs text-secondary py-2 px-3 border-b-subtle"
                 >
-                  <AlertCircle size={ICON.sm} style={{ color: 'var(--warning)' }} />
+                  <AlertCircle size={ICON.sm} className="text-warning" />
                   <span>
                     Не нашли уверенного совпадения: {pluralize(unmatched.length, 'трек', 'трека', 'треков')}. Можно выбрать вручную.
                   </span>
@@ -1141,22 +1011,19 @@ export const ImportPlaylistModal: React.FC<ImportPlaylistModalProps> = ({
                     return (
                       <div
                         key={index}
-                        style={{
-                          padding: 'var(--space-2) var(--space-3)',
-                          borderBottom: '1px solid var(--border-subtle)'
-                        }}
+                        className="py-2 px-3 border-b-subtle"
                         data-testid={`import-unmatched-row-${index}`}
                       >
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>
-                          <div style={{ flex: 1, minWidth: 0 }}>
-                            <div className="text-truncate" style={{ fontSize: 'var(--text-sm)', color: 'var(--text-primary)' }}>
+                        <div className="row gap-2">
+                          <div className="grow">
+                            <div className="text-truncate text-sm text-primary">
                               {match.item.title}
-                              <span style={{ color: 'var(--text-secondary)', marginLeft: 'var(--space-2)' }}>
+                              <span className="text-secondary ml-2">
                                 — {match.item.artist || UNKNOWN_ARTIST}
                               </span>
                             </div>
                             {match.notes.length > 0 && (
-                              <div style={{ fontSize: 'var(--text-xs)', color: 'var(--text-muted)', marginTop: '2px' }}>
+                              <div className="text-xs text-muted mt-px">
                                 {match.notes.join(' · ')}
                               </div>
                             )}
@@ -1164,14 +1031,7 @@ export const ImportPlaylistModal: React.FC<ImportPlaylistModalProps> = ({
 
                           {state?.addedId ? (
                             <span
-                              style={{
-                                display: 'inline-flex',
-                                alignItems: 'center',
-                                gap: '4px',
-                                fontSize: 'var(--text-xs)',
-                                color: 'var(--success)',
-                                flexShrink: 0
-                              }}
+                              className="inline-row text-xs text-success shrink-0 gap-1"
                               data-testid={`import-manual-added-${index}`}
                             >
                               <Check size={ICON.xs} /> Добавлен
@@ -1200,11 +1060,10 @@ export const ImportPlaylistModal: React.FC<ImportPlaylistModalProps> = ({
                           <div
                             // Список кандидатов раскрывается под кнопкой «Выбрать
                             // вручную» — то самое «нажал, и раскрылось».
-                            className="animate-drop-in"
-                            style={{ marginTop: 'var(--space-2)', display: 'flex', flexDirection: 'column', gap: '2px' }}
+                            className="animate-drop-in mt-2 stack gap-px"
                           >
                             {state.candidates.length === 0 ? (
-                              <span style={{ fontSize: 'var(--text-xs)', color: 'var(--text-muted)' }}>
+                              <span className="text-xs text-muted">
                                 Источники ничего не вернули по этому названию.
                               </span>
                             ) : (
@@ -1212,13 +1071,12 @@ export const ImportPlaylistModal: React.FC<ImportPlaylistModalProps> = ({
                                 <button
                                   type="button"
                                   key={candidate.id}
-                                  className="menu-item-hover"
+                                  className="menu-item-hover w-full text-left"
                                   onClick={() => void handlePickCandidate(index, candidate)}
-                                  style={{ width: '100%', textAlign: 'left' }}
                                   data-testid={`import-manual-candidate-${index}-${candidate.id}`}
                                 >
-                                  <Music size={ICON.xs} aria-hidden="true" style={{ flexShrink: 0 }} />
-                                  <span className="text-truncate" style={{ fontSize: 'var(--text-xs)' }}>
+                                  <Music size={ICON.xs} aria-hidden="true" className="shrink-0" />
+                                  <span className="text-truncate text-xs">
                                     {candidate.artist || UNKNOWN_ARTIST} — {candidate.title}
                                     {candidate.duration ? ` · ${formatDuration(candidate.duration)}` : ''}
                                   </span>
@@ -1236,26 +1094,13 @@ export const ImportPlaylistModal: React.FC<ImportPlaylistModalProps> = ({
 
             {remembered.length > 0 && (
               <div
-                style={{
-                  border: '1px solid var(--border-subtle)',
-                  borderRadius: 'var(--radius-md)',
-                  backgroundColor: 'var(--surface-2)',
-                  overflow: 'hidden'
-                }}
+                className="radius-md overflow-hidden border-subtle bg-surface-2"
                 data-testid="import-remembered-list"
               >
                 <div
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: 'var(--space-2)',
-                    padding: 'var(--space-2) var(--space-3)',
-                    borderBottom: '1px solid var(--border-subtle)',
-                    fontSize: 'var(--text-xs)',
-                    color: 'var(--text-secondary)'
-                  }}
+                  className="row gap-2 text-xs text-secondary py-2 px-3 border-b-subtle"
                 >
-                  <Check size={ICON.sm} style={{ color: 'var(--success)' }} />
+                  <Check size={ICON.sm} className="text-success" />
                   <span>
                     {pluralize(remembered.length, 'трек взят', 'трека взяты', 'треков взяты')} по прошлым
                     подтверждениям. Если запись не та — забудьте выбор.
@@ -1266,29 +1111,22 @@ export const ImportPlaylistModal: React.FC<ImportPlaylistModalProps> = ({
                   {remembered.map(({ match, index }) => (
                     <div
                       key={index}
-                      style={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: 'var(--space-2)',
-                        padding: 'var(--space-2) var(--space-3)',
-                        borderBottom: '1px solid var(--border-subtle)'
-                      }}
+                      className="row gap-2 py-2 px-3 border-b-subtle"
                       data-testid={`import-remembered-row-${index}`}
                     >
-                      <div style={{ minWidth: 0, flex: 1 }}>
-                        <div className="text-truncate" style={{ fontSize: 'var(--text-sm)' }}>
+                      <div className="grow">
+                        <div className="text-truncate text-sm">
                           {match.item.title}
                         </div>
                         <div
-                          className="text-truncate"
-                          style={{ fontSize: 'var(--text-xs)', color: 'var(--text-muted)' }}
+                          className="text-truncate text-xs text-muted"
                         >
                           {match.track?.title} — {match.track?.artist}
                           {match.fromLink === 'manual' ? ' · выбрано вами' : ' · найдено раньше'}
                         </div>
                       </div>
                       {forgotten[index] ? (
-                        <span style={{ fontSize: 'var(--text-xs)', color: 'var(--text-muted)', flexShrink: 0 }}>
+                        <span className="text-xs text-muted shrink-0">
                           Забыто
                         </span>
                       ) : (
@@ -1307,7 +1145,7 @@ export const ImportPlaylistModal: React.FC<ImportPlaylistModalProps> = ({
               </div>
             )}
 
-            <div style={{ display: 'flex', justifyContent: 'center', gap: 'var(--space-3)', marginTop: 'var(--space-2)' }}>
+            <div className="row-stretch justify-center gap-3 mt-2">
               <Button variant="ghost" onClick={onClose} data-testid="import-done-btn">
                 Закрыть
               </Button>

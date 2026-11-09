@@ -48,9 +48,9 @@ export const TrackSelectionBar: React.FC<TrackSelectionBarProps> = ({
 
   return (
     <div className="selection-bar" data-testid={testId}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>
+      <div className="row gap-2">
         <span
-          style={{ flex: 1, fontSize: 'var(--text-sm)', color: 'var(--text-primary)' }}
+          className="flex-1 text-sm text-primary"
           data-testid={`${testId}-count`}
         >
           {count === 0 ? 'Выберите треки' : `Выбрано ${count} из ${total}`}
@@ -65,17 +65,16 @@ export const TrackSelectionBar: React.FC<TrackSelectionBarProps> = ({
         </button>
         <button
           type="button"
-          className="press focus-ring tap-target"
+          className="press focus-ring tap-target text-secondary pointer"
           onClick={clearSelection}
           aria-label="Выйти из режима выбора"
-          style={{ color: 'var(--text-secondary)', cursor: 'pointer' }}
           data-testid={`${testId}-close`}
         >
           <X size={ICON.lg} aria-hidden="true" />
         </button>
       </div>
 
-      <div style={{ display: 'flex', gap: 'var(--space-2)' }}>
+      <div className="row-stretch gap-2">
         {actions.map((action) => (
           <button
             key={action.testId}

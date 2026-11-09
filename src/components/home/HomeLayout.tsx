@@ -27,7 +27,7 @@ export const HomeLayout: React.FC<{
     <div className="home-builder-tools">
       <button className="chip" aria-pressed={editing} onClick={() => setEditHome(!editing)}><SlidersHorizontal size={ICON.md} />{editing ? 'Готово' : 'Настроить главную'}</button>
       {editing && <button className="chip" onClick={() => useUIStore.getState().setActiveView('settings')}>Все настройки</button>}
-      {toolsAside && <span style={{ flex: 1 }} />}
+      {toolsAside && <span className="flex-1" />}
       {toolsAside}
     </div>
     {childrenArray.map((child, index) => {

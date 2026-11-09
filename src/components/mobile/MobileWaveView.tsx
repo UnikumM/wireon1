@@ -110,16 +110,9 @@ export const MobileWaveView: React.FC = () => {
   );
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-5)' }} data-testid="mobile-wave-view">
+    <div className="stack gap-5" data-testid="mobile-wave-view">
       <h1
-        style={{
-          margin: 0,
-          fontSize: 'var(--text-2xl)',
-          lineHeight: 'var(--leading-2xl)',
-          letterSpacing: 'var(--tracking-2xl)',
-          fontWeight: 'var(--weight-bold)',
-          color: 'var(--text-primary)'
-        }}
+        className="m-0 weight-bold text-primary type-2xl"
       >
         Поток
       </h1>
@@ -130,16 +123,7 @@ export const MobileWaveView: React.FC = () => {
         * нечего: параметры лежали за безымянным значком.
         */}
       <section
-        style={{
-          display: 'flex',
-          flexDirection: 'column',
-          alignItems: 'center',
-          gap: 'var(--space-4)',
-          padding: 'var(--space-5) var(--space-4)',
-          borderRadius: 'var(--radius-xl)',
-          background: 'var(--surface-2)',
-          border: '1px solid var(--border-subtle)'
-        }}
+        className="stack-center gap-4 py-5 px-4 bg-surface-2 border-subtle" style={{ borderRadius: 'var(--radius-xl)' }}
       >
         {/*
           * `chill`, а не `activeWaveMood`.
@@ -154,15 +138,7 @@ export const MobileWaveView: React.FC = () => {
         <WaveVisualizerOrb mood="chill" isPlaying={isPlaying} width={140} height={140} />
 
         <p
-          style={{
-            margin: 0,
-            textAlign: 'center',
-            fontSize: 'var(--text-sm)',
-            lineHeight: 'var(--leading-sm)',
-            letterSpacing: 'var(--tracking-sm)',
-            color: 'var(--text-secondary)',
-            overflowWrap: 'anywhere'
-          }}
+          className="m-0 text-center text-sm text-secondary leading-sm tracking-sm" style={{ overflowWrap: 'anywhere' }}
           data-testid="mobile-wave-summary"
         >
           {activeSource.label}
@@ -209,12 +185,7 @@ export const MobileWaveView: React.FC = () => {
         * значком без подписи.
         */}
       <section
-        style={{
-          borderRadius: 'var(--radius-lg)',
-          background: 'var(--surface-2)',
-          border: '1px solid var(--border-subtle)',
-          overflow: 'hidden'
-        }}
+        className="radius-lg overflow-hidden bg-surface-2 border-subtle"
       >
         <SheetRow
           icon={activeSource.icon}
@@ -239,7 +210,7 @@ export const MobileWaveView: React.FC = () => {
         * стояли всегда — погашенные, безымянные и ни с чем не связанные.
         */}
       {currentTrack && isWaveActive && (
-        <section style={{ display: 'flex', flexWrap: 'wrap', gap: 'var(--space-2)' }}>
+        <section className="row-stretch wrap gap-2">
           <FeedbackButton
             icon={<ThumbsDown size={ICON.md} aria-hidden="true" />}
             label="Не это"
@@ -258,14 +229,7 @@ export const MobileWaveView: React.FC = () => {
       {isWaveActive && upcoming.length > 0 && (
         <section>
           <h2
-            style={{
-              margin: '0 0 var(--space-2)',
-              fontSize: 'var(--text-lg)',
-              lineHeight: 'var(--leading-lg)',
-              letterSpacing: 'var(--tracking-lg)',
-              fontWeight: 'var(--weight-semibold)',
-              color: 'var(--text-primary)'
-            }}
+            className="text-lg weight-semibold text-primary leading-lg tracking-lg" style={{ margin: '0 0 var(--space-2)' }}
           >
             Далее в Потоке
           </h2>
@@ -287,7 +251,7 @@ export const MobileWaveView: React.FC = () => {
         title="Откуда собирать Поток"
         data-testid="mobile-wave-source-sheet"
       >
-        <div style={{ padding: '0 var(--space-4) var(--space-4)', minWidth: 0 }}>
+        <div className="min-0" style={{ padding: '0 var(--space-4) var(--space-4)' }}>
           <WaveSourcePicker restartOnChange={isWaveActive} />
         </div>
       </Sheet>
@@ -317,25 +281,9 @@ interface FeedbackButtonProps {
 const FeedbackButton: React.FC<FeedbackButtonProps> = ({ icon, label, onClick, testId }) => (
   <button
     type="button"
-    className="press"
+    className="press row wrap justify-center gap-2 min-0 text-secondary text-sm pointer border-line leading-sm tracking-sm"
     onClick={onClick}
-    style={{
-      display: 'flex',
-      flexWrap: 'wrap',
-      alignItems: 'center',
-      justifyContent: 'center',
-      gap: 'var(--space-2)',
-      flex: '1 1 120px',
-      minWidth: 0,
-      minHeight: '44px',
-      borderRadius: 'var(--radius-pill)',
-      border: '1px solid var(--border)',
-      color: 'var(--text-secondary)',
-      fontSize: 'var(--text-sm)',
-      lineHeight: 'var(--leading-sm)',
-      letterSpacing: 'var(--tracking-sm)',
-      cursor: 'pointer'
-    }}
+    style={{ flex: '1 1 120px', minHeight: '44px', borderRadius: 'var(--radius-pill)' }}
     data-testid={testId}
   >
     {icon}

@@ -323,12 +323,7 @@ export const LibraryView: React.FC<LibraryViewProps> = ({
    */
   const buildToolbar = (trailing?: React.ReactNode) => (
     <div
-      style={{
-        display: 'flex',
-        alignItems: 'center',
-        gap: 'var(--space-3)',
-        flexWrap: 'wrap'
-      }}
+      className="row gap-3 wrap"
     >
       <label
         className="search-field"
@@ -345,7 +340,7 @@ export const LibraryView: React.FC<LibraryViewProps> = ({
           padding: '0 var(--space-3)'
         }}
       >
-        <Search size={ICON.md} aria-hidden="true" style={{ color: 'var(--text-muted)', flexShrink: 0 }} />
+        <Search size={ICON.md} aria-hidden="true" className="text-muted shrink-0" />
         <input
           type="text"
           value={query}
@@ -358,14 +353,7 @@ export const LibraryView: React.FC<LibraryViewProps> = ({
               : 'Поиск по названию или артисту…'
           }
           aria-label={activeTab === 'playlists' ? 'Поиск по плейлистам' : 'Поиск по трекам'}
-          style={{
-            flex: 1,
-            minWidth: 0,
-            padding: 'var(--space-2) 0',
-            background: 'transparent',
-            border: 'none',
-            fontSize: 'var(--text-sm)'
-          }}
+          className="grow text-sm py-2 px-0 bg-transparent border-none"
           data-testid="library-search-input"
         />
       </label>
@@ -389,7 +377,7 @@ export const LibraryView: React.FC<LibraryViewProps> = ({
           <select
             value={sortMode}
             onChange={(e) => setSortMode(e.target.value as SortMode)}
-            style={{ fontSize: 'var(--text-sm)', minWidth: 0, maxWidth: '100%' }}
+            className="text-sm min-0 max-w-full"
             data-testid="library-sort-select"
           >
             {(Object.keys(SORT_LABELS) as SortMode[]).map((mode) => (
@@ -410,8 +398,7 @@ export const LibraryView: React.FC<LibraryViewProps> = ({
   return (
     <>
       <div
-        className={`animate-view-in ${className}`}
-        style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-5)', width: '100%' }}
+        className={`animate-view-in ${className} stack gap-5 w-full`}
         data-testid="library-view"
       >
         <div
@@ -471,7 +458,7 @@ export const LibraryView: React.FC<LibraryViewProps> = ({
               >
                 {descriptor.icon}
                 <span>{descriptor.label}</span>
-                <span data-numeric style={{ color: 'var(--text-muted)' }}>
+                <span data-numeric className="text-muted">
                   {count}
                 </span>
               </button>
@@ -492,8 +479,7 @@ export const LibraryView: React.FC<LibraryViewProps> = ({
                в любом случае, поэтому одинаковый класс на всех четырёх делает
                поведение одинаковым, не завязываясь на то, какая закладка
                заодно является разделом. */
-            className="animate-fade-in"
-            style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-4)' }}
+            className="animate-fade-in stack gap-4"
           >
             <div
               style={{
@@ -509,22 +495,12 @@ export const LibraryView: React.FC<LibraryViewProps> = ({
               {!isNarrow && (
                 <div>
                   <h2
-                    style={{
-                      margin: 0,
-                      fontSize: 'var(--text-xl)',
-                      lineHeight: 'var(--leading-xl)',
-                      color: 'var(--text-primary)'
-                    }}
+                    className="m-0 text-xl text-primary leading-xl"
                   >
                     Недавно прослушанное
                   </h2>
                   <p
-                    style={{
-                      margin: 'var(--space-1) 0 0 0',
-                      fontSize: 'var(--text-sm)',
-                      lineHeight: 'var(--leading-sm)',
-                      color: 'var(--text-secondary)'
-                    }}
+                    className="text-sm text-secondary leading-sm" style={{ margin: 'var(--space-1) 0 0 0' }}
                   >
                     {describeTrackTotals(visibleHistory)} · сначала новые
                   </p>
@@ -585,13 +561,7 @@ export const LibraryView: React.FC<LibraryViewProps> = ({
             ) : (
               <div
                 ref={historyVirtual.containerRef}
-                style={{
-                  display: 'flex',
-                  flexDirection: 'column',
-                  gap: 'var(--space-1)',
-                  paddingTop: historyVirtual.paddingTop,
-                  paddingBottom: historyVirtual.paddingBottom
-                }}
+                className="stack gap-1" style={{ paddingTop: historyVirtual.paddingTop, paddingBottom: historyVirtual.paddingBottom }}
               >
                 {visibleHistory
                   .slice(historyVirtual.startIndex, historyVirtual.endIndex)
@@ -600,10 +570,10 @@ export const LibraryView: React.FC<LibraryViewProps> = ({
                     return (
                   <div
                     key={track.id}
-                    style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}
+                    className="row gap-2"
                     data-testid={`history-row-${index}`}
                   >
-                    <div style={{ flex: 1, minWidth: 0 }}>
+                    <div className="grow">
                       <TrackCard
                         track={track}
                         index={index}
@@ -666,8 +636,7 @@ export const LibraryView: React.FC<LibraryViewProps> = ({
             aria-labelledby="library-tab-playlists"
             tabIndex={0}
             /* Проявление здесь по той же причине, что и у панели «Недавние». */
-            className="animate-fade-in"
-            style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-4)' }}
+            className="animate-fade-in stack gap-4"
           >
             <div
               style={{
@@ -685,12 +654,7 @@ export const LibraryView: React.FC<LibraryViewProps> = ({
                   заголовком и говорит ровно то же самое. */}
               {!isNarrow && (
                 <h2
-                  style={{
-                    margin: 0,
-                    fontSize: 'var(--text-xl)',
-                    lineHeight: 'var(--leading-xl)',
-                    color: 'var(--text-primary)'
-                  }}
+                  className="m-0 text-xl text-primary leading-xl"
                 >
                   Ваши плейлисты
                 </h2>
@@ -706,7 +670,7 @@ export const LibraryView: React.FC<LibraryViewProps> = ({
                 * действием, и это ровно тот случай.
                 */}
               {playlists.length > 0 && (
-                <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 'var(--space-2)' }}>
+                <div className="row wrap gap-2">
                   <Button
                     variant="secondary"
                     size="sm"
@@ -739,11 +703,7 @@ export const LibraryView: React.FC<LibraryViewProps> = ({
 
             {isLoading ? (
               <div
-                style={{
-                  display: 'grid',
-                  gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))',
-                  gap: 'var(--space-4)'
-                }}
+                className="grid gap-4" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))' }}
               >
                 {[0, 1, 2, 3].map((i) => (
                   <Skeleton key={i} height={248} radius="var(--radius-md)" />
@@ -755,7 +715,7 @@ export const LibraryView: React.FC<LibraryViewProps> = ({
                 title="Плейлистов пока нет"
                 description="Соберите вместе треки, которые хочется слушать подряд."
                 action={
-                  <div style={{ display: 'flex', gap: 'var(--space-2)', flexWrap: 'wrap', justifyContent: 'center' }}>
+                  <div className="row-stretch gap-2 wrap justify-center">
                     <Button
                       variant="secondary"
                       size="sm"
@@ -788,11 +748,7 @@ export const LibraryView: React.FC<LibraryViewProps> = ({
               />
             ) : (
               <div
-                style={{
-                  display: 'grid',
-                  gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))',
-                  gap: 'var(--space-4)'
-                }}
+                className="grid gap-4" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))' }}
               >
                 {visiblePlaylists.map((playlist, index) => (
                   <div
@@ -812,7 +768,7 @@ export const LibraryView: React.FC<LibraryViewProps> = ({
                     } as React.CSSProperties}
                     data-testid={`playlist-card-${playlist.id}`}
                   >
-                    <div style={{ position: 'relative' }}>
+                    <div className="relative">
                       <PlaylistCover tracks={playlist.tracks} coverUrl={playlist.coverUrl} size="100%" />
                       {playlist.tracks.length > 0 && (
                         <Button
@@ -821,12 +777,7 @@ export const LibraryView: React.FC<LibraryViewProps> = ({
                           onClick={(e) => void handlePlayPlaylist(e, playlist.tracks)}
                           aria-label={`Включить плейлист «${playlist.title}»`}
                           title="Включить плейлист"
-                          style={{
-                            position: 'absolute',
-                            right: 'var(--space-2)',
-                            bottom: 'var(--space-2)',
-                            borderRadius: 'var(--radius-full)'
-                          }}
+                          className="radius-full" style={{ position: 'absolute', right: 'var(--space-2)', bottom: 'var(--space-2)' }}
                           data-testid={`playlist-play-${playlist.id}`}
                         >
                           <Play size={ICON.md} />
@@ -835,44 +786,25 @@ export const LibraryView: React.FC<LibraryViewProps> = ({
                     </div>
 
                     <div
-                      style={{
-                        display: 'flex',
-                        alignItems: 'flex-start',
-                        justifyContent: 'space-between',
-                        gap: 'var(--space-2)'
-                      }}
+                      className="row-start justify-between gap-2"
                     >
-                      <div style={{ flex: 1, minWidth: 0 }}>
+                      <div className="grow">
                         <button
                           type="button"
                           onClick={(e) => {
                             e.stopPropagation();
                             handleOpenPlaylist(playlist.id);
                           }}
-                          className="text-truncate focus-ring"
-                          style={{
-                            display: 'block',
-                            maxWidth: '100%',
-                            fontSize: 'var(--text-base)',
-                            lineHeight: 'var(--leading-base)',
-                            fontWeight: 'var(--weight-semibold)',
-                            color: 'var(--text-primary)',
-                            textAlign: 'left'
-                          }}
+                          className="text-truncate focus-ring block text-base weight-semibold text-primary text-left max-w-full leading-base"
                           data-testid={`playlist-open-${playlist.id}`}
                         >
                           {playlist.title}
                         </button>
                         <p
-                          style={{
-                            margin: 'var(--space-1) 0 0 0',
-                            fontSize: 'var(--text-xs)',
-                            lineHeight: 'var(--leading-xs)',
-                            color: 'var(--text-muted)'
-                          }}
+                          className="text-xs text-muted leading-xs" style={{ margin: 'var(--space-1) 0 0 0' }}
                         >
                           {pinnedIds.includes(playlist.id) && (
-                            <span style={{ color: 'var(--accent)' }} data-testid={`playlist-pinned-${playlist.id}`}>
+                            <span className="text-accent" data-testid={`playlist-pinned-${playlist.id}`}>
                               <Pin size={ICON.xs} aria-label="Закреплён" style={{ verticalAlign: '-1px', marginRight: '4px' }} />
                             </span>
                           )}

@@ -44,18 +44,11 @@ export const SelectionBar: React.FC<SelectionBarProps> = ({ total, allIds, actio
 
   return (
     <div
-      className="card"
-      style={{
-        display: 'flex',
-        alignItems: 'center',
-        gap: 'var(--space-3)',
-        flexWrap: 'wrap',
-        padding: 'var(--space-3) var(--space-4)'
-      }}
+      className="card row gap-3 wrap py-3 px-4"
       data-testid={testId}
     >
       <span
-        style={{ fontSize: 'var(--text-sm)', color: 'var(--text-primary)' }}
+        className="text-sm text-primary"
         data-testid={`${testId}-count`}
       >
         {count === 0
@@ -72,7 +65,7 @@ export const SelectionBar: React.FC<SelectionBarProps> = ({ total, allIds, actio
         {allChosen ? 'Снять все' : 'Выбрать все'}
       </Button>
 
-      <div style={{ display: 'flex', gap: 'var(--space-2)', marginLeft: 'auto', flexWrap: 'wrap' }}>
+      <div className="row-stretch gap-2 ml-auto wrap">
         {actions.map((action) => (
           <Button
             key={action.testId}

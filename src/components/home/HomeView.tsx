@@ -133,20 +133,9 @@ export const HomeView: React.FC = () => {
   return (
     <HomeLayout platform="desktop" testId="home-view">
       {/* --- Герой: продолжить слушать ------------------------------------ */}
-      <section data-home-block="hero" style={{ display: 'flex', gap: 'var(--space-7)', alignItems: 'stretch' }}>
+      <section data-home-block="hero" className="row-stretch items-stretch gap-7">
         <div
-          style={{
-            width: HERO_ART,
-            height: HERO_ART,
-            borderRadius: 'var(--radius-xl)',
-            flexShrink: 0,
-            overflow: 'hidden',
-            background: 'var(--surface-2)',
-            boxShadow: 'var(--shadow-lg)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center'
-          }}
+          className="shrink-0 overflow-hidden row justify-center bg-surface-2" style={{ width: HERO_ART, height: HERO_ART, borderRadius: 'var(--radius-xl)', boxShadow: 'var(--shadow-lg)' }}
           data-testid="home-hero-art"
         >
           {heroTrack?.artworkUrl && !heroArtFailed ? (
@@ -154,58 +143,36 @@ export const HomeView: React.FC = () => {
               src={heroTrack.artworkUrl}
               alt=""
               onError={() => setHeroArtFailed(true)}
-              style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+              className="fill-cover"
             />
           ) : (
             // Без обложки квадрат был пустым и читался как недогруженный.
-            <Music2 size={ICON.display} aria-hidden="true" style={{ color: 'var(--text-faint)' }} />
+            <Music2 size={ICON.display} aria-hidden="true" className="text-faint" />
           )}
         </div>
 
         <div
-          style={{
-            flex: 1,
-            minWidth: 0,
-            display: 'flex',
-            flexDirection: 'column',
-            justifyContent: 'center',
-            gap: 'var(--space-4)'
-          }}
+          className="grow stack justify-center gap-4"
         >
           <div
-            style={{
-              fontSize: 'var(--text-xs)',
-              letterSpacing: '0.14em',
-              textTransform: 'uppercase',
-              color: 'var(--info)',
-              fontWeight: 'var(--weight-semibold)'
-            }}
+            className="text-xs weight-semibold" style={{ letterSpacing: '0.14em', textTransform: 'uppercase', color: 'var(--info)' }}
           >
             {heroKicker}
           </div>
 
           <h1
-            style={{
-              margin: 0,
-              fontFamily: 'var(--font-display)',
-              fontSize: 'var(--text-4xl)',
-              lineHeight: 'var(--leading-4xl)',
-              letterSpacing: 'var(--tracking-4xl)',
-              fontWeight: 'var(--weight-semibold)',
-              color: 'var(--text-primary)',
-              overflowWrap: 'anywhere'
-            }}
+            className="m-0 weight-semibold text-primary" style={{ fontFamily: 'var(--font-display)', fontSize: 'var(--text-4xl)', lineHeight: 'var(--leading-4xl)', letterSpacing: 'var(--tracking-4xl)', overflowWrap: 'anywhere' }}
             data-testid="home-hero-title"
           >
             {heroTrack?.title ?? 'Wireon'}
           </h1>
 
-          <div style={{ fontSize: 'var(--text-xl)', color: 'var(--text-secondary)' }}>{heroSubtitle}</div>
+          <div className="text-xl text-secondary">{heroSubtitle}</div>
 
-          <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-3)', marginTop: 'var(--space-2)' }}>
+          <div className="row gap-3 mt-2">
             <button
               type="button"
-              className="focus-ring"
+              className="focus-ring row gap-2 text-base weight-semibold border-none"
               onClick={() => {
                 if (!heroTrack) return;
                 // Трек с прошлого запуска уже стоит в плеере на паузе: ему нужен
@@ -215,20 +182,7 @@ export const HomeView: React.FC = () => {
               }}
               disabled={!heroTrack}
               data-testid="home-hero-play"
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: 'var(--space-2)',
-                padding: '14px 28px',
-                borderRadius: 'var(--radius-pill)',
-                border: 'none',
-                background: 'var(--text-primary)',
-                color: 'var(--bg-base)',
-                fontSize: 'var(--text-base)',
-                fontWeight: 'var(--weight-semibold)',
-                cursor: heroTrack ? 'pointer' : 'default',
-                opacity: heroTrack ? 1 : 0.5
-              }}
+              style={{ padding: '14px 28px', borderRadius: 'var(--radius-pill)', background: 'var(--text-primary)', color: 'var(--bg-base)', cursor: heroTrack ? 'pointer' : 'default', opacity: heroTrack ? 1 : 0.5 }}
             >
               <Play size={ICON.sm} fill="currentColor" />
               {resumePosition && resumePosition > 1 ? 'Продолжить' : 'Слушать'}
@@ -236,24 +190,11 @@ export const HomeView: React.FC = () => {
 
             <button
               type="button"
-              className="focus-ring"
+              className="focus-ring row gap-2 text-primary text-base weight-medium border-strong bg-transparent"
               onClick={() => heroTrack && void startTrackRadio(heroTrack)}
               disabled={!heroTrack}
               data-testid="home-hero-radio"
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: 'var(--space-2)',
-                padding: '14px 24px',
-                borderRadius: 'var(--radius-pill)',
-                border: '1px solid var(--border-strong)',
-                background: 'transparent',
-                color: 'var(--text-primary)',
-                fontSize: 'var(--text-base)',
-                fontWeight: 'var(--weight-medium)',
-                cursor: heroTrack ? 'pointer' : 'default',
-                opacity: heroTrack ? 1 : 0.5
-              }}
+              style={{ padding: '14px 24px', borderRadius: 'var(--radius-pill)', cursor: heroTrack ? 'pointer' : 'default', opacity: heroTrack ? 1 : 0.5 }}
             >
               <Radio size={ICON.sm} />
               Радио по треку
@@ -365,23 +306,16 @@ interface ShelfProps {
  */
 const Shelf: React.FC<ShelfProps> = ({ title, note, testId, children }) => (
   <section
-    style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-5)' }}
+    className="stack gap-5"
     data-testid={testId}
   >
-    <div style={{ display: 'flex', alignItems: 'baseline', gap: 'var(--space-4)' }}>
+    <div className="row-stretch items-baseline gap-4">
       <h2
-        style={{
-          margin: 0,
-          fontFamily: 'var(--font-display)',
-          fontSize: 'var(--text-2xl)',
-          fontWeight: 'var(--weight-medium)',
-          letterSpacing: '-0.02em',
-          color: 'var(--text-primary)'
-        }}
+        className="m-0 weight-medium text-primary text-2xl" style={{ fontFamily: 'var(--font-display)', letterSpacing: '-0.02em' }}
       >
         {title}
       </h2>
-      {note && <span style={{ fontSize: 'var(--text-sm)', color: 'var(--text-faint)' }}>{note}</span>}
+      {note && <span className="text-sm text-faint">{note}</span>}
     </div>
 
     {/*
@@ -393,11 +327,7 @@ const Shelf: React.FC<ShelfProps> = ({ title, note, testId, children }) => (
       * крупно, но не «одна карточка на четверть экрана».
       */}
     <div
-      style={{
-        display: 'grid',
-        gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))',
-        gap: 'var(--space-5)'
-      }}
+      className="grid gap-5" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))' }}
     >
       {children}
     </div>

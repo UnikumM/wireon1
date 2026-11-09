@@ -47,6 +47,6 @@ describe('overlay isolation from scrollable and animated track containers', () =
       ancestor = ancestor.parentElement;
     }
     expect(content).toHaveAttribute('data-swipe-ignore');
-    expect(content.style.minHeight).toBe('0');
+    expect(content).toHaveClass('min-h-0');
   });
 });

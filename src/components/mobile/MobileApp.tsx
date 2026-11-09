@@ -116,14 +116,7 @@ export const MobileApp: React.FC = () => {
 
   return (
     <div
-      style={{
-        display: 'flex',
-        flexDirection: 'column',
-        height: 'var(--app-height)',
-        width: '100%',
-        overflow: 'hidden',
-        background: 'var(--bg-base)'
-      }}
+      className="stack w-full overflow-hidden bg-base" style={{ height: 'var(--app-height)' }}
       data-testid="mobile-app"
     >
       <CustomAppFrame layout={layout} platform="mobile" navigation={<MobileNavBar />}

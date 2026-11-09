@@ -172,54 +172,29 @@ export const WhatsNewSheet: React.FC<WhatsNewSheetProps> = ({ entries, onClose }
       >
         {/* Шапка держится на месте, пока список едет под ней. */}
         <div
-          style={{
-            display: 'flex',
-            alignItems: 'flex-start',
-            gap: 'var(--space-3)',
-            padding: 'var(--space-5) var(--space-5) var(--space-4)',
-            borderBottom: '1px solid var(--border-subtle)',
-            flexShrink: 0
-          }}
+          className="row-start gap-3 shrink-0 border-b-subtle" style={{ padding: 'var(--space-5) var(--space-5) var(--space-4)' }}
         >
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-1)', minWidth: 0, flex: 1 }}>
+          <div className="stack gap-1 grow">
             {/*
               * Подпись остаётся: она объясняет, почему экран вообще открылся.
               * А вот звёздочки заменены галочкой — «установлено» это факт, и
               * иконка должна говорить о нём, а не просто радоваться.
               */}
             <span
-              className="section-label"
-              style={{
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: 'var(--space-2)',
-                color: 'var(--accent)'
-              }}
+              className="section-label inline-row gap-2 text-accent"
             >
               <CheckCircle2 size={ICON.sm} aria-hidden="true" />
               Обновление установлено
             </span>
             <h2
               id="whats-new-title"
-              style={{
-                margin: 0,
-                fontSize: 'var(--text-2xl)',
-                lineHeight: 'var(--leading-2xl)',
-                letterSpacing: 'var(--tracking-2xl)',
-                fontWeight: 'var(--weight-semibold)',
-                color: 'var(--text-primary)'
-              }}
+              className="m-0 weight-semibold text-primary type-2xl"
             >
               Wireon Sounds {latest ? latest.version : APP_VERSION}
             </h2>
             {latest && (
               <p
-                style={{
-                  margin: 0,
-                  fontSize: 'var(--text-sm)',
-                  lineHeight: 'var(--leading-sm)',
-                  color: 'var(--text-secondary)'
-                }}
+                className="m-0 text-sm text-secondary leading-sm"
                 data-testid="whats-new-headline"
               >
                 {latest.headline}
@@ -239,16 +214,8 @@ export const WhatsNewSheet: React.FC<WhatsNewSheetProps> = ({ entries, onClose }
         </div>
 
         <div
-          className="scrollbar-thin"
-          style={{
-            flex: 1,
-            minHeight: 0,
-            overflowY: 'auto',
-            padding: 'var(--space-4) var(--space-5)',
-            display: 'flex',
-            flexDirection: 'column',
-            gap: 'var(--space-5)'
-          }}
+          className="scrollbar-thin flex-1 stack gap-5 min-h-0 py-4 px-5"
+          style={{ overflowY: 'auto' }}
         >
           {entries.map((entry, index) => (
             /*
@@ -267,74 +234,42 @@ export const WhatsNewSheet: React.FC<WhatsNewSheetProps> = ({ entries, onClose }
                   выпуске он повторял бы то, что уже написано в шапке. */}
               {(index > 0 || entries.length > 1) && (
                 <div
-                  style={{
-                    display: 'flex',
-                    alignItems: 'baseline',
-                    gap: 'var(--space-2)',
-                    marginBottom: 'var(--space-3)'
-                  }}
+                  className="row-stretch items-baseline gap-2 mb-3"
                 >
                   <span
                     data-numeric
-                    style={{ fontSize: 'var(--text-base)', fontWeight: 'var(--weight-semibold)', color: 'var(--text-primary)' }}
+                    className="text-base weight-semibold text-primary"
                   >
                     {entry.version}
                   </span>
-                  <span style={{ fontSize: 'var(--text-xs)', color: 'var(--text-faint)' }}>
+                  <span className="text-xs text-faint">
                     {formatEntryDate(entry.date)}
                   </span>
                 </div>
               )}
 
               <ul
-                style={{
-                  margin: 0,
-                  padding: 0,
-                  listStyle: 'none',
-                  display: 'flex',
-                  flexDirection: 'column',
-                  gap: 'var(--space-3)'
-                }}
+                className="m-0 p-0 stack gap-3 list-none"
               >
                 {entry.items.map((item) => (
-                  <li key={item.title} style={{ display: 'flex', gap: 'var(--space-3)' }}>
+                  <li key={item.title} className="row-stretch gap-3">
                     <span
                       title={KIND_LABELS[item.kind]}
                       aria-label={KIND_LABELS[item.kind]}
-                      style={{
-                        flexShrink: 0,
-                        width: 'var(--control-md)',
-                        height: 'var(--control-md)',
-                        borderRadius: 'var(--radius-sm)',
-                        border: '1px solid var(--border-subtle)',
-                        background: item.kind === 'feature' ? 'var(--accent-soft)' : 'var(--surface-2)',
-                        color: item.kind === 'feature' ? 'var(--accent)' : 'var(--text-secondary)',
-                        display: 'inline-flex',
-                        alignItems: 'center',
-                        justifyContent: 'center'
-                      }}
+                      className="shrink-0 control-md radius-sm inline-row justify-center border-subtle" style={{ background: item.kind === 'feature' ? 'var(--accent-soft)' : 'var(--surface-2)', color: item.kind === 'feature' ? 'var(--accent)' : 'var(--text-secondary)' }}
                       data-kind={item.kind}
                     >
                       {kindIcon(item.kind)}
                     </span>
-                    <span style={{ display: 'flex', flexDirection: 'column', gap: '2px', minWidth: 0 }}>
+                    <span className="stack gap-px min-0">
                       <span
-                        style={{
-                          fontSize: 'var(--text-sm)',
-                          lineHeight: 'var(--leading-sm)',
-                          fontWeight: 'var(--weight-medium)',
-                          color: 'var(--text-primary)'
-                        }}
+                        className="text-sm weight-medium text-primary leading-sm"
                       >
                         {item.title}
                       </span>
                       {item.detail && (
                         <span
-                          style={{
-                            fontSize: 'var(--text-xs)',
-                            lineHeight: 'var(--leading-xs)',
-                            color: 'var(--text-muted)'
-                          }}
+                          className="text-xs text-muted leading-xs"
                         >
                           {item.detail}
                         </span>
@@ -355,24 +290,10 @@ export const WhatsNewSheet: React.FC<WhatsNewSheetProps> = ({ entries, onClose }
           * действие в окне выглядело поломкой. Замерено на телефоне владельца.
           */}
         <div
-          style={{
-            padding: 'var(--space-4) var(--space-5)',
-            borderTop: '1px solid var(--border-subtle)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            flexWrap: 'wrap',
-            gap: 'var(--space-3)',
-            flexShrink: 0
-          }}
+          className="row justify-between wrap gap-3 shrink-0 py-4 px-5 border-t-subtle"
         >
           <span
-            style={{
-              flex: '1 1 180px',
-              minWidth: 0,
-              fontSize: 'var(--text-xs)',
-              color: 'var(--text-faint)'
-            }}
+            className="min-0 text-xs text-faint" style={{ flex: '1 1 180px' }}
           >
             Список всегда есть в настройках, в разделе «О программе».
           </span>
@@ -380,7 +301,7 @@ export const WhatsNewSheet: React.FC<WhatsNewSheetProps> = ({ entries, onClose }
             variant="primary"
             size="md"
             onClick={onClose}
-            style={{ flexShrink: 0, marginLeft: 'auto' }}
+            className="shrink-0 ml-auto"
             data-testid="whats-new-continue"
           >
             Слушать дальше

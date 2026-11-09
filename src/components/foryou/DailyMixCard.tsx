@@ -58,43 +58,21 @@ export const DailyMixCard: React.FC<DailyMixCardProps> = ({ mix, index, testIdPr
     >
       <PlaylistCover tracks={mix.tracks} size={132} />
 
-      <div style={{ minWidth: 0 }}>
+      <div className="min-0">
         <h3
-          style={{
-            margin: 0,
-            fontSize: 'var(--text-base)',
-            lineHeight: 'var(--leading-base)',
-            fontWeight: 'var(--weight-semibold)',
-            color: 'var(--text-primary)',
-            overflow: 'hidden',
-            textOverflow: 'ellipsis',
-            whiteSpace: 'nowrap'
-          }}
+          className="m-0 text-base weight-semibold text-primary overflow-hidden nowrap leading-base" style={{ textOverflow: 'ellipsis' }}
           title={mix.title}
         >
           {mix.title}
         </h3>
         <p
-          style={{
-            margin: '2px 0 0 0',
-            fontSize: 'var(--text-xs)',
-            lineHeight: 'var(--leading-xs)',
-            color: 'var(--text-secondary)',
-            overflow: 'hidden',
-            textOverflow: 'ellipsis',
-            whiteSpace: 'nowrap'
-          }}
+          className="text-xs text-secondary overflow-hidden nowrap leading-xs" style={{ margin: '2px 0 0 0', textOverflow: 'ellipsis' }}
           title={mix.subtitle}
         >
           {mix.subtitle}
         </p>
         <p
-          style={{
-            margin: '2px 0 0 0',
-            fontSize: 'var(--text-xs)',
-            lineHeight: 'var(--leading-xs)',
-            color: 'var(--text-muted)'
-          }}
+          className="text-xs text-muted leading-xs" style={{ margin: '2px 0 0 0' }}
           data-numeric
           data-testid={`daily-mix-${index}-totals`}
         >

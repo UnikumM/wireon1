@@ -52,7 +52,7 @@ const Thumb: React.FC<{ src?: string }> = ({ src }) =>
   src ? (
     <img className="recap-thumb" src={src} alt="" onError={(e) => (e.currentTarget.style.visibility = 'hidden')} />
   ) : (
-    <span className="recap-thumb" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+    <span className="recap-thumb row justify-center">
       <Music2 size={ICON.md} aria-hidden="true" />
     </span>
   );
@@ -196,7 +196,7 @@ export const RecapStories: React.FC = () => {
                 <li key={artist.name} style={{ '--i': i } as React.CSSProperties}>
                   <span className="recap-rank">{i + 1}</span>
                   <Thumb src={artist.artworkUrl} />
-                  <span style={{ minWidth: 0 }}>
+                  <span className="min-0">
                     <div className="recap-row-title">{artist.name}</div>
                     <div className="recap-row-sub">{pluralize(artist.plays, 'раз', 'раза', 'раз')}</div>
                   </span>
@@ -218,7 +218,7 @@ export const RecapStories: React.FC = () => {
               <li key={entry.track.id} style={{ '--i': i } as React.CSSProperties}>
                 <span className="recap-rank">{i + 1}</span>
                 <Thumb src={entry.track.artworkUrl} />
-                <span style={{ minWidth: 0 }}>
+                <span className="min-0">
                   <div className="recap-row-title">{entry.track.title}</div>
                   <div className="recap-row-sub">
                     {entry.track.artist} · {pluralize(entry.plays, 'раз', 'раза', 'раз')}

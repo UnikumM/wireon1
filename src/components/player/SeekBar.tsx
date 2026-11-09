@@ -156,14 +156,7 @@ export const SeekBar: React.FC<SeekBarProps> = ({
       </span>
 
       <div
-        style={{
-          position: 'relative',
-          flex: 1,
-          minWidth: 0,
-          display: 'flex',
-          alignItems: 'center',
-          height: 'var(--range-thumb-size)'
-        }}
+        className="relative grow row" style={{ height: 'var(--range-thumb-size)' }}
         onPointerMove={handleRailPointerMove}
         onPointerLeave={() => setHoverTime(null)}
       >

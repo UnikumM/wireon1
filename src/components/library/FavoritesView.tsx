@@ -1,4 +1,5 @@
 import React from 'react';
+import clsx from 'clsx';
 import { Heart, Play, Shuffle, Music2, CheckSquare } from 'lucide-react';
 import { usePlayerStore } from '../../store/usePlayerStore';
 import { Button } from '../common/Button';
@@ -94,8 +95,7 @@ export const FavoritesView: React.FC<FavoritesViewProps> = ({
 
   return (
     <div
-      className={className}
-      style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-5)', width: '100%' }}
+      className={clsx('stack gap-5 w-full', className)}
       data-testid="favorites-view"
     >
       {/*
@@ -106,14 +106,7 @@ export const FavoritesView: React.FC<FavoritesViewProps> = ({
         * которые лежали поверх текста. Переносить надо там, где ряд не влезает.
         */}
       <div
-        className="panel"
-        style={{
-          display: 'flex',
-          alignItems: 'center',
-          flexWrap: 'wrap',
-          gap: 'var(--space-5)',
-          padding: 'var(--space-5)'
-        }}
+        className="panel row wrap gap-5 p-5"
       >
         {/*
           * Плитка с сердцем и заголовок «Избранное» — на телефоне это слово
@@ -123,43 +116,22 @@ export const FavoritesView: React.FC<FavoritesViewProps> = ({
           */}
         {!isNarrow && (
           <span
-            style={{
-              width: '72px',
-              height: '72px',
-              borderRadius: 'var(--radius-md)',
-              backgroundColor: 'var(--surface-3)',
-              border: '1px solid var(--border-subtle)',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              flexShrink: 0
-            }}
+            className="radius-md row justify-center shrink-0 bg-surface-3 border-subtle" style={{ width: '72px', height: '72px' }}
           >
-            <Heart size={ICON.display} aria-hidden="true" style={{ color: 'var(--text-secondary)' }} />
+            <Heart size={ICON.display} aria-hidden="true" className="text-secondary" />
           </span>
         )}
 
-        <div style={{ flex: '1 1 160px', minWidth: 0 }}>
+        <div className="min-0" style={{ flex: '1 1 160px' }}>
           {!isNarrow && (
             <h2
-              style={{
-                margin: 0,
-                fontSize: 'var(--text-xl)',
-                lineHeight: 'var(--leading-xl)',
-                letterSpacing: 'var(--tracking-xl)',
-                color: 'var(--text-primary)'
-              }}
+              className="m-0 text-xl text-primary leading-xl tracking-xl"
             >
               Избранное
             </h2>
           )}
           <p
-            style={{
-              margin: 'var(--space-1) 0 0 0',
-              fontSize: 'var(--text-sm)',
-              lineHeight: 'var(--leading-sm)',
-              color: 'var(--text-secondary)'
-            }}
+            className="text-sm text-secondary leading-sm" style={{ margin: 'var(--space-1) 0 0 0' }}
             data-testid="favorites-summary"
           >
             {isFiltered
@@ -251,13 +223,7 @@ export const FavoritesView: React.FC<FavoritesViewProps> = ({
       ) : (
         <div
           ref={virtual.containerRef}
-          style={{
-            display: 'flex',
-            flexDirection: 'column',
-            gap: 'var(--space-1)',
-            paddingTop: virtual.paddingTop,
-            paddingBottom: virtual.paddingBottom
-          }}
+          className="stack gap-1" style={{ paddingTop: virtual.paddingTop, paddingBottom: virtual.paddingBottom }}
         >
           {tracks.slice(virtual.startIndex, virtual.endIndex).map((track, offset) => (
             <TrackCard

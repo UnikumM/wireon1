@@ -218,13 +218,13 @@ export const PlayerBar: React.FC<PlayerBarProps> = ({ className = '' }) => {
       <img
         src={currentTrack.artworkUrl}
         alt=""
-        style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
+        className="fill-cover block"
         onError={(event) => {
           event.currentTarget.style.display = 'none';
         }}
       />
     ) : (
-      <Music2 size={ICON.xl} aria-hidden="true" style={{ color: 'var(--text-faint)' }} />
+      <Music2 size={ICON.xl} aria-hidden="true" className="text-faint" />
     )
   ) : null;
 
@@ -295,28 +295,12 @@ export const PlayerBar: React.FC<PlayerBarProps> = ({ className = '' }) => {
   const errorBanner = showError ? (
       <div
         role="alert"
-        style={{
-          position: 'absolute',
-          bottom: '100%',
-          left: 0,
-          right: 0,
-          display: 'flex',
-          alignItems: 'center',
-          gap: 'var(--space-2)',
-          padding: 'var(--space-2) var(--space-5)',
-          backgroundColor: 'var(--surface-2)',
-          borderTop: '1px solid var(--border-subtle)',
-          borderBottom: '1px solid var(--border-subtle)',
-          borderLeft: '2px solid var(--danger)',
-          color: 'var(--danger)',
-          fontSize: 'var(--text-sm)'
-        }}
+        className="row gap-2 text-danger text-sm py-2 px-5 bg-surface-2 border-t-subtle border-b-subtle" style={{ position: 'absolute', bottom: '100%', left: 0, right: 0, borderLeft: '2px solid var(--danger)' }}
         data-testid="player-error"
       >
-        <AlertTriangle size={ICON.sm} aria-hidden="true" style={{ flexShrink: 0 }} />
+        <AlertTriangle size={ICON.sm} aria-hidden="true" className="shrink-0" />
         <span
-          className="text-truncate"
-          style={{ flex: 1, minWidth: 0 }}
+          className="text-truncate grow"
           // The copy is a sentence; the thrown message is the tooltip, so the
           // transcoding, status code and video id stay one hover away.
           title={errorDetail ?? undefined}
@@ -330,7 +314,7 @@ export const PlayerBar: React.FC<PlayerBarProps> = ({ className = '' }) => {
           onClick={() => setDismissedError(error)}
           aria-label="Скрыть ошибку"
           title="Скрыть"
-          style={{ width: 'var(--control-sm)', height: 'var(--control-sm)', color: 'var(--text-muted)' }}
+          className="control-sm text-muted"
           data-testid="player-error-dismiss"
         >
           <X size={ICON.sm} />
@@ -425,47 +409,27 @@ export const PlayerBar: React.FC<PlayerBarProps> = ({ className = '' }) => {
           data-testid="player-narrow-open-fullscreen"
         >
           <div
-            className="panel-inset player-artwork"
-            style={{
-              width: '44px',
-              height: '44px',
-              flexShrink: 0,
-              overflow: 'hidden',
-              borderRadius: artworkRadius,
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center'
-            }}
+            className="panel-inset player-artwork shrink-0 overflow-hidden row justify-center"
+            style={{ width: '44px', height: '44px', borderRadius: artworkRadius }}
             data-testid="player-artwork"
           >
             {currentTrack ? (
               artworkContent
             ) : (
-              <Music2 size={ICON.lg} aria-hidden="true" style={{ color: 'var(--text-faint)' }} />
+              <Music2 size={ICON.lg} aria-hidden="true" className="text-faint" />
             )}
           </div>
 
-          <div style={{ minWidth: 0, flex: 1 }}>
+          <div className="grow">
             {currentTrack ? (
               <>
                 <div
-                  style={{
-                    fontSize: 'var(--text-sm)',
-                    lineHeight: 'var(--leading-sm)',
-                    fontWeight: 'var(--weight-medium)',
-                    color: 'var(--text-primary)',
-                    minWidth: 0
-                  }}
+                  className="text-sm weight-medium text-primary min-0 leading-sm"
                 >
                   <MarqueeText text={currentTrack.title} data-testid="player-track-title" />
                 </div>
                 <div
-                  className="text-truncate"
-                  style={{
-                    fontSize: 'var(--text-xs)',
-                    lineHeight: 'var(--leading-xs)',
-                    color: 'var(--text-muted)'
-                  }}
+                  className="text-truncate text-xs text-muted leading-xs"
                   data-testid="player-track-artist"
                 >
                   {currentTrack.artist}
@@ -473,11 +437,7 @@ export const PlayerBar: React.FC<PlayerBarProps> = ({ className = '' }) => {
               </>
             ) : (
               <div
-                style={{
-                  fontSize: 'var(--text-sm)',
-                  lineHeight: 'var(--leading-sm)',
-                  color: 'var(--text-muted)'
-                }}
+                className="text-sm text-muted leading-sm"
               >
                 Ничего не играет
               </div>
@@ -546,15 +506,8 @@ export const PlayerBar: React.FC<PlayerBarProps> = ({ className = '' }) => {
       {errorBanner}
       {/* Now playing */}
       <div
-        className="player-zone player-zone-meta"
-        style={{
-          display: 'flex',
-          alignItems: 'center',
-          gap: metrics.metaGap,
-          flex: '1 1 0',
-          minWidth: 0,
-          maxWidth: '320px'
-        }}
+        className="player-zone player-zone-meta row min-0"
+        style={{ gap: metrics.metaGap, flex: '1 1 0', maxWidth: '320px' }}
       >
         {currentTrack ? (
           <>
@@ -585,39 +538,20 @@ export const PlayerBar: React.FC<PlayerBarProps> = ({ className = '' }) => {
               </button>
             )}
 
-            <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: '2px' }}>
+            <div className="grow stack gap-px">
               <button
                 onClick={toggleFullscreenPlayer}
-                className="focus-ring"
+                className="focus-ring row-stretch min-0 p-0 justify-start text-sm weight-semibold text-primary text-left"
                 title={currentTrack.title}
-                style={{
-                  display: 'flex',
-                  minWidth: 0,
-                  padding: 0,
-                  justifyContent: 'flex-start',
-                  fontSize: 'var(--text-sm)',
-                  fontWeight: 'var(--weight-semibold)',
-                  color: 'var(--text-primary)',
-                  textAlign: 'left'
-                }}
               >
                 <MarqueeText text={currentTrack.title} data-testid="player-track-title" />
               </button>
 
-              <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)', minWidth: 0 }}>
+              <div className="row gap-2 min-0">
                 <button
                   onClick={handleArtistClick}
-                  className="text-truncate focus-ring hover-underline"
+                  className="text-truncate focus-ring hover-underline block min-0 p-0 text-xs text-secondary text-left pointer"
                   title={`Перейти к артисту: ${currentTrack.artist}`}
-                  style={{
-                    display: 'block',
-                    minWidth: 0,
-                    padding: 0,
-                    fontSize: 'var(--text-xs)',
-                    color: 'var(--text-secondary)',
-                    textAlign: 'left',
-                    cursor: 'pointer'
-                  }}
                   data-testid="player-track-artist"
                 >
                   {currentTrack.artist}
@@ -628,14 +562,9 @@ export const PlayerBar: React.FC<PlayerBarProps> = ({ className = '' }) => {
                   // Without this the track just stops dead a third of the way
                   // into a five-minute song and looks like a bug.
                   <span
-                    className="badge"
+                    className="badge text-warning shrink-0 bg-warning-soft"
                     title="Для этой загрузки доступен только 30-секундный отрывок"
-                    style={{
-                      color: 'var(--warning)',
-                      borderColor: 'var(--border-subtle)',
-                      backgroundColor: 'var(--warning-soft)',
-                      flexShrink: 0
-                    }}
+                    style={{ borderColor: 'var(--border-subtle)' }}
                     data-testid="player-preview-badge"
                   >
                     <Scissors size={ICON.xs} aria-hidden="true" />
@@ -653,17 +582,13 @@ export const PlayerBar: React.FC<PlayerBarProps> = ({ className = '' }) => {
                    * найденную нами копию.
                    */
                   <span
-                    className="badge"
+                    className="badge text-muted shrink-0"
                     title={`${
                       currentTrack.source === 'soundcloud' ? 'SoundCloud' : 'YouTube'
                     } не отдал эту запись — играет та же песня с ${
                       substitutedFrom === 'youtube' ? 'YouTube' : 'SoundCloud'
                     }`}
-                    style={{
-                      color: 'var(--text-muted)',
-                      borderColor: 'var(--border-subtle)',
-                      flexShrink: 0
-                    }}
+                    style={{ borderColor: 'var(--border-subtle)' }}
                     data-testid="player-substitute-badge"
                   >
                     <Repeat size={ICON.xs} aria-hidden="true" />
@@ -681,12 +606,7 @@ export const PlayerBar: React.FC<PlayerBarProps> = ({ className = '' }) => {
                 title={isFavorite ? 'Убрать из избранного' : 'Добавить в избранное'}
                 aria-label={isFavorite ? 'Убрать из избранного' : 'Добавить в избранное'}
                 aria-pressed={isFavorite}
-                style={{
-                  width: 'var(--control-md)',
-                  height: 'var(--control-md)',
-                  flexShrink: 0,
-                  color: isFavorite ? 'var(--accent)' : 'var(--text-muted)'
-                }}
+                className="control-md shrink-0" style={{ color: isFavorite ? 'var(--accent)' : 'var(--text-muted)' }}
                 data-testid="player-fav-btn"
               >
                 <Heart size={ICON.md} fill={isFavorite ? 'currentColor' : 'none'} />
@@ -694,24 +614,16 @@ export const PlayerBar: React.FC<PlayerBarProps> = ({ className = '' }) => {
             )}
           </>
         ) : (
-          <div style={{ display: 'flex', alignItems: 'center', gap: metrics.metaGap, minWidth: 0 }}>
+          <div className="row min-0" style={{ gap: metrics.metaGap }}>
             <div
-              className="panel-inset"
-              style={{
-                width: metrics.artworkSize,
-                height: metrics.artworkSize,
-                flexShrink: 0,
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                borderRadius: artworkRadius
-              }}
+              className="panel-inset shrink-0 row justify-center"
+              style={{ width: metrics.artworkSize, height: metrics.artworkSize, borderRadius: artworkRadius }}
             >
-              <Music2 size={ICON.xl} aria-hidden="true" style={{ color: 'var(--text-faint)' }} />
+              <Music2 size={ICON.xl} aria-hidden="true" className="text-faint" />
             </div>
-            <div style={{ minWidth: 0 }}>
-              <div style={{ fontSize: 'var(--text-sm)', color: 'var(--text-secondary)' }}>Ничего не играет</div>
-              <div style={{ fontSize: 'var(--text-xs)', color: 'var(--text-faint)' }}>Выберите трек, чтобы начать</div>
+            <div className="min-0">
+              <div className="text-sm text-secondary">Ничего не играет</div>
+              <div className="text-xs text-faint">Выберите трек, чтобы начать</div>
             </div>
           </div>
         )}
@@ -719,16 +631,8 @@ export const PlayerBar: React.FC<PlayerBarProps> = ({ className = '' }) => {
 
       {/* Transport + timeline */}
       <div
-        className="player-zone player-zone-center"
-        style={{
-          display: 'flex',
-          flexDirection: 'column',
-          alignItems: 'center',
-          gap: 'var(--space-2)',
-          flex: '1 1 auto',
-          maxWidth: '560px',
-          minWidth: 0
-        }}
+        className="player-zone player-zone-center stack-center gap-2 flex-auto min-0"
+        style={{ maxWidth: '560px' }}
       >
         {/*
           Ступень размеров транспорта задаёт облик, а не полоса.
@@ -758,15 +662,8 @@ export const PlayerBar: React.FC<PlayerBarProps> = ({ className = '' }) => {
         группировку держит только расстояние.
       */}
       <div
-        className="player-zone player-zone-side"
-        style={{
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'flex-end',
-          gap: metrics.controlsGroupGap,
-          flex: '1 1 0',
-          minWidth: 0
-        }}
+        className="player-zone player-zone-side row justify-end min-0"
+        style={{ gap: metrics.controlsGroupGap, flex: '1 1 0' }}
       >
         {/*
           Первая группа — показания: и таймер, и спектр сообщают состояние, нажимать
@@ -776,19 +673,19 @@ export const PlayerBar: React.FC<PlayerBarProps> = ({ className = '' }) => {
         */}
         {showReadouts && (
           <div
-            style={{ display: 'flex', alignItems: 'center', gap: metrics.controlsGap }}
+            className="row" style={{ gap: metrics.controlsGap }}
             data-testid="player-side-readouts"
           >
             {showSleepBadge && (
               <span
-                className="badge"
+                className="badge text-accent shrink-0"
                 data-numeric
                 title={
                   sleepAtTrackEnd
                     ? 'Воспроизведение остановится в конце трека'
                     : `Воспроизведение остановится через ${formatDuration(sleepRemaining)}`
                 }
-                style={{ color: 'var(--accent)', borderColor: 'var(--border-accent)', flexShrink: 0 }}
+                style={{ borderColor: 'var(--border-accent)' }}
                 data-testid="player-sleep-remaining"
               >
                 <Moon size={ICON.xs} aria-hidden="true" />
@@ -841,7 +738,7 @@ export const PlayerBar: React.FC<PlayerBarProps> = ({ className = '' }) => {
         */}
         {showTrackControls && (
           <div
-            style={{ display: 'flex', alignItems: 'center', gap: metrics.controlsGap }}
+            className="row" style={{ gap: metrics.controlsGap }}
             data-testid="player-side-track-controls"
           >
             {modules.volume && (
@@ -859,7 +756,7 @@ export const PlayerBar: React.FC<PlayerBarProps> = ({ className = '' }) => {
                 title="Текст песни / Караоке"
                 aria-label="Текст песни"
                 aria-pressed={isLyricsOpen}
-                style={{ width: 'var(--control-md)', height: 'var(--control-md)' }}
+                className="control-md"
                 data-testid="player-lyrics-btn"
               >
                 <Mic size={ICON.md} />
@@ -876,12 +773,7 @@ export const PlayerBar: React.FC<PlayerBarProps> = ({ className = '' }) => {
                 aria-label={userQueue.length > 0 ? `Очередь, далее ${userQueue.length}` : 'Очередь'}
                 aria-expanded={isQueueOpen}
                 aria-controls="queue-drawer"
-                style={{
-                  width: 'var(--control-md)',
-                  height: 'var(--control-md)',
-                  position: 'relative',
-                  overflow: 'visible'
-                }}
+                className="control-md relative" style={{ overflow: 'visible' }}
                 data-testid="player-queue-btn"
               >
                 <ListMusic size={ICON.md} />
@@ -889,22 +781,7 @@ export const PlayerBar: React.FC<PlayerBarProps> = ({ className = '' }) => {
                   <span
                     data-numeric
                     aria-hidden="true"
-                    style={{
-                      position: 'absolute',
-                      top: '-3px',
-                      right: '-3px',
-                      minWidth: '17px',
-                      height: '17px',
-                      padding: '0 var(--space-1)',
-                      display: 'inline-flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      borderRadius: 'var(--radius-full)',
-                      backgroundColor: 'var(--accent)',
-                      color: 'var(--text-on-accent)',
-                      fontSize: 'var(--text-xs)',
-                      lineHeight: 1
-                    }}
+                    className="inline-row justify-center radius-full text-xs py-0 px-1 bg-accent" style={{ position: 'absolute', top: '-3px', right: '-3px', minWidth: '17px', height: '17px', color: 'var(--text-on-accent)', lineHeight: 1 }}
                   >
                     {userQueue.length}
                   </span>
@@ -920,7 +797,7 @@ export const PlayerBar: React.FC<PlayerBarProps> = ({ className = '' }) => {
           этой тройкой.
         */}
         <div
-          style={{ display: 'flex', alignItems: 'center', gap: metrics.controlsGap }}
+          className="row" style={{ gap: metrics.controlsGap }}
           data-testid="player-side-window"
         >
           <Button
@@ -929,7 +806,7 @@ export const PlayerBar: React.FC<PlayerBarProps> = ({ className = '' }) => {
             onClick={() => void toggleMiniPlayer()}
             title="Мини-плеер (Alt+M)"
             aria-label="Мини-плеер"
-            style={{ width: 'var(--control-md)', height: 'var(--control-md)' }}
+            className="control-md"
             data-testid="player-miniplayer-btn"
           >
             <PictureInPicture2 size={ICON.md} />
@@ -941,13 +818,13 @@ export const PlayerBar: React.FC<PlayerBarProps> = ({ className = '' }) => {
             onClick={toggleFullscreenPlayer}
             title="Плеер на весь экран"
             aria-label="Плеер на весь экран"
-            style={{ width: 'var(--control-md)', height: 'var(--control-md)' }}
+            className="control-md"
             data-testid="player-fullscreen-btn"
           >
             <Maximize2 size={ICON.md} />
           </Button>
 
-          <div ref={menuAnchorRef} style={{ position: 'relative', flexShrink: 0 }}>
+          <div ref={menuAnchorRef} className="relative shrink-0">
             <Button
               variant="ghost"
               size="icon"
@@ -957,7 +834,7 @@ export const PlayerBar: React.FC<PlayerBarProps> = ({ className = '' }) => {
               aria-label="Другие настройки плеера"
               aria-haspopup="menu"
               aria-expanded={isMenuOpen}
-              style={{ width: 'var(--control-md)', height: 'var(--control-md)' }}
+              className="control-md"
               data-testid="player-overflow-btn"
             >
               <MoreHorizontal size={ICON.md} />
@@ -995,32 +872,26 @@ export const PlayerBar: React.FC<PlayerBarProps> = ({ className = '' }) => {
                       <div style={menuLabelStyle}>
                         <span className="section-label">Таймер сна</span>
                         {sleepTimerEndsAt !== null && (
-                          <span data-numeric style={{ color: 'var(--accent)' }}>
+                          <span data-numeric className="text-accent">
                             осталось {formatDuration(sleepRemaining)}
                           </span>
                         )}
                         {sleepAtTrackEnd && (
-                          <span style={{ color: 'var(--accent)' }}>в конце трека</span>
+                          <span className="text-accent">в конце трека</span>
                         )}
                       </div>
 
                       <div
                         role="group"
                         aria-label="Таймер сна"
-                        style={{
-                          display: 'grid',
-                          gridTemplateColumns: 'repeat(3, 1fr)',
-                          gap: 'var(--space-1)',
-                          padding: '0 var(--space-2) var(--space-2)'
-                        }}
+                        className="grid gap-1" style={{ gridTemplateColumns: 'repeat(3, 1fr)', padding: '0 var(--space-2) var(--space-2)' }}
                       >
                         <button
                           role="menuitemradio"
                           aria-checked={!sleepActive}
                           data-active={!sleepActive}
-                          className="chip"
+                          className="chip justify-center"
                           onClick={() => setSleepTimer(null)}
-                          style={{ justifyContent: 'center' }}
                           data-testid="sleep-timer-off"
                         >
                           Выкл
@@ -1031,30 +902,29 @@ export const PlayerBar: React.FC<PlayerBarProps> = ({ className = '' }) => {
                             role="menuitemradio"
                             aria-checked={sleepTimerEndsAt !== null && sleepMinutes === minutes}
                             data-active={sleepTimerEndsAt !== null && sleepMinutes === minutes}
-                            className="chip"
+                            className="chip justify-center"
                             onClick={() => {
                               setSleepMinutes(minutes);
                               setSleepTimer(minutes);
                               setIsMenuOpen(false);
                             }}
-                            style={{ justifyContent: 'center' }}
                             data-testid={`sleep-timer-${minutes}`}
                           >
                             <span data-numeric>{minutes}</span>
-                            <span style={{ color: 'var(--text-faint)' }}>мин</span>
+                            <span className="text-faint">мин</span>
                           </button>
                         ))}
                         <button
                           role="menuitemradio"
                           aria-checked={sleepAtTrackEnd}
                           data-active={sleepAtTrackEnd}
-                          className="chip"
+                          className="chip justify-center"
                           onClick={() => {
                             setSleepMinutes(null);
                             setSleepAtTrackEnd(true);
                             setIsMenuOpen(false);
                           }}
-                          style={{ justifyContent: 'center', gridColumn: '1 / -1' }}
+                          style={{ gridColumn: '1 / -1' }}
                           data-testid="sleep-timer-track-end"
                         >
                           До конца трека
@@ -1068,27 +938,21 @@ export const PlayerBar: React.FC<PlayerBarProps> = ({ className = '' }) => {
                   <button
                     role="menuitemcheckbox"
                     aria-checked={autoplayRadio}
-                    className="menu-item-hover"
+                    className="menu-item-hover items-start"
                     onClick={() => setAutoplayRadio(!autoplayRadio)}
-                    style={{ alignItems: 'flex-start' }}
                     data-testid="autoplay-radio-toggle"
                   >
-                    <Radio size={ICON.md} aria-hidden="true" style={{ marginTop: '2px', flexShrink: 0 }} />
-                    <span style={{ display: 'flex', flexDirection: 'column', gap: '2px', flex: 1, minWidth: 0 }}>
-                      <span style={{ color: 'var(--text-primary)' }}>Автоплей радио</span>
-                      <span style={{ fontSize: 'var(--text-xs)', color: 'var(--text-faint)' }}>
+                    <Radio size={ICON.md} aria-hidden="true" className="mt-px shrink-0" />
+                    <span className="stack gap-px grow">
+                      <span className="text-primary">Автоплей радио</span>
+                      <span className="text-xs text-faint">
                         Продолжать похожими треками, когда очередь закончится
                       </span>
                     </span>
                     <Check
                       size={ICON.md}
                       aria-hidden="true"
-                      style={{
-                        marginTop: '2px',
-                        flexShrink: 0,
-                        color: 'var(--accent)',
-                        opacity: autoplayRadio ? 1 : 0
-                      }}
+                      className="mt-px shrink-0 text-accent" style={{ opacity: autoplayRadio ? 1 : 0 }}
                     />
                   </button>
 
@@ -1101,10 +965,10 @@ export const PlayerBar: React.FC<PlayerBarProps> = ({ className = '' }) => {
                     }}
                     data-testid="player-clear-playback"
                   >
-                    <X size={ICON.md} aria-hidden="true" style={{ flexShrink: 0 }} />
-                    <span style={{ display: 'flex', flexDirection: 'column', gap: '2px', flex: 1, minWidth: 0 }}>
-                      <span style={{ color: 'var(--text-primary)' }}>Убрать трек</span>
-                      <span style={{ fontSize: 'var(--text-xs)', color: 'var(--text-faint)' }}>
+                    <X size={ICON.md} aria-hidden="true" className="shrink-0" />
+                    <span className="stack gap-px grow">
+                      <span className="text-primary">Убрать трек</span>
+                      <span className="text-xs text-faint">
                         Остановить музыку и очистить очередь. Поток потом начнётся с нуля
                       </span>
                     </span>
@@ -1117,12 +981,12 @@ export const PlayerBar: React.FC<PlayerBarProps> = ({ className = '' }) => {
                     onClick={() => setVisualizerEnabled(!visualizerEnabled)}
                     data-testid="visualizer-toggle"
                   >
-                    <Waves size={ICON.md} aria-hidden="true" style={{ flexShrink: 0 }} />
-                    <span style={{ flex: 1, minWidth: 0, color: 'var(--text-primary)' }}>Визуализация</span>
+                    <Waves size={ICON.md} aria-hidden="true" className="shrink-0" />
+                    <span className="grow text-primary">Визуализация</span>
                     <Check
                       size={ICON.md}
                       aria-hidden="true"
-                      style={{ flexShrink: 0, color: 'var(--accent)', opacity: visualizerEnabled ? 1 : 0 }}
+                      className="shrink-0 text-accent" style={{ opacity: visualizerEnabled ? 1 : 0 }}
                     />
                   </button>
                 </div>

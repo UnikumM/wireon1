@@ -214,14 +214,7 @@ export const ForYouView: React.FC<ForYouViewProps> = ({ className = '' }) => {
 
   const sectionTitle = (text: string): React.ReactNode => (
     <h2
-      style={{
-        margin: 0,
-        fontSize: 'var(--text-lg)',
-        lineHeight: 'var(--leading-lg)',
-        letterSpacing: 'var(--tracking-lg)',
-        fontWeight: 'var(--weight-semibold)',
-        color: 'var(--text-primary)'
-      }}
+      className="m-0 text-lg weight-semibold text-primary leading-lg tracking-lg"
     >
       {text}
     </h2>
@@ -229,32 +222,16 @@ export const ForYouView: React.FC<ForYouViewProps> = ({ className = '' }) => {
 
   const header = (
     <div
-      style={{
-        display: 'flex',
-        alignItems: 'flex-start',
-        justifyContent: 'space-between',
-        gap: 'var(--space-4)'
-      }}
+      className="row-start justify-between gap-4"
     >
       <div>
         <h1
-          style={{
-            margin: 0,
-            fontSize: 'var(--text-2xl)',
-            lineHeight: 'var(--leading-2xl)',
-            letterSpacing: 'var(--tracking-2xl)',
-            color: 'var(--text-primary)'
-          }}
+          className="m-0 text-primary type-2xl"
         >
           Для вас
         </h1>
         <p
-          style={{
-            margin: 'var(--space-1) 0 0 0',
-            fontSize: 'var(--text-sm)',
-            lineHeight: 'var(--leading-sm)',
-            color: 'var(--text-secondary)'
-          }}
+          className="text-sm text-secondary leading-sm" style={{ margin: 'var(--space-1) 0 0 0' }}
         >
           Миксы собираются из вашей же медиатеки и меняются раз в сутки. Итоги
           считаются здесь же, на устройстве — ничего никуда не отправляется.
@@ -319,29 +296,21 @@ export const ForYouView: React.FC<ForYouViewProps> = ({ className = '' }) => {
         */}
       {hasHistory && (
         <section
-          className="card"
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: 'var(--space-4)',
-            flexWrap: 'wrap',
-            padding: 'var(--space-5)',
-            background:
-              'linear-gradient(120deg, color-mix(in oklab, var(--accent) 38%, var(--surface-2)), var(--surface-2) 70%)',
-            border: '1px solid var(--border-accent)'
-          }}
+          className="card row gap-4 wrap p-5"
+          style={{ background:
+              'linear-gradient(120deg, color-mix(in oklab, var(--accent) 38%, var(--surface-2)), var(--surface-2) 70%)', border: '1px solid var(--border-accent)' }}
           data-testid="foryou-recap-banner"
         >
-          <Sparkles size={ICON.xl} aria-hidden="true" style={{ color: 'var(--accent)', flexShrink: 0 }} />
-          <div style={{ flex: '1 1 220px', minWidth: 0 }}>
-            <h2 style={{ margin: 0, fontSize: 'var(--text-lg)', fontWeight: 'var(--weight-semibold)', color: 'var(--text-primary)' }}>
+          <Sparkles size={ICON.xl} aria-hidden="true" className="text-accent shrink-0" />
+          <div className="min-0" style={{ flex: '1 1 220px' }}>
+            <h2 className="m-0 text-lg weight-semibold text-primary">
               Ваши итоги
             </h2>
-            <p style={{ margin: '2px 0 0', fontSize: 'var(--text-sm)', color: 'var(--text-secondary)' }}>
+            <p className="text-sm text-secondary" style={{ margin: '2px 0 0' }}>
               Минуты, главный исполнитель, любимые песни и ваш тип слушателя — историями на весь экран.
             </p>
           </div>
-          <div style={{ display: 'flex', gap: 'var(--space-2)', flexWrap: 'wrap' }}>
+          <div className="row-stretch gap-2 wrap">
             <Button variant="primary" size="sm" onClick={() => openRecap('year')} data-testid="foryou-recap-year">
               Итоги {new Date().getFullYear()}
             </Button>
@@ -353,18 +322,14 @@ export const ForYouView: React.FC<ForYouViewProps> = ({ className = '' }) => {
       )}
 
       {autoMixes.length > 0 && (
-        <section style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }} data-testid="foryou-auto-mixes">
+        <section className="stack gap-3" data-testid="foryou-auto-mixes">
           {sectionTitle('Живые подборки')}
-          <p style={{ margin: 0, fontSize: 'var(--text-sm)', color: 'var(--text-secondary)' }}>
+          <p className="m-0 text-sm text-secondary">
             Собираются сами из того, что и когда вы слушаете: любимое этого месяца, забытое и то,
             что звучит у вас именно в это время суток.
           </p>
           <div
-            style={{
-              display: 'grid',
-              gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))',
-              gap: 'var(--space-3)'
-            }}
+            className="grid gap-3" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))' }}
           >
             {autoMixes.map((mix, index) => (
               <DailyMixCard key={mix.id} mix={mix} index={index} testIdPrefix={`auto-mix-${mix.kind}`} />
@@ -373,16 +338,12 @@ export const ForYouView: React.FC<ForYouViewProps> = ({ className = '' }) => {
         </section>
       )}
 
-      <section style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
+      <section className="stack gap-3">
         {sectionTitle('Миксы дня')}
 
         {isLoading ? (
           <div
-            style={{
-              display: 'grid',
-              gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))',
-              gap: 'var(--space-3)'
-            }}
+            className="grid gap-3" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))' }}
           >
             <Skeleton count={3} height={252} radius="var(--radius-md)" />
           </div>
@@ -400,11 +361,7 @@ export const ForYouView: React.FC<ForYouViewProps> = ({ className = '' }) => {
           />
         ) : (
           <div
-            style={{
-              display: 'grid',
-              gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))',
-              gap: 'var(--space-3)'
-            }}
+            className="grid gap-3" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))' }}
             data-testid="foryou-mixes"
           >
             {mixes.map((mix, index) => (
@@ -414,15 +371,9 @@ export const ForYouView: React.FC<ForYouViewProps> = ({ className = '' }) => {
         )}
       </section>
 
-      <section style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
+      <section className="stack gap-3">
         <div
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            gap: 'var(--space-3)',
-            flexWrap: 'wrap'
-          }}
+          className="row justify-between gap-3 wrap"
         >
           {sectionTitle('Итоги прослушанного')}
 
@@ -430,18 +381,17 @@ export const ForYouView: React.FC<ForYouViewProps> = ({ className = '' }) => {
             <div
               role="group"
               aria-label="Период итогов"
-              style={{ display: 'flex', gap: 'var(--space-1)' }}
+              className="row-stretch gap-1"
               data-testid="stats-periods"
             >
               {STATS_PERIODS.map((id) => (
                 <button
                   key={id}
                   type="button"
-                  className="chip"
+                  className="chip text-xs"
                   aria-pressed={period === id}
                   onClick={() => setPeriod(id)}
                   data-testid={`stats-period-${id}`}
-                  style={{ fontSize: 'var(--text-xs)' }}
                 >
                   {STATS_PERIOD_LABELS[id]}
                 </button>
@@ -479,12 +429,7 @@ export const ForYouView: React.FC<ForYouViewProps> = ({ className = '' }) => {
           <>
             {windowShortfall !== null && (
               <p
-                style={{
-                  margin: 0,
-                  fontSize: 'var(--text-xs)',
-                  lineHeight: 'var(--leading-xs)',
-                  color: 'var(--text-muted)'
-                }}
+                className="m-0 text-xs text-muted leading-xs"
                 data-testid="stats-period-shortfall"
               >
                 Окно короче, чем кажется: отдельные включения записываются{' '}
@@ -494,11 +439,7 @@ export const ForYouView: React.FC<ForYouViewProps> = ({ className = '' }) => {
             )}
 
             <div
-              style={{
-                display: 'grid',
-                gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))',
-                gap: 'var(--space-3)'
-              }}
+              className="grid gap-3" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))' }}
             >
               {/*
                 Череда безопасна: плиток ровно три и приходят они одним куском
@@ -517,23 +458,12 @@ export const ForYouView: React.FC<ForYouViewProps> = ({ className = '' }) => {
                   </p>
                   <p
                     data-numeric
-                    style={{
-                      margin: 'var(--space-2) 0 0 0',
-                      fontSize: 'var(--text-2xl)',
-                      lineHeight: 'var(--leading-2xl)',
-                      fontWeight: 'var(--weight-semibold)',
-                      color: 'var(--text-primary)'
-                    }}
+                    className="weight-semibold text-primary type-2xl" style={{ margin: 'var(--space-2) 0 0 0' }}
                   >
                     {card.value}
                   </p>
                   <p
-                    style={{
-                      margin: '2px 0 0 0',
-                      fontSize: 'var(--text-xs)',
-                      lineHeight: 'var(--leading-xs)',
-                      color: 'var(--text-secondary)'
-                    }}
+                    className="text-xs text-secondary leading-xs" style={{ margin: '2px 0 0 0' }}
                   >
                     {card.hint}
                   </p>
@@ -543,37 +473,25 @@ export const ForYouView: React.FC<ForYouViewProps> = ({ className = '' }) => {
 
             {stats.sources.length > 0 && (
               <div
-                className="panel-inset"
-                style={{
-                  padding: 'var(--space-3)',
-                  borderRadius: 'var(--radius-sm)',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: 'var(--space-4)',
-                  flexWrap: 'wrap'
-                }}
+                className="panel-inset p-3 radius-sm row gap-4 wrap"
                 data-testid="stats-sources"
               >
                 {stats.sources.map((source) => (
                   <div
                     key={source.source}
-                    style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}
+                    className="row gap-2"
                   >
                     <SourceBadge source={source.source} />
                     <span
                       data-numeric
-                      style={{ fontSize: 'var(--text-sm)', color: 'var(--text-secondary)' }}
+                      className="text-sm text-secondary"
                     >
                       {Math.round(source.share * 100)}%
                     </span>
                   </div>
                 ))}
                 <span
-                  style={{
-                    fontSize: 'var(--text-xs)',
-                    color: 'var(--text-muted)',
-                    marginLeft: 'auto'
-                  }}
+                  className="text-xs text-muted ml-auto"
                 >
                   Откуда играла музыка
                 </span>
@@ -581,62 +499,38 @@ export const ForYouView: React.FC<ForYouViewProps> = ({ className = '' }) => {
             )}
 
             <div
-              style={{
-                display: 'grid',
-                gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))',
-                gap: 'var(--space-4)'
-              }}
+              className="grid gap-4" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))' }}
             >
               <div>
                 <h3
-                  style={{
-                    margin: '0 0 var(--space-2) 0',
-                    fontSize: 'var(--text-sm)',
-                    lineHeight: 'var(--leading-sm)',
-                    fontWeight: 'var(--weight-semibold)',
-                    color: 'var(--text-primary)'
-                  }}
+                  className="text-sm weight-semibold text-primary leading-sm" style={{ margin: '0 0 var(--space-2) 0' }}
                 >
                   {period === 'all' ? 'Чаще всего слушали' : 'Исполнители за это время'}
                 </h3>
                 <ol
-                  style={{ margin: 0, padding: 0, listStyle: 'none' }}
+                  className="m-0 p-0 list-none"
                   data-testid="stats-top-artists"
                 >
                   {stats.topArtists.map((artist, index) => (
                     <li
                       key={artist.artist}
-                      style={{
-                        display: 'flex',
-                        alignItems: 'baseline',
-                        gap: 'var(--space-2)',
-                        padding: 'var(--space-2) 0',
-                        borderBottom: '1px solid var(--border-subtle)'
-                      }}
+                      className="row-stretch items-baseline gap-2 py-2 px-0 border-b-subtle"
                       data-testid={`stats-artist-${index}`}
                     >
                       <span
                         data-numeric
-                        style={{ width: '1.5em', color: 'var(--text-muted)', fontSize: 'var(--text-sm)' }}
+                        className="text-muted text-sm" style={{ width: '1.5em' }}
                       >
                         {index + 1}
                       </span>
                       <span
-                        style={{
-                          flex: 1,
-                          minWidth: 0,
-                          overflow: 'hidden',
-                          textOverflow: 'ellipsis',
-                          whiteSpace: 'nowrap',
-                          fontSize: 'var(--text-sm)',
-                          color: 'var(--text-primary)'
-                        }}
+                        className="grow overflow-hidden nowrap text-sm text-primary" style={{ textOverflow: 'ellipsis' }}
                       >
                         {artist.artist}
                       </span>
                       <span
                         data-numeric
-                        style={{ fontSize: 'var(--text-xs)', color: 'var(--text-secondary)' }}
+                        className="text-xs text-secondary"
                       >
                         {pluralize(artist.plays, 'раз', 'раза', 'раз')}
                       </span>
@@ -647,27 +541,21 @@ export const ForYouView: React.FC<ForYouViewProps> = ({ className = '' }) => {
 
               <div>
                 <h3
-                  style={{
-                    margin: '0 0 var(--space-2) 0',
-                    fontSize: 'var(--text-sm)',
-                    lineHeight: 'var(--leading-sm)',
-                    fontWeight: 'var(--weight-semibold)',
-                    color: 'var(--text-primary)'
-                  }}
+                  className="text-sm weight-semibold text-primary leading-sm" style={{ margin: '0 0 var(--space-2) 0' }}
                 >
                   {period === 'all' ? 'Любимые треки' : 'Треки за это время'}
                 </h3>
                 <div
-                  style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-1)' }}
+                  className="stack gap-1"
                   data-testid="stats-top-tracks"
                 >
                   {stats.topTracks.map((entry, index) => (
                     <div
                       key={entry.track.id}
-                      style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}
+                      className="row gap-2"
                       data-testid={`stats-track-${index}`}
                     >
-                      <div style={{ flex: 1, minWidth: 0 }}>
+                      <div className="grow">
                         <TrackCard
                           track={entry.track}
                           index={index}
@@ -677,11 +565,7 @@ export const ForYouView: React.FC<ForYouViewProps> = ({ className = '' }) => {
                       </div>
                       <span
                         data-numeric
-                        style={{
-                          fontSize: 'var(--text-xs)',
-                          color: 'var(--text-secondary)',
-                          whiteSpace: 'nowrap'
-                        }}
+                        className="text-xs text-secondary nowrap"
                         title="Сколько раз включали"
                       >
                         <Music2
@@ -699,12 +583,7 @@ export const ForYouView: React.FC<ForYouViewProps> = ({ className = '' }) => {
 
             {(stats.completed > 0 || stats.skipped > 0) && (
               <p
-                style={{
-                  margin: 0,
-                  fontSize: 'var(--text-xs)',
-                  lineHeight: 'var(--leading-xs)',
-                  color: 'var(--text-muted)'
-                }}
+                className="m-0 text-xs text-muted leading-xs"
                 data-testid="stats-completion"
               >
                 Дослушано до конца: {stats.completed} · пропущено: {stats.skipped}. Считается только

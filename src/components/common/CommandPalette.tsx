@@ -430,15 +430,9 @@ export const CommandPalette: React.FC = () => {
         data-testid="command-palette"
       >
         <div
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: 'var(--space-3)',
-            padding: 'var(--space-3) var(--space-4)',
-            borderBottom: '1px solid var(--border-subtle)'
-          }}
+          className="row gap-3 py-3 px-4 border-b-subtle"
         >
-          <Search size={ICON.md} aria-hidden="true" style={{ color: 'var(--text-muted)', flexShrink: 0 }} />
+          <Search size={ICON.md} aria-hidden="true" className="text-muted shrink-0" />
           <input
             type="text"
             role="combobox"
@@ -451,16 +445,7 @@ export const CommandPalette: React.FC = () => {
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             onKeyDown={handleKeyDown}
-            style={{
-              flex: 1,
-              minWidth: 0,
-              background: 'transparent',
-              border: 'none',
-              boxShadow: 'none',
-              padding: 'var(--space-1) 0',
-              fontSize: 'var(--text-base)',
-              color: 'var(--text-primary)'
-            }}
+            className="grow text-base text-primary bg-transparent border-none py-1 px-0" style={{ boxShadow: 'none' }}
             data-testid="command-palette-input"
           />
           <kbd className="kbd">Esc</kbd>
@@ -471,18 +456,12 @@ export const CommandPalette: React.FC = () => {
           id={LISTBOX_ID}
           role="listbox"
           aria-label="Команды"
-          className="scrollbar-thin"
-          style={{ overflowY: 'auto', padding: 'var(--space-2)', flex: 1, minHeight: 0 }}
+          className="scrollbar-thin p-2 flex-1 min-h-0"
+          style={{ overflowY: 'auto' }}
         >
           {results.length === 0 ? (
             <p
-              style={{
-                margin: 0,
-                padding: 'var(--space-5) var(--space-3)',
-                textAlign: 'center',
-                fontSize: 'var(--text-sm)',
-                color: 'var(--text-muted)'
-              }}
+              className="m-0 text-center text-sm text-muted py-5 px-3"
               data-testid="command-palette-empty"
             >
               Нет команд по запросу «{query}».
@@ -498,11 +477,8 @@ export const CommandPalette: React.FC = () => {
                   {showGroup && (
                     <div
                       role="presentation"
-                      className="section-label"
-                      style={{
-                        padding: 'var(--space-3) var(--space-3) var(--space-1)',
-                        color: 'var(--text-muted)'
-                      }}
+                      className="section-label text-muted"
+                      style={{ padding: 'var(--space-3) var(--space-3) var(--space-1)' }}
                     >
                       {command.group}
                     </div>
@@ -528,19 +504,15 @@ export const CommandPalette: React.FC = () => {
                     data-testid={`command-option-${command.id}`}
                   >
                     <span
-                      style={{
-                        display: 'inline-flex',
-                        flexShrink: 0,
-                        color: isActive ? 'var(--accent)' : 'var(--text-muted)'
-                      }}
+                      className="inline-row shrink-0" style={{ color: isActive ? 'var(--accent)' : 'var(--text-muted)' }}
                     >
                       {command.icon}
                     </span>
-                    <span className="text-truncate" style={{ flex: 1, fontSize: 'var(--text-sm)' }}>
+                    <span className="text-truncate flex-1 text-sm">
                       {command.label}
                     </span>
                     {command.hint && (
-                      <span style={{ fontSize: 'var(--text-xs)', color: 'var(--text-muted)', flexShrink: 0 }}>
+                      <span className="text-xs text-muted shrink-0">
                         {command.hint}
                       </span>
                     )}

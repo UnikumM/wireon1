@@ -152,7 +152,7 @@ export const CustomDesignsSection: React.FC = () => {
     <>
       <div className="divider" role="presentation" />
 
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-1)' }}>
+      <div className="stack gap-1">
         <h3 style={HEADING_STYLE}>Свои оформления</h3>
         <p style={HINT_STYLE}>
           Запоминает весь вид сразу: пресет, светлоту, цвет, шрифт и все ручки. Подобранное
@@ -161,7 +161,7 @@ export const CustomDesignsSection: React.FC = () => {
         </p>
       </div>
 
-      <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)', flexWrap: 'wrap' }}>
+      <div className="row gap-2 wrap">
         <input
           type="text"
           value={name}
@@ -178,7 +178,7 @@ export const CustomDesignsSection: React.FC = () => {
               handleSave();
             }
           }}
-          style={{ flex: 1, minWidth: '200px' }}
+          className="flex-1" style={{ minWidth: '200px' }}
           data-testid="settings-design-save-name"
         />
         <Button
@@ -199,11 +199,7 @@ export const CustomDesignsSection: React.FC = () => {
         </p>
       ) : (
         <div
-          style={{
-            display: 'grid',
-            gridTemplateColumns: 'repeat(auto-fit, minmax(232px, 1fr))',
-            gap: 'var(--space-2)'
-          }}
+          className="grid gap-2" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(232px, 1fr))' }}
           data-testid="settings-design-saved-list"
         >
           {savedDesigns.map((design, index) => {
@@ -257,38 +253,29 @@ export const CustomDesignsSection: React.FC = () => {
                   <span style={PREVIEW_RAIL_STYLE} />
                   <span style={PREVIEW_PANEL_STYLE}>
                     <span style={PREVIEW_DOT_STYLE} />
-                    <span style={{ display: 'flex', flexDirection: 'column', gap: '3px', flex: 1, minWidth: 0 }}>
+                    <span className="stack grow" style={{ gap: '3px' }}>
                       <span style={{ ...PREVIEW_BAR_STYLE, width: '62%' }} />
                       <span style={{ ...PREVIEW_BAR_STYLE, width: '34%', background: 'var(--text-faint)' }} />
                     </span>
                   </span>
                 </span>
 
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', minWidth: 0 }}>
+                <div className="stack gap-px min-0">
                   <span
-                    className="text-truncate"
-                    style={{
-                      fontSize: 'var(--text-sm)',
-                      lineHeight: 'var(--leading-sm)',
-                      fontWeight: 'var(--weight-semibold)',
-                      color: isCurrent ? 'var(--accent)' : 'var(--text-primary)'
-                    }}
+                    className="text-truncate text-sm weight-semibold leading-sm"
+                    style={{ color: isCurrent ? 'var(--accent)' : 'var(--text-primary)' }}
                     title={design.name}
                   >
                     {design.name}
                   </span>
                   <span
-                    style={{
-                      fontSize: 'var(--text-xs)',
-                      lineHeight: 'var(--leading-xs)',
-                      color: 'var(--text-muted)'
-                    }}
+                    className="text-xs text-muted leading-xs"
                   >
                     {describeSnapshot(design.snapshot)}
                   </span>
                 </div>
 
-                <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-1)', marginTop: 'auto' }}>
+                <div className="row gap-1" style={{ marginTop: 'auto' }}>
                   <Button
                     variant={isCurrent ? 'ghost' : 'subtle'}
                     size="xs"
@@ -300,7 +287,7 @@ export const CustomDesignsSection: React.FC = () => {
                   >
                     {isCurrent ? 'Применено' : 'Применить'}
                   </Button>
-                  <span style={{ flex: 1 }} />
+                  <span className="flex-1" />
                   <Button
                     variant="ghost"
                     size="icon"

@@ -110,7 +110,7 @@ export const PlaylistExportMenu: React.FC<PlaylistExportMenuProps> = ({ playlist
   }, [close, playlist, showToast]);
 
   return (
-    <div style={{ position: 'relative' }} ref={menuRef}>
+    <div className="relative" ref={menuRef}>
       <button
         type="button"
         ref={triggerRef}
@@ -166,15 +166,14 @@ export const PlaylistExportMenu: React.FC<PlaylistExportMenuProps> = ({ playlist
               role="menuitem"
               key={format}
               autoFocus={idx === 0}
-              className="menu-item-hover"
+              className="menu-item-hover items-start"
               onClick={() => handleExport(format)}
-              style={{ alignItems: 'flex-start' }}
               data-testid={`playlist-export-${format}`}
             >
               {FORMAT_ICON[format]}
-              <span style={{ display: 'flex', flexDirection: 'column', gap: '2px', textAlign: 'left' }}>
+              <span className="stack gap-px text-left">
                 <span>{EXPORT_FORMAT_LABELS[format]}</span>
-                <span style={{ fontSize: 'var(--text-xs)', color: 'var(--text-muted)' }}>
+                <span className="text-xs text-muted">
                   {EXPORT_FORMAT_HINTS[format]}
                 </span>
               </span>

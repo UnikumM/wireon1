@@ -198,14 +198,14 @@ export const MobileSettingsView: React.FC = () => {
 
   if (open) {
     return (
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-4)' }} data-testid="mobile-settings-section">
+      <div className="stack gap-4" data-testid="mobile-settings-section">
         {/*
           * Заголовка здесь нет намеренно: раздел называет себя сам — каждый из
           * них обёрнут в `SettingsSection`, а та рисует свой `h2` с описанием.
           * Собственный заголовок страницы дал бы «Воспроизведение» дважды
           * подряд, одно под другим.
           */}
-        <header style={{ display: 'flex', alignItems: 'center' }}>
+        <header className="row">
           <BackButton onClick={() => setOpenId(null)} testId="mobile-settings-back" />
         </header>
         {open.render()}
@@ -214,78 +214,44 @@ export const MobileSettingsView: React.FC = () => {
   }
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-4)' }} data-testid="mobile-settings">
-      <header style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>
+    <div className="stack gap-4" data-testid="mobile-settings">
+      <header className="row gap-2">
         <BackButton onClick={() => setActiveView('home')} testId="mobile-settings-home" />
         <h1
-          style={{
-            margin: 0,
-            minWidth: 0,
-            fontSize: 'var(--text-2xl)',
-            lineHeight: 'var(--leading-2xl)',
-            letterSpacing: 'var(--tracking-2xl)',
-            fontWeight: 'var(--weight-bold)',
-            color: 'var(--text-primary)'
-          }}
+          className="m-0 min-0 weight-bold text-primary type-2xl"
         >
           Настройки
         </h1>
       </header>
 
       <div
-        style={{
-          borderRadius: 'var(--radius-lg)',
-          background: 'var(--surface-2)',
-          border: '1px solid var(--border-subtle)',
-          overflow: 'hidden'
-        }}
+        className="radius-lg overflow-hidden bg-surface-2 border-subtle"
       >
         {sections.map((section) => (
           <button
             key={section.id}
             type="button"
-            className="menu-item-hover press"
+            className="menu-item-hover press row gap-4 w-full text-left text-primary pointer py-2 px-4"
             onClick={() => (section.onOpen ? section.onOpen() : setOpenId(section.id))}
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: 'var(--space-4)',
-              width: '100%',
-              minHeight: '56px',
-              padding: 'var(--space-2) var(--space-4)',
-              textAlign: 'left',
-              color: 'var(--text-primary)',
-              cursor: 'pointer'
-            }}
+            style={{ minHeight: '56px' }}
             data-testid={`mobile-settings-row-${section.id}`}
           >
-            <span style={{ display: 'flex', flexShrink: 0, color: 'var(--text-secondary)' }}>{section.icon}</span>
-            <span style={{ display: 'flex', flexDirection: 'column', minWidth: 0, flex: 1, gap: '2px' }}>
+            <span className="row-stretch shrink-0 text-secondary">{section.icon}</span>
+            <span className="stack grow gap-px">
               <span
-                className="text-truncate"
-                style={{
-                  fontSize: 'var(--text-base)',
-                  lineHeight: 'var(--leading-base)',
-                  letterSpacing: 'var(--tracking-base)'
-                }}
+                className="text-truncate text-base leading-base tracking-base"
               >
                 {section.label}
               </span>
               {/* Две строки, а не одна: в широком Unbounded подсказка на 390 px
                   не влезала и теряла последнее слово («Громкость, тембр, перехо…»). */}
               <span
-                className="text-clamp-2"
-                style={{
-                  fontSize: 'var(--text-sm)',
-                  lineHeight: 'var(--leading-sm)',
-                  letterSpacing: 'var(--tracking-sm)',
-                  color: 'var(--text-muted)'
-                }}
+                className="text-clamp-2 text-sm text-muted leading-sm tracking-sm"
               >
                 {section.hint}
               </span>
             </span>
-            <ChevronRight size={ICON.md} style={{ flexShrink: 0, color: 'var(--text-faint)' }} aria-hidden="true" />
+            <ChevronRight size={ICON.md} className="shrink-0 text-faint" aria-hidden="true" />
           </button>
         ))}
       </div>
@@ -296,21 +262,10 @@ export const MobileSettingsView: React.FC = () => {
 const BackButton: React.FC<{ onClick: () => void; testId: string }> = ({ onClick, testId }) => (
   <button
     type="button"
-    className="press focus-ring"
+    className="press focus-ring row justify-center shrink-0 text-secondary pointer"
     onClick={onClick}
     aria-label="Назад"
-    style={{
-      display: 'flex',
-      alignItems: 'center',
-      justifyContent: 'center',
-      width: '44px',
-      height: '44px',
-      flexShrink: 0,
-      marginLeft: 'calc(var(--space-3) * -1)',
-      borderRadius: 'var(--radius-pill)',
-      color: 'var(--text-secondary)',
-      cursor: 'pointer'
-    }}
+    style={{ width: '44px', height: '44px', marginLeft: 'calc(var(--space-3) * -1)', borderRadius: 'var(--radius-pill)' }}
     data-testid={testId}
   >
     <ChevronLeft size={ICON.xl} aria-hidden="true" />

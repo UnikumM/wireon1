@@ -569,6 +569,42 @@ not jitter:
 All defined in `src/styles/global.css`. Use these instead of repeating inline
 styles.
 
+### Layout and text (4.0)
+
+Inline `style={{ display: 'flex', … }}` is gone from the components: an inline
+style beats every stylesheet rule (theme, media query, `:hover`, reduced motion),
+and `designDrift.test.ts` now fails a static layout pair written inline. Use the
+utilities; only data-driven values (artwork colour, progress width, a measured
+size) stay in `style`.
+
+| Need | Class |
+|---|---|
+| flex row, centred | `.row` (`.row-start`, `.row-end`, `.row-stretch`, `.inline-row`) |
+| flex column | `.stack` (`.stack-center`, `.stack-stretch`) |
+| gaps from the scale | `.gap-1` … `.gap-8`, `.gap-px` (2 px), `.gap-0` |
+| alignment | `.items-*`, `.justify-*`, `.self-*`, `.wrap`, `.nowrap` |
+| flex sizing | `.grow` (flex 1 + min-width 0), `.flex-1`, `.flex-auto`, `.shrink-0`, `.min-0` |
+| size | `.w-full`, `.h-full`, `.fill-cover` (cover image), `.control-xs` … `.control-xl`, `.max-w-full`, `.min-h-0` |
+| spacing | `.p-0` … `.p-8`, `.px-*`, `.py-*`, `.pt-*`, `.pb-*`, `.pl-*`, `.pr-*`, `.m-0`, `.mt-*`, `.mb-*`, `.ml-*`, `.mr-*`, `.ml-auto`, `.mx-auto` |
+| type | `.type-xs` … `.type-3xl` (size + leading + tracking triple — prefer), `.text-xs` … `.text-3xl` (size only), `.leading-*`, `.tracking-*`, `.weight-*`, `.tabular`, `.text-center/left/right` |
+| colour | `.text-primary/secondary/muted/faint/accent/success/danger/warning/inherit/on-accent`, `.bg-surface-1` … `-4`, `.bg-sunken`, `.bg-base`, `.bg-accent`, `.bg-*-soft`, `.bg-none` |
+| edges | `.border-subtle`, `.border-line`, `.border-strong`, `.border-none`, `.border-t-subtle`, `.border-b-subtle`, `.radius-xs` … `.radius-full`, `.overflow-hidden`, `.relative` |
+| misc | `.block`, `.grid`, `.list-none`, `.pointer`, `.no-events` |
+
+`scripts/codemod-inline-styles.mjs` does the mechanical part of a migration
+(dry run by default, `--write` to apply); anything it leaves is either
+data-driven or needs a hand.
+
+### Motion layer (4.0)
+
+`src/styles/motion.ts` is the JS side of §8: `DURATION`/`EASE` mirror the
+tokens (checked by `motion.test.ts`), `readDuration()` reads the live value from
+the document, and five verbs are the only transitions a component may use with
+the `motion` library — `appear` (lists, cards), `island` (a `layoutId` element
+changing shape: mini → bar → stage), `swap` (crossfade), `pull` (gesture
+release spring), `respond` (confirmation pulse). Reduced motion and the
+«Движение» setting are honoured by reading the tokens at animation time.
+
 ### Surfaces
 
 **`.panel`** — structural chrome on the canvas: `--surface-1` + `--border-subtle` + `--radius-md`, no shadow.

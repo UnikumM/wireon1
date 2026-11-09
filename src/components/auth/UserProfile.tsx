@@ -264,7 +264,7 @@ export const UserProfile: React.FC<UserProfileProps> = ({
         title={title}
         aria-hidden="true"
         data-testid="user-profile-sync-indicator"
-        style={{ display: 'inline-flex', alignItems: 'center' }}
+        className="inline-row"
       >
         {icon}
       </span>
@@ -273,25 +273,25 @@ export const UserProfile: React.FC<UserProfileProps> = ({
     if (syncStatus === 'syncing') {
       return wrap(
         'Проверяем медиатеку',
-        <RefreshCw size={ICON.sm} className="animate-spin" style={{ color: 'var(--accent)' }} />
+        <RefreshCw size={ICON.sm} className="animate-spin text-accent" />
       );
     }
     if (syncStatus === 'offline') {
-      return wrap('Нет сети', <CloudOff size={ICON.xs} style={{ color: 'var(--text-muted)' }} />);
+      return wrap('Нет сети', <CloudOff size={ICON.xs} className="text-muted" />);
     }
     if (syncStatus === 'error') {
-      return wrap('Проверка медиатеки не удалась', <AlertCircle size={ICON.xs} style={{ color: 'var(--danger)' }} />);
+      return wrap('Проверка медиатеки не удалась', <AlertCircle size={ICON.xs} className="text-danger" />);
     }
     if (!remoteConfigured) {
       return wrap(
         'Хранится только на этом устройстве',
-        <HardDrive size={ICON.xs} style={{ color: 'var(--text-muted)' }} />
+        <HardDrive size={ICON.xs} className="text-muted" />
       );
     }
     if (syncStatus === 'synced') {
-      return wrap('Синхронизировано с облаком', <CheckCircle2 size={ICON.xs} style={{ color: 'var(--success)' }} />);
+      return wrap('Синхронизировано с облаком', <CheckCircle2 size={ICON.xs} className="text-success" />);
     }
-    return wrap('Облачная синхронизация готова', <Cloud size={ICON.xs} style={{ color: 'var(--text-muted)' }} />);
+    return wrap('Облачная синхронизация готова', <Cloud size={ICON.xs} className="text-muted" />);
   }, [syncStatus, remoteConfigured]);
 
   const syncHeadline = (): string => {
@@ -362,71 +362,35 @@ export const UserProfile: React.FC<UserProfileProps> = ({
         aria-controls={isOpen ? idRef.current : undefined}
       >
         <span
-          style={{
-            position: 'relative',
-            width: compact ? '22px' : '26px',
-            height: compact ? '22px' : '26px',
-            flexShrink: 0
-          }}
+          className="relative shrink-0" style={{ width: compact ? '22px' : '26px', height: compact ? '22px' : '26px' }}
         >
           {avatarUrl ? (
             <img
               src={avatarUrl}
               alt={`Аватар ${displayName}`}
               onError={() => setAvatarFailed(true)}
-              style={{
-                width: '100%',
-                height: '100%',
-                borderRadius: 'var(--radius-full)',
-                objectFit: 'cover',
-                border: '1px solid var(--border)',
-                backgroundColor: 'var(--surface-3)'
-              }}
+              className="fill-cover radius-full border-line bg-surface-3"
               data-testid="user-profile-avatar"
             />
           ) : (
             <span
-              style={{
-                width: '100%',
-                height: '100%',
-                borderRadius: 'var(--radius-full)',
-                backgroundColor: 'var(--surface-3)',
-                border: '1px solid var(--border)',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center'
-              }}
+              className="w-full h-full radius-full row justify-center bg-surface-3 border-line"
               data-testid="user-profile-avatar"
             >
-              <User size={compact ? 12 : 14} aria-hidden="true" style={{ color: 'var(--text-muted)' }} />
+              <User size={compact ? 12 : 14} aria-hidden="true" className="text-muted" />
             </span>
           )}
 
           <span
-            style={{
-              position: 'absolute',
-              bottom: '-1px',
-              right: '-1px',
-              width: '7px',
-              height: '7px',
-              borderRadius: 'var(--radius-full)',
-              backgroundColor: dotColor,
-              border: '1px solid var(--surface-2)'
-            }}
+            className="radius-full" style={{ position: 'absolute', bottom: '-1px', right: '-1px', width: '7px', height: '7px', backgroundColor: dotColor, border: '1px solid var(--surface-2)' }}
             data-testid="user-profile-status"
           />
         </span>
 
         <span className="user-profile-name hide-on-mobile">
           <span
-            className="text-truncate"
-            style={{
-              fontSize: compact ? 'var(--text-xs)' : 'var(--text-sm)',
-              lineHeight: 'var(--leading-sm)',
-              letterSpacing: 'var(--tracking-sm)',
-              fontWeight: 'var(--weight-medium)',
-              maxWidth: '120px'
-            }}
+            className="text-truncate weight-medium leading-sm tracking-sm"
+            style={{ fontSize: compact ? 'var(--text-xs)' : 'var(--text-sm)', maxWidth: '120px' }}
             data-testid="user-profile-username"
           >
             {displayName}
@@ -437,12 +401,8 @@ export const UserProfile: React.FC<UserProfileProps> = ({
         <ChevronDown
           size={ICON.sm}
           aria-hidden="true"
-          className="hide-on-mobile"
-          style={{
-            color: 'var(--text-muted)',
-            transform: isOpen ? 'rotate(180deg)' : 'rotate(0deg)',
-            transition: 'transform var(--dur-fast) var(--ease-out)'
-          }}
+          className="hide-on-mobile text-muted"
+          style={{ transform: isOpen ? 'rotate(180deg)' : 'rotate(0deg)', transition: 'transform var(--dur-fast) var(--ease-out)' }}
         />
       </button>
 
@@ -477,79 +437,36 @@ export const UserProfile: React.FC<UserProfileProps> = ({
           data-testid="user-profile-menu"
         >
           <div
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: 'var(--space-3)',
-              paddingBottom: 'var(--space-3)',
-              borderBottom: '1px solid var(--border-subtle)'
-            }}
+            className="row gap-3 pb-3 border-b-subtle"
           >
-            <span style={{ position: 'relative', width: '38px', height: '38px', flexShrink: 0 }}>
+            <span className="relative shrink-0" style={{ width: '38px', height: '38px' }}>
               {avatarUrl ? (
                 <img
                   src={avatarUrl}
                   alt={`Аватар ${displayName}`}
                   onError={() => setAvatarFailed(true)}
-                  style={{
-                    width: '100%',
-                    height: '100%',
-                    borderRadius: 'var(--radius-full)',
-                    objectFit: 'cover',
-                    backgroundColor: 'var(--surface-3)'
-                  }}
+                  className="fill-cover radius-full bg-surface-3"
                 />
               ) : (
                 <span
-                  style={{
-                    width: '100%',
-                    height: '100%',
-                    borderRadius: 'var(--radius-full)',
-                    backgroundColor: 'var(--surface-3)',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center'
-                  }}
+                  className="w-full h-full radius-full row justify-center bg-surface-3"
                 >
-                  <User size={ICON.lg} aria-hidden="true" style={{ color: 'var(--text-muted)' }} />
+                  <User size={ICON.lg} aria-hidden="true" className="text-muted" />
                 </span>
               )}
               <span
-                style={{
-                  position: 'absolute',
-                  bottom: 0,
-                  right: 0,
-                  width: '10px',
-                  height: '10px',
-                  borderRadius: 'var(--radius-full)',
-                  backgroundColor: dotColor,
-                  border: '2px solid var(--surface-3)'
-                }}
+                className="radius-full" style={{ position: 'absolute', bottom: 0, right: 0, width: '10px', height: '10px', backgroundColor: dotColor, border: '2px solid var(--surface-3)' }}
               />
             </span>
 
-            <div style={{ minWidth: 0 }}>
+            <div className="min-0">
               <div
-                className="text-truncate"
-                style={{
-                  fontWeight: 'var(--weight-semibold)',
-                  fontSize: 'var(--text-base)',
-                  lineHeight: 'var(--leading-base)',
-                  color: 'var(--text-primary)'
-                }}
+                className="text-truncate weight-semibold text-base text-primary leading-base"
               >
                 {displayName}
               </div>
               <div
-                style={{
-                  fontSize: 'var(--text-xs)',
-                  lineHeight: 'var(--leading-xs)',
-                  letterSpacing: 'var(--tracking-xs)',
-                  color: 'var(--text-muted)',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: 'var(--space-1)'
-                }}
+                className="text-xs text-muted row gap-1 leading-xs tracking-xs"
               >
                 {isAuthenticated ? (
                   <>
@@ -570,49 +487,27 @@ export const UserProfile: React.FC<UserProfileProps> = ({
           {storedSessionExpired && (
             <p
               role="alert"
-              style={{
-                margin: 0,
-                padding: 'var(--space-2) var(--space-3)',
-                backgroundColor: 'var(--warning-soft)',
-                borderRadius: 'var(--radius-sm)',
-                color: 'var(--warning)',
-                fontSize: 'var(--text-xs)',
-                lineHeight: 'var(--leading-xs)'
-              }}
+              className="m-0 radius-sm text-warning text-xs py-2 px-3 bg-warning-soft leading-xs"
               data-testid="user-profile-session-expired"
             >
               Сохранённая сессия Discord истекла. Войдите снова, чтобы восстановить связь.
             </p>
           )}
 
-          <div className="panel-inset" style={{ padding: 'var(--space-3)' }}>
+          <div className="panel-inset p-3">
             <div
-              style={{
-                display: 'flex',
-                alignItems: 'flex-start',
-                justifyContent: 'space-between',
-                gap: 'var(--space-3)'
-              }}
+              className="row-start justify-between gap-3"
             >
-              <div style={{ display: 'flex', gap: 'var(--space-2)', minWidth: 0 }}>
+              <div className="row-stretch gap-2 min-0">
                 {syncIndicator}
-                <div style={{ minWidth: 0 }}>
+                <div className="min-0">
                   <div
-                    style={{
-                      fontSize: 'var(--text-sm)',
-                      lineHeight: 'var(--leading-sm)',
-                      fontWeight: 'var(--weight-medium)',
-                      color: 'var(--text-secondary)'
-                    }}
+                    className="text-sm weight-medium text-secondary leading-sm"
                   >
                     Синхронизация медиатеки
                   </div>
                   <div
-                    style={{
-                      fontSize: 'var(--text-xs)',
-                      lineHeight: 'var(--leading-xs)',
-                      color: 'var(--text-muted)'
-                    }}
+                    className="text-xs text-muted leading-xs"
                     data-testid="user-profile-sync-headline"
                   >
                     {syncHeadline()}
@@ -629,16 +524,7 @@ export const UserProfile: React.FC<UserProfileProps> = ({
                 // `width: 100%`, и кнопка забирала всю строку, сжимая заголовок
                 // с подписью в ноль. Размеры — в классе, а не инлайном, иначе
                 // их не перебить правилом (см. DESIGN_SYSTEM §14).
-                className="menu-item-hover menu-item-inline"
-                style={{
-                  borderRadius: 'var(--radius-xs)',
-                  border: '1px solid var(--border)',
-                  color: 'var(--text-secondary)',
-                  fontSize: 'var(--text-xs)',
-                  letterSpacing: 'var(--tracking-xs)',
-                  fontWeight: 'var(--weight-medium)',
-                  flexShrink: 0
-                }}
+                className="menu-item-hover menu-item-inline radius-xs text-secondary text-xs weight-medium shrink-0 border-line tracking-xs"
                 data-testid="user-profile-sync-now"
               >
                 {isSyncing ? 'Проверяем…' : 'Проверить'}
@@ -647,12 +533,7 @@ export const UserProfile: React.FC<UserProfileProps> = ({
 
             {detail && (
               <p
-                style={{
-                  margin: 'var(--space-2) 0 0 0',
-                  fontSize: 'var(--text-xs)',
-                  lineHeight: 'var(--leading-xs)',
-                  color: 'var(--text-muted)'
-                }}
+                className="text-xs text-muted leading-xs" style={{ margin: 'var(--space-2) 0 0 0' }}
                 data-testid="user-profile-sync-detail"
               >
                 {detail}
@@ -661,12 +542,7 @@ export const UserProfile: React.FC<UserProfileProps> = ({
 
             {lastCheckedAt && (
               <p
-                style={{
-                  margin: 'var(--space-1) 0 0 0',
-                  fontSize: 'var(--text-xs)',
-                  lineHeight: 'var(--leading-xs)',
-                  color: 'var(--text-faint)'
-                }}
+                className="text-xs text-faint leading-xs" style={{ margin: 'var(--space-1) 0 0 0' }}
               >
                 Последняя проверка в <span data-numeric>{lastCheckedAt}</span>
               </p>
@@ -676,22 +552,14 @@ export const UserProfile: React.FC<UserProfileProps> = ({
           {notice && (
             <p
               role="alert"
-              style={{
-                margin: 0,
-                padding: 'var(--space-2) var(--space-3)',
-                backgroundColor: 'var(--danger-soft)',
-                borderRadius: 'var(--radius-sm)',
-                color: 'var(--danger)',
-                fontSize: 'var(--text-xs)',
-                lineHeight: 'var(--leading-xs)'
-              }}
+              className="m-0 radius-sm text-danger text-xs py-2 px-3 bg-danger-soft leading-xs"
               data-testid="user-profile-auth-error"
             >
               {notice.title} {notice.detail}
             </p>
           )}
 
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-1)' }}>
+          <div className="stack gap-1">
             <button
               type="button"
               role="menuitem"
@@ -737,12 +605,7 @@ export const UserProfile: React.FC<UserProfileProps> = ({
 
             {!isConfigured && (
               <p
-                style={{
-                  margin: '0 var(--space-3) var(--space-1)',
-                  fontSize: 'var(--text-xs)',
-                  lineHeight: 'var(--leading-xs)',
-                  color: 'var(--text-muted)'
-                }}
+                className="text-xs text-muted leading-xs" style={{ margin: '0 var(--space-3) var(--space-1)' }}
                 data-testid="user-profile-login-unavailable"
               >
                 {DISCORD_CONFIG_HINT}

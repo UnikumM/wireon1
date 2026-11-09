@@ -223,53 +223,29 @@ export const TrackActionsSheet: React.FC<TrackActionsSheetProps> = ({ track, onC
    * этого не говорило вовсе — открыв его с середины длинного списка, человек
    * мог только помнить, на что нажал. */
   const header = (
-    <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-3)', minWidth: 0 }}>
+    <div className="row gap-3 min-0">
       <span
-        style={{
-          width: '56px',
-          height: '56px',
-          flexShrink: 0,
-          borderRadius: 'var(--radius-sm)',
-          overflow: 'hidden',
-          background: 'var(--surface-sunken)',
-          border: '1px solid var(--border-subtle)',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center'
-        }}
+        className="shrink-0 radius-sm overflow-hidden row justify-center bg-sunken border-subtle" style={{ width: '56px', height: '56px' }}
       >
         {artworkFailed || !track.artworkUrl ? (
-          <Music2 size={ICON.lg} style={{ color: 'var(--text-faint)' }} aria-hidden="true" />
+          <Music2 size={ICON.lg} className="text-faint" aria-hidden="true" />
         ) : (
           <img
             src={track.artworkUrl}
             alt=""
-            style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+            className="fill-cover"
             onError={() => setArtworkFailed(true)}
           />
         )}
       </span>
-      <span style={{ display: 'flex', flexDirection: 'column', minWidth: 0, gap: '2px' }}>
+      <span className="stack min-0 gap-px">
         <span
-          className="text-truncate"
-          style={{
-            fontSize: 'var(--text-base)',
-            lineHeight: 'var(--leading-base)',
-            letterSpacing: 'var(--tracking-base)',
-            fontWeight: 'var(--weight-semibold)',
-            color: 'var(--text-primary)'
-          }}
+          className="text-truncate text-base weight-semibold text-primary leading-base tracking-base"
         >
           {track.title}
         </span>
         <span
-          className="text-truncate"
-          style={{
-            fontSize: 'var(--text-sm)',
-            lineHeight: 'var(--leading-sm)',
-            letterSpacing: 'var(--tracking-sm)',
-            color: 'var(--text-muted)'
-          }}
+          className="text-truncate text-sm text-muted leading-sm tracking-sm"
         >
           {track.artist}
         </span>
@@ -341,7 +317,7 @@ export const TrackActionsSheet: React.FC<TrackActionsSheetProps> = ({ track, onC
         <SheetRow
           icon={
             isSaved ? (
-              <Check size={ICON.lg} style={{ color: 'var(--success)' }} aria-hidden="true" />
+              <Check size={ICON.lg} className="text-success" aria-hidden="true" />
             ) : (
               <Download size={ICON.lg} aria-hidden="true" />
             )
@@ -415,14 +391,7 @@ export const TrackActionsSheet: React.FC<TrackActionsSheetProps> = ({ track, onC
       >
         {playlists.length === 0 ? (
           <p
-            style={{
-              margin: 0,
-              padding: 'var(--space-4)',
-              fontSize: 'var(--text-sm)',
-              lineHeight: 'var(--leading-sm)',
-              letterSpacing: 'var(--tracking-sm)',
-              color: 'var(--text-muted)'
-            }}
+            className="m-0 p-4 text-sm text-muted leading-sm tracking-sm"
           >
             Плейлистов пока нет. Создайте первый в Медиатеке — трек можно будет добавить туда отсюда же.
           </p>

@@ -194,7 +194,7 @@ export const AccountSettings: React.FC = () => {
         }
       >
         {isAuthenticated ? (
-          <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-3)' }}>
+          <div className="row gap-3">
             {avatarUrl ? (
               <img
                 src={avatarUrl}
@@ -202,29 +202,12 @@ export const AccountSettings: React.FC = () => {
                 width={AVATAR_SIZE}
                 height={AVATAR_SIZE}
                 onError={() => setAvatarFailed(true)}
-                style={{
-                  width: AVATAR_SIZE,
-                  height: AVATAR_SIZE,
-                  borderRadius: 'var(--radius-full)',
-                  objectFit: 'cover',
-                  border: '1px solid var(--border-subtle)',
-                  background: 'var(--surface-3)'
-                }}
+                className="radius-full border-subtle bg-surface-3" style={{ width: AVATAR_SIZE, height: AVATAR_SIZE, objectFit: 'cover' }}
                 data-testid="account-avatar"
               />
             ) : (
               <span
-                style={{
-                  width: AVATAR_SIZE,
-                  height: AVATAR_SIZE,
-                  borderRadius: 'var(--radius-full)',
-                  border: '1px solid var(--border-subtle)',
-                  background: 'var(--surface-3)',
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  color: 'var(--text-muted)'
-                }}
+                className="radius-full inline-row justify-center text-muted border-subtle bg-surface-3" style={{ width: AVATAR_SIZE, height: AVATAR_SIZE }}
                 data-testid="account-avatar"
               >
                 <UserRound size={ICON.lg} aria-hidden="true" />
@@ -258,15 +241,7 @@ export const AccountSettings: React.FC = () => {
       {sessionExpired && (
         <p
           role="alert"
-          style={{
-            margin: 0,
-            padding: 'var(--space-2) var(--space-3)',
-            borderRadius: 'var(--radius-sm)',
-            background: 'var(--warning-soft)',
-            color: 'var(--warning)',
-            fontSize: 'var(--text-xs)',
-            lineHeight: 'var(--leading-xs)'
-          }}
+          className="m-0 radius-sm text-warning text-xs py-2 px-3 bg-warning-soft leading-xs"
           data-testid="account-session-expired"
         >
           Сохранённая сессия Discord истекла. Нажмите «Другой аккаунт», чтобы войти заново.
@@ -276,15 +251,7 @@ export const AccountSettings: React.FC = () => {
       {notice && (
         <p
           role="alert"
-          style={{
-            margin: 0,
-            padding: 'var(--space-2) var(--space-3)',
-            borderRadius: 'var(--radius-sm)',
-            background: 'var(--danger-soft)',
-            color: 'var(--danger)',
-            fontSize: 'var(--text-xs)',
-            lineHeight: 'var(--leading-xs)'
-          }}
+          className="m-0 radius-sm text-danger text-xs py-2 px-3 bg-danger-soft leading-xs"
           data-testid="account-auth-error"
         >
           {notice.title} {notice.detail}
@@ -311,17 +278,7 @@ export const AccountSettings: React.FC = () => {
         }
       >
         <span
-          style={{
-            display: 'inline-flex',
-            alignItems: 'center',
-            gap: 'var(--space-2)',
-            padding: '2px var(--space-2)',
-            borderRadius: 'var(--radius-full)',
-            border: '1px solid var(--border-subtle)',
-            background: 'var(--surface-2)',
-            fontSize: 'var(--text-xs)',
-            color: 'var(--text-secondary)'
-          }}
+          className="inline-row gap-2 radius-full text-xs text-secondary border-subtle bg-surface-2" style={{ padding: '2px var(--space-2)' }}
           data-testid="account-storage-mode"
         >
           <HardDrive size={ICON.xs} />
@@ -334,17 +291,7 @@ export const AccountSettings: React.FC = () => {
         description="Wireon Sounds запрашивает только имя, аватар и e-mail (scope identify + email). Токен хранится на этом устройстве и не отправляется никуда, кроме Discord."
       >
         <span
-          style={{
-            display: 'inline-flex',
-            alignItems: 'center',
-            gap: 'var(--space-2)',
-            padding: '2px var(--space-2)',
-            borderRadius: 'var(--radius-full)',
-            border: '1px solid var(--border-subtle)',
-            background: 'var(--surface-2)',
-            fontSize: 'var(--text-xs)',
-            color: 'var(--text-secondary)'
-          }}
+          className="inline-row gap-2 radius-full text-xs text-secondary border-subtle bg-surface-2" style={{ padding: '2px var(--space-2)' }}
           data-testid="account-scopes"
         >
           <ShieldCheck size={ICON.xs} />
@@ -384,7 +331,7 @@ export const AccountSettings: React.FC = () => {
         controlId="account-sync"
         description="Проигрывает отложенные изменения в локальной базе и сообщает, что именно затронуло."
       >
-        <span data-numeric style={{ fontSize: 'var(--text-xs)', color: 'var(--text-muted)' }}>
+        <span data-numeric className="text-xs text-muted">
           {formatTimestamp(lastSyncedAt)}
         </span>
         <Button
@@ -402,12 +349,7 @@ export const AccountSettings: React.FC = () => {
 
       {result && (
         <p
-          style={{
-            margin: 0,
-            fontSize: 'var(--text-xs)',
-            lineHeight: 'var(--leading-xs)',
-            color: result.success ? 'var(--text-secondary)' : 'var(--danger)'
-          }}
+          className="m-0 text-xs leading-xs" style={{ color: result.success ? 'var(--text-secondary)' : 'var(--danger)' }}
           data-testid="account-sync-result"
         >
           {describeSyncError(result.error)?.message ?? result.message ?? 'Готово.'}
@@ -427,15 +369,7 @@ export const AccountSettings: React.FC = () => {
 
       {!isAuthenticated && configured && (
         <p
-          style={{
-            margin: 0,
-            display: 'flex',
-            alignItems: 'center',
-            gap: 'var(--space-2)',
-            fontSize: 'var(--text-xs)',
-            lineHeight: 'var(--leading-xs)',
-            color: 'var(--text-muted)'
-          }}
+          className="m-0 row gap-2 text-xs text-muted leading-xs"
         >
           <DiscordIcon size={ICON.xs} />
           Вход открывается прямо в приложении — отдельный браузер не нужен.

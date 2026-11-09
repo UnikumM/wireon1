@@ -131,7 +131,7 @@ export const TransportControls: React.FC<TransportControlsProps> = ({
         onClick={() => prevTrack()}
         title="Предыдущий трек"
         aria-label="Предыдущий трек"
-        style={{ width: stepButton, height: stepButton, color: 'var(--text-primary)' }}
+        className="text-primary" style={{ width: stepButton, height: stepButton }}
         data-testid={`${idPrefix}-prev-btn`}
       >
         <SkipBack size={stepIcon} />
@@ -157,7 +157,7 @@ export const TransportControls: React.FC<TransportControlsProps> = ({
           <Pause size={mainIcon} aria-hidden="true" />
         ) : (
           // The glyph is optically left-heavy; nudge it back onto the centre.
-          <Play size={mainIcon} aria-hidden="true" style={{ marginLeft: '2px' }} />
+          <Play size={mainIcon} aria-hidden="true" className="ml-px" />
         )}
       </button>
 
@@ -167,7 +167,7 @@ export const TransportControls: React.FC<TransportControlsProps> = ({
         onClick={() => nextTrack(true)}
         title="Следующий трек"
         aria-label="Следующий трек"
-        style={{ width: stepButton, height: stepButton, color: 'var(--text-primary)' }}
+        className="text-primary" style={{ width: stepButton, height: stepButton }}
         data-testid={`${idPrefix}-next-btn`}
       >
         <SkipForward size={stepIcon} />

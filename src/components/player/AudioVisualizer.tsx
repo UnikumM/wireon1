@@ -506,7 +506,7 @@ export const AudioVisualizer: React.FC<AudioVisualizerProps> = ({
       <canvas
         ref={canvasRef}
         aria-hidden="true"
-        style={{ width: '100%', height: '100%', display: 'block' }}
+        className="w-full h-full block"
       />
     </div>
   );

@@ -50,32 +50,18 @@ export const UpdateBanner: React.FC = () => {
       // раскладке готовой строкой — читалось как подмена кадра. Выпадение
       // сверху здесь буквально по месту: она и стоит под самым верхним краем
       // окна, поэтому точка роста по умолчанию (`top center`) верна.
-      className="animate-drop-in"
-      style={{
-        position: 'relative',
-        display: 'flex',
-        alignItems: 'center',
-        gap: 'var(--space-3)',
-        padding: 'var(--space-2) var(--space-6)',
-        backgroundColor: isReady ? 'var(--accent-soft)' : 'var(--surface-2)',
-        borderBottom: '1px solid var(--border-subtle)',
-        fontSize: 'var(--text-sm)',
-        lineHeight: 'var(--leading-sm)',
-        color: isReady ? 'var(--text-primary)' : 'var(--text-secondary)'
-      }}
+      className="animate-drop-in relative row gap-3 text-sm py-2 px-6 border-b-subtle leading-sm"
+      style={{ backgroundColor: isReady ? 'var(--accent-soft)' : 'var(--surface-2)', color: isReady ? 'var(--text-primary)' : 'var(--text-secondary)' }}
       data-testid="update-banner"
       data-phase={isReady ? 'ready' : 'downloading'}
     >
       <ArrowDownToLine
         size={ICON.md}
         aria-hidden="true"
-        style={{
-          flexShrink: 0,
-          color: isReady ? 'var(--accent)' : 'var(--text-muted)'
-        }}
+        className="shrink-0" style={{ color: isReady ? 'var(--accent)' : 'var(--text-muted)' }}
       />
 
-      <span style={{ flex: 1, minWidth: 0 }}>
+      <span className="grow">
         {isReady ? (
           <>
             {newVersion ? `${version} уже скачан` : 'Обновление уже скачано'} — перезапустите приложение,
@@ -108,15 +94,7 @@ export const UpdateBanner: React.FC = () => {
           aria-valuenow={shown}
           aria-label="Загрузка обновления"
           data-testid="update-banner-progress"
-          style={{
-            position: 'absolute',
-            left: 0,
-            right: 0,
-            bottom: -1,
-            height: '2px',
-            backgroundColor: 'transparent',
-            overflow: 'hidden'
-          }}
+          className="overflow-hidden bg-transparent" style={{ position: 'absolute', left: 0, right: 0, bottom: -1, height: '2px' }}
         >
           <span
             style={{

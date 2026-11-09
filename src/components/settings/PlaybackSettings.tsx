@@ -163,26 +163,15 @@ export const PlaybackSettings: React.FC = () => {
         />
       )}
 
-      <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 'var(--space-4)' }}>
+      <div className="row-stretch items-baseline justify-between gap-4">
         <div>
           <h3
-            style={{
-              margin: 0,
-              fontSize: 'var(--text-sm)',
-              lineHeight: 'var(--leading-sm)',
-              fontWeight: 'var(--weight-semibold)',
-              color: 'var(--text-primary)'
-            }}
+            className="m-0 text-sm weight-semibold text-primary leading-sm"
           >
             Эквалайзер
           </h3>
           <p
-            style={{
-              margin: '2px 0 0 0',
-              fontSize: 'var(--text-xs)',
-              lineHeight: 'var(--leading-xs)',
-              color: 'var(--text-muted)'
-            }}
+            className="text-xs text-muted leading-xs" style={{ margin: '2px 0 0 0' }}
           >
             Три полосы, от −12 до +12 дБ. Слышно сразу, на текущем треке —
             или возьмите готовый пресет.
@@ -217,18 +206,17 @@ export const PlaybackSettings: React.FC = () => {
       <div
         role="group"
         aria-label="Пресеты эквалайзера"
-        style={{ display: 'flex', flexWrap: 'wrap', gap: 'var(--space-2)' }}
+        className="row-stretch wrap gap-2"
       >
         {EQ_PRESETS.map((preset) => (
           <button
             key={preset.id}
             type="button"
-            className="chip"
+            className="chip text-xs"
             aria-pressed={activePreset?.id === preset.id}
             title={preset.description}
             onClick={() => setEq(preset.gains)}
             data-testid={`settings-eq-preset-${preset.id}`}
-            style={{ fontSize: 'var(--text-xs)' }}
           >
             {preset.label}
           </button>
@@ -236,12 +224,7 @@ export const PlaybackSettings: React.FC = () => {
       </div>
 
       <p
-        style={{
-          margin: 0,
-          fontSize: 'var(--text-xs)',
-          lineHeight: 'var(--leading-xs)',
-          color: 'var(--text-muted)'
-        }}
+        className="m-0 text-xs text-muted leading-xs"
         data-testid="settings-eq-preset-state"
       >
         {activePreset ? activePreset.description : 'Полосы настроены вручную.'}

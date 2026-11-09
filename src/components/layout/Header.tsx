@@ -162,26 +162,18 @@ export const Header: React.FC<HeaderProps> = ({ className = '', showNavigation =
         * пункт навигации слово в слово, а на узком окне дублировал нижнюю
         * панель. Название остаётся только у телефона, где полосы разделов нет.
         */}
-      <div style={{ display: 'flex', alignItems: 'center', minWidth: 0, flex: 1, ...noDragRegion }}>
-        <div className="hide-on-mobile" style={{ minWidth: 0, width: '100%' }}>
+      <div className="row grow" style={noDragRegion}>
+        <div className="hide-on-mobile min-0 w-full">
           {showNavigation ? <TopNav /> : <button className="chip" onClick={() => setActiveView('home')}>Wireon</button>}
         </div>
         <h2
-          className="text-truncate show-on-mobile"
-          style={{
-            margin: 0,
-            fontSize: 'var(--text-lg)',
-            lineHeight: 'var(--leading-lg)',
-            letterSpacing: 'var(--tracking-lg)',
-            fontWeight: 'var(--weight-semibold)',
-            color: 'var(--text-primary)'
-          }}
+          className="text-truncate show-on-mobile m-0 text-lg weight-semibold text-primary leading-lg tracking-lg"
         >
           {VIEW_TITLES[activeView] ?? 'Wireon Sounds'}
         </h2>
       </div>
 
-      <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)', ...noDragRegion }}>
+      <div className="row gap-2" style={noDragRegion}>
         {/*
           * Палитра команд убрана с узкого экрана целиком, а не сжата до значка.
           * Это единственная кнопка в шапке, которая ничего не делает сама: она
@@ -199,7 +191,7 @@ export const Header: React.FC<HeaderProps> = ({ className = '', showNavigation =
             data-testid="header-command-palette-btn"
           >
             <span className="header-label">Команды</span>
-            <kbd className="kbd header-label" style={{ marginLeft: 'var(--space-2)' }}>
+            <kbd className="kbd header-label ml-2">
               Ctrl K
             </kbd>
           </Button>
@@ -293,7 +285,7 @@ export const Header: React.FC<HeaderProps> = ({ className = '', showNavigation =
           * хуже, тот же `data-testid` на двух элементах сразу. Панели больше
           * нет, копия осталась одна, и `.show-on-mobile` ей не нужен.
           */}
-        <div style={{ display: 'flex', alignItems: 'center' }} data-testid="header-user-profile">
+        <div className="row" data-testid="header-user-profile">
           <UserProfile />
         </div>
 

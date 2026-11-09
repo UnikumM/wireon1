@@ -119,30 +119,16 @@ export const MobileNav: React.FC<MobileNavProps> = ({ className = '' }) => {
             {isActive && (
               <span
                 aria-hidden="true"
-                style={{
-                  position: 'absolute',
-                  top: 0,
-                  left: '50%',
-                  transform: 'translateX(-50%)',
-                  width: '20px',
-                  height: '2px',
-                  borderRadius: 'var(--radius-full)',
-                  backgroundColor: 'var(--accent)'
-                }}
+                className="radius-full bg-accent" style={{ position: 'absolute', top: 0, left: '50%', transform: 'translateX(-50%)', width: '20px', height: '2px' }}
               />
             )}
-            <span style={{ display: 'inline-flex', color: isActive ? 'var(--accent)' : 'inherit' }}>{tab.icon}</span>
+            <span className="inline-row" style={{ color: isActive ? 'var(--accent)' : 'inherit' }}>{tab.icon}</span>
             {/* Обрезание оставлено на будущее: разделов три и места хватает
                 с запасом, но длинное слово не должно вылезать за свою кнопку.
                 Обрезается сама подпись, а не кнопка: кнопка — колонка, и текст
                 из неё вылез бы мимо её `overflow`. */}
             <span
-              style={{
-                maxWidth: '100%',
-                overflow: 'hidden',
-                textOverflow: 'ellipsis',
-                whiteSpace: 'nowrap'
-              }}
+              className="overflow-hidden nowrap max-w-full" style={{ textOverflow: 'ellipsis' }}
             >
               {tab.label}
             </span>

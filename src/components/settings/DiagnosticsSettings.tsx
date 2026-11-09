@@ -186,17 +186,7 @@ export const DiagnosticsSettings: React.FC = () => {
         description={extractorNote}
       >
         <span
-          style={{
-            display: 'inline-flex',
-            alignItems: 'center',
-            gap: 'var(--space-2)',
-            padding: '2px var(--space-2)',
-            borderRadius: 'var(--radius-full)',
-            border: '1px solid var(--border-subtle)',
-            background: diagnostics?.ytDlpAvailable === false ? 'var(--danger-soft)' : 'var(--surface-2)',
-            color: diagnostics?.ytDlpAvailable === false ? 'var(--danger)' : 'var(--text-secondary)',
-            fontSize: 'var(--text-xs)'
-          }}
+          className="inline-row gap-2 radius-full text-xs border-subtle" style={{ padding: '2px var(--space-2)', background: diagnostics?.ytDlpAvailable === false ? 'var(--danger-soft)' : 'var(--surface-2)', color: diagnostics?.ytDlpAvailable === false ? 'var(--danger)' : 'var(--text-secondary)' }}
           data-testid="diagnostics-ytdlp-status"
         >
           {diagnostics?.ytDlpAvailable === false ? <AlertTriangle size={ICON.xs} /> : <CheckCircle2 size={ICON.xs} />}
@@ -207,15 +197,7 @@ export const DiagnosticsSettings: React.FC = () => {
       {diagnostics?.ytDlpAvailable === false && (
         <p
           role="alert"
-          style={{
-            margin: 0,
-            padding: 'var(--space-2) var(--space-3)',
-            borderRadius: 'var(--radius-sm)',
-            background: 'var(--danger-soft)',
-            color: 'var(--danger)',
-            fontSize: 'var(--text-xs)',
-            lineHeight: 'var(--leading-xs)'
-          }}
+          className="m-0 radius-sm text-danger text-xs py-2 px-3 bg-danger-soft leading-xs"
           data-testid="diagnostics-ytdlp-missing"
         >
           Без yt-dlp воспроизведение с YouTube не работает вообще. Переустановите приложение
@@ -249,15 +231,7 @@ export const DiagnosticsSettings: React.FC = () => {
       {diagnostics?.botCheckSeen === true && !cookiesBrowser && (
         <p
           role="alert"
-          style={{
-            margin: 0,
-            padding: 'var(--space-2) var(--space-3)',
-            borderRadius: 'var(--radius-sm)',
-            background: 'var(--danger-soft)',
-            color: 'var(--danger)',
-            fontSize: 'var(--text-xs)',
-            lineHeight: 'var(--leading-xs)'
-          }}
+          className="m-0 radius-sm text-danger text-xs py-2 px-3 bg-danger-soft leading-xs"
           data-testid="diagnostics-bot-check"
         >
           YouTube уже требовал подтверждения «вы не робот» в этом запуске. Пока cookies не выбраны,
@@ -273,7 +247,7 @@ export const DiagnosticsSettings: React.FC = () => {
       >
         <span
           data-numeric
-          style={{ fontSize: 'var(--text-xs)', color: 'var(--text-secondary)' }}
+          className="text-xs text-secondary"
           data-testid="diagnostics-stats"
         >
           {stats.resolved} успешно · {stats.probeRejected} ссылка отклонена · {stats.failed} ошибок ·{' '}
@@ -316,7 +290,7 @@ export const DiagnosticsSettings: React.FC = () => {
       {error && (
         <p
           role="alert"
-          style={{ margin: 0, fontSize: 'var(--text-xs)', color: 'var(--danger)' }}
+          className="m-0 text-xs text-danger"
           data-testid="diagnostics-error"
         >
           Не удалось прочитать журнал: {error}
@@ -324,21 +298,11 @@ export const DiagnosticsSettings: React.FC = () => {
       )}
 
       <div
-        style={{
-          maxHeight: '220px',
-          overflowY: 'auto',
-          padding: 'var(--space-3)',
-          borderRadius: 'var(--radius-md)',
-          border: '1px solid var(--border-subtle)',
-          background: 'var(--surface-1)',
-          display: 'flex',
-          flexDirection: 'column',
-          gap: '2px'
-        }}
+        className="p-3 radius-md stack gap-px border-subtle bg-surface-1" style={{ maxHeight: '220px', overflowY: 'auto' }}
         data-testid="diagnostics-log"
       >
         {lines.length === 0 ? (
-          <span style={{ fontSize: 'var(--text-xs)', color: 'var(--text-muted)' }}>
+          <span className="text-xs text-muted">
             {isLoading ? 'Читаем журнал…' : 'Журнал пуст — ни одной попытки воспроизведения в этой сборке.'}
           </span>
         ) : (
@@ -347,9 +311,9 @@ export const DiagnosticsSettings: React.FC = () => {
             return (
               <div
                 key={`${index}-${line.slice(0, 24)}`}
-                style={{ display: 'flex', gap: 'var(--space-3)', fontSize: 'var(--text-xs)' }}
+                className="row-stretch gap-3 text-xs"
               >
-                <span data-numeric style={{ color: 'var(--text-muted)', flexShrink: 0 }}>
+                <span data-numeric className="text-muted shrink-0">
                   {time}
                 </span>
                 <span style={{ color: lineTone(message), wordBreak: 'break-word' }}>{message}</span>

@@ -180,19 +180,11 @@ export const AddToPlaylistModal: React.FC<AddToPlaylistModalProps> = ({
       maxWidth="440px"
       data-testid="add-to-playlist-modal"
     >
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
+      <div className="stack gap-3">
         {error && (
           <p
             role="alert"
-            style={{
-              margin: 0,
-              padding: 'var(--space-2) var(--space-3)',
-              backgroundColor: 'var(--danger-soft)',
-              borderRadius: 'var(--radius-sm)',
-              color: 'var(--danger)',
-              fontSize: 'var(--text-sm)',
-              lineHeight: 'var(--leading-sm)'
-            }}
+            className="m-0 radius-sm text-danger text-sm py-2 px-3 bg-danger-soft leading-sm"
             data-testid="add-to-playlist-error"
           >
             {error}
@@ -210,17 +202,8 @@ export const AddToPlaylistModal: React.FC<AddToPlaylistModalProps> = ({
 
         {playlists.length > 0 && (
           <ul
-            className="scrollbar-thin"
-            style={{
-              listStyle: 'none',
-              margin: 0,
-              padding: 0,
-              display: 'flex',
-              flexDirection: 'column',
-              gap: 'var(--space-1)',
-              maxHeight: '280px',
-              overflowY: 'auto'
-            }}
+            className="scrollbar-thin m-0 p-0 stack gap-1 list-none"
+            style={{ maxHeight: '280px', overflowY: 'auto' }}
           >
             {playlists.map((playlist) => {
               const already = containsTrack.get(playlist.id) === true;
@@ -235,26 +218,14 @@ export const AddToPlaylistModal: React.FC<AddToPlaylistModalProps> = ({
                     data-testid={`add-to-playlist-${playlist.id}`}
                   >
                     <PlaylistCover tracks={playlist.tracks} coverUrl={playlist.coverUrl} size={36} radius="var(--radius-xs)" />
-                    <span style={{ flex: 1, minWidth: 0 }}>
+                    <span className="grow">
                       <span
-                        className="text-truncate"
-                        style={{
-                          display: 'block',
-                          fontSize: 'var(--text-sm)',
-                          lineHeight: 'var(--leading-sm)',
-                          fontWeight: 'var(--weight-medium)',
-                          color: 'var(--text-primary)'
-                        }}
+                        className="text-truncate block text-sm weight-medium text-primary leading-sm"
                       >
                         {playlist.title}
                       </span>
                       <span
-                        style={{
-                          display: 'block',
-                          fontSize: 'var(--text-xs)',
-                          lineHeight: 'var(--leading-xs)',
-                          color: 'var(--text-muted)'
-                        }}
+                        className="block text-xs text-muted leading-xs"
                       >
                         {already
                           ? 'Уже в этом плейлисте'
@@ -262,7 +233,7 @@ export const AddToPlaylistModal: React.FC<AddToPlaylistModalProps> = ({
                       </span>
                     </span>
                     {already && (
-                      <Check size={ICON.md} aria-hidden="true" style={{ color: 'var(--text-muted)' }} />
+                      <Check size={ICON.md} aria-hidden="true" className="text-muted" />
                     )}
                   </button>
                 </li>
@@ -273,9 +244,8 @@ export const AddToPlaylistModal: React.FC<AddToPlaylistModalProps> = ({
 
         {isCreating ? (
           <form
-            className="playlist-picker-create-form"
+            className="playlist-picker-create-form row gap-2"
             onSubmit={handleCreateAndAdd}
-            style={{ display: 'flex', gap: 'var(--space-2)', alignItems: 'center' }}
           >
             <input
               type="text"
@@ -287,7 +257,7 @@ export const AddToPlaylistModal: React.FC<AddToPlaylistModalProps> = ({
               placeholder="Название плейлиста"
               aria-label="Название нового плейлиста"
               autoFocus
-              style={{ flex: 1, minWidth: 0 }}
+              className="grow"
               data-testid="add-to-playlist-new-input"
             />
             <Button
@@ -320,20 +290,11 @@ export const AddToPlaylistModal: React.FC<AddToPlaylistModalProps> = ({
             data-testid="add-to-playlist-new-btn"
           >
             <span
-              style={{
-                width: '36px',
-                height: '36px',
-                borderRadius: 'var(--radius-xs)',
-                backgroundColor: 'var(--accent-soft)',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                flexShrink: 0
-              }}
+              className="radius-xs row justify-center shrink-0 bg-accent-soft" style={{ width: '36px', height: '36px' }}
             >
               <Plus size={ICON.md} aria-hidden="true" />
             </span>
-            <span style={{ fontSize: 'var(--text-sm)', fontWeight: 'var(--weight-medium)' }}>Новый плейлист…</span>
+            <span className="text-sm weight-medium">Новый плейлист…</span>
           </button>
         )}
       </div>

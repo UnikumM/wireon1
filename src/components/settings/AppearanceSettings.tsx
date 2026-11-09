@@ -115,7 +115,7 @@ export const AppearanceSettings: React.FC = () => {
       title="Внешний вид"
       description="Цвет акцента, глубина подложки и визуализация. Всё применяется сразу и остаётся после перезапуска."
     >
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-1)' }}>
+      <div className="stack gap-1">
         <h3 style={HEADING_STYLE}>Акцент</h3>
         <p style={HINT_STYLE}>
           Один цвет на всё приложение: кнопки, ползунки, обводка фокуса. Оттенки наведения и
@@ -126,11 +126,7 @@ export const AppearanceSettings: React.FC = () => {
       <div
         role="group"
         aria-label="Готовые акценты"
-        style={{
-          display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fill, minmax(120px, 1fr))',
-          gap: 'var(--space-2)'
-        }}
+        className="grid gap-2" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(120px, 1fr))' }}
       >
         {ACCENT_PRESETS.map((preset, index) => {
           // A preset is current only while there is no custom colour: the custom
@@ -174,14 +170,7 @@ export const AppearanceSettings: React.FC = () => {
               */}
               <span
                 aria-hidden="true"
-                style={{
-                  width: 'var(--space-4)',
-                  height: 'var(--space-4)',
-                  flexShrink: 0,
-                  borderRadius: 'var(--radius-full)',
-                  backgroundColor: preset.hex,
-                  border: '1px solid var(--border-strong)'
-                }}
+                className="shrink-0 radius-full border-strong" style={{ width: 'var(--space-4)', height: 'var(--space-4)', backgroundColor: preset.hex }}
               />
               <span className="text-truncate">{preset.label}</span>
             </button>
@@ -217,11 +206,7 @@ export const AppearanceSettings: React.FC = () => {
             setCustomAccent(e.target.value);
           }}
           data-testid="settings-accent-hex"
-          style={{
-            width: 'calc(var(--space-8) + var(--space-5))',
-            fontFamily: 'var(--font-mono)',
-            fontSize: 'var(--text-xs)'
-          }}
+          className="text-xs" style={{ width: 'calc(var(--space-8) + var(--space-5))', fontFamily: 'var(--font-mono)' }}
         />
       </SettingRow>
 
@@ -267,7 +252,7 @@ export const AppearanceSettings: React.FC = () => {
 
       <div className="divider" role="presentation" />
 
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-1)' }}>
+      <div className="stack gap-1">
         <h3 style={HEADING_STYLE}>Глубина</h3>
         <p style={HINT_STYLE}>
           Насколько тёмная подложка. Меняются только цвета поверхностей — расположение и
@@ -278,19 +263,18 @@ export const AppearanceSettings: React.FC = () => {
       <div
         role="group"
         aria-label="Глубина темы"
-        style={{ display: 'flex', flexWrap: 'wrap', gap: 'var(--space-2)' }}
+        className="row-stretch wrap gap-2"
       >
         {THEME_DEPTHS.map((option) => (
           <button
             key={option.id}
             type="button"
-            className="chip"
+            className="chip text-xs"
             aria-pressed={shownDepth === option.id}
             disabled={lockedDepth !== null}
             title={lockedDepth === null ? option.description : `Глубину держит пресет «${lockedPreset.label}»`}
             onClick={() => setDepth(option.id)}
             data-testid={`settings-theme-depth-${option.id}`}
-            style={{ fontSize: 'var(--text-xs)' }}
           >
             {/*
               The dot is the actual base surface of that depth under the current
@@ -302,14 +286,7 @@ export const AppearanceSettings: React.FC = () => {
             <span
               aria-hidden="true"
               data-testid={`settings-theme-depth-swatch-${option.id}`}
-              style={{
-                width: '10px',
-                height: '10px',
-                flexShrink: 0,
-                borderRadius: 'var(--radius-full)',
-                background: depthBase(option.id),
-                boxShadow: 'inset 0 0 0 1px var(--border-strong)'
-              }}
+              className="shrink-0 radius-full" style={{ width: '10px', height: '10px', background: depthBase(option.id), boxShadow: 'inset 0 0 0 1px var(--border-strong)' }}
             />
             {option.label}
           </button>

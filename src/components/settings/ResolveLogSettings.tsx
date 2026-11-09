@@ -46,13 +46,13 @@ export const ResolveLogSettings: React.FC = () => {
       description="Последние попытки: какой источник ответил, сколько это заняло и почему не вышло. Если что-то не играет — скопируйте журнал и перешлите."
     >
       <TelemetryToggle />
-      <p style={{ margin: 0, fontSize: 'var(--text-sm)', color: 'var(--text-secondary)' }} data-testid="resolve-log-summary">
+      <p className="m-0 text-sm text-secondary" data-testid="resolve-log-summary">
         {entries.length === 0
           ? 'Пока пусто: журнал заполнится, когда включите что-нибудь.'
           : `Попыток: ${entries.length}, не вышло: ${failed}, дольше 10 секунд: ${slow}.`}
       </p>
 
-      <div style={{ display: 'flex', gap: 'var(--space-2)', flexWrap: 'wrap' }}>
+      <div className="row-stretch gap-2 wrap">
         <Button variant="secondary" size="sm" onClick={copy} disabled={entries.length === 0} data-testid="resolve-log-copy">
           <ClipboardCopy size={ICON.sm} aria-hidden="true" />
           Скопировать
@@ -65,7 +65,7 @@ export const ResolveLogSettings: React.FC = () => {
 
       {newestFirst.length > 0 && (
         <ul
-          style={{ listStyle: 'none', margin: 0, padding: 0, display: 'grid', gap: 'var(--space-2)' }}
+          className="m-0 p-0 grid gap-2 list-none"
           data-testid="resolve-log"
         >
           {newestFirst.map((entry) => (
@@ -80,15 +80,15 @@ export const ResolveLogSettings: React.FC = () => {
                 minWidth: 0
               }}
             >
-              <div style={{ display: 'flex', justifyContent: 'space-between', gap: 'var(--space-2)' }}>
-                <span className="text-truncate" style={{ color: 'var(--text-primary)', minWidth: 0 }}>
+              <div className="row-stretch justify-between gap-2">
+                <span className="text-truncate text-primary min-0">
                   {entry.title}
                 </span>
-                <span data-numeric style={{ flexShrink: 0, color: entry.ms > 10000 ? 'var(--warning)' : 'var(--text-muted)' }}>
+                <span data-numeric className="shrink-0" style={{ color: entry.ms > 10000 ? 'var(--warning)' : 'var(--text-muted)' }}>
                   {(entry.ms / 1000).toFixed(1)} с
                 </span>
               </div>
-              <div style={{ marginTop: '2px', wordBreak: 'break-word' }}>
+              <div className="mt-px" style={{ wordBreak: 'break-word' }}>
                 {entry.ok ? 'играет' : 'не вышло'} · {entry.source}
                 {entry.prefetch ? ' · заранее' : ''} · {entry.detail}
               </div>

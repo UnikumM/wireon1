@@ -80,45 +80,29 @@ export const SmartPlaylistView: React.FC = () => {
   }
 
   return (
-    <div className="animate-view-in" style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-5)' }} data-testid="smart-view">
+    <div className="animate-view-in stack gap-5" data-testid="smart-view">
       <header
-        className="panel"
-        style={{
-          display: 'flex',
-          alignItems: 'center',
-          gap: 'var(--space-5)',
-          padding: 'var(--space-5)',
-          borderRadius: 'var(--radius-lg)',
-          flexWrap: 'wrap'
-        }}
+        className="panel row gap-5 p-5 radius-lg wrap"
       >
         <PlaylistCover tracks={list} size={112} radius="var(--radius-md)" />
-        <div style={{ flex: '1 1 240px', minWidth: 0, display: 'flex', flexDirection: 'column', gap: 'var(--space-1)' }}>
-          <span className="section-label" style={{ display: 'inline-flex', alignItems: 'center', gap: 'var(--space-1)' }}>
+        <div className="min-0 stack gap-1" style={{ flex: '1 1 240px' }}>
+          <span className="section-label inline-row gap-1">
             <Wand2 size={ICON.xs} aria-hidden="true" /> Умный плейлист
           </span>
           <h1
-            className="text-truncate"
-            style={{
-              margin: 0,
-              fontSize: 'var(--text-2xl)',
-              lineHeight: 'var(--leading-2xl)',
-              letterSpacing: 'var(--tracking-2xl)',
-              fontWeight: 'var(--weight-semibold)',
-              color: 'var(--text-primary)'
-            }}
+            className="text-truncate m-0 weight-semibold text-primary type-2xl"
             data-testid="smart-title"
           >
             {playlist.title}
           </h1>
-          <p style={{ margin: 0, fontSize: 'var(--text-sm)', color: 'var(--text-secondary)' }} data-testid="smart-rules-summary">
+          <p className="m-0 text-sm text-secondary" data-testid="smart-rules-summary">
             {describeRules(playlist)}
           </p>
-          <p data-numeric style={{ margin: 0, fontSize: 'var(--text-xs)', color: 'var(--text-muted)' }}>
+          <p data-numeric className="m-0 text-xs text-muted">
             {tracks ? describeTrackTotals(list) : 'Считаем…'}
           </p>
         </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)', flexWrap: 'wrap' }}>
+        <div className="row gap-2 wrap">
           <Button variant="primary" size="md" icon={<Play size={ICON.md} />} onClick={() => play(false)} disabled={list.length === 0} data-testid="smart-play">
             Слушать
           </Button>
@@ -170,13 +154,7 @@ export const SmartPlaylistView: React.FC = () => {
         <div
           ref={listRef}
           role="list"
-          style={{
-            display: 'flex',
-            flexDirection: 'column',
-            gap: 'var(--space-1)',
-            paddingTop: virtual.paddingTop,
-            paddingBottom: virtual.paddingBottom
-          }}
+          className="stack gap-1" style={{ paddingTop: virtual.paddingTop, paddingBottom: virtual.paddingBottom }}
           data-testid="smart-track-list"
         >
           {list.slice(virtual.startIndex, virtual.endIndex).map((track, offset) => {

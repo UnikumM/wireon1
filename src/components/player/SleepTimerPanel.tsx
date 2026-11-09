@@ -44,9 +44,9 @@ export const SleepTimerPanel: React.FC<SleepTimerPanelProps> = ({ onPicked }) =>
   };
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }} data-testid="sleep-timer-panel">
+    <div className="stack gap-3" data-testid="sleep-timer-panel">
       <p
-        style={{ margin: 0, color: active ? 'var(--accent)' : 'var(--text-muted)', fontSize: 'var(--text-sm)' }}
+        className="m-0 text-sm" style={{ color: active ? 'var(--accent)' : 'var(--text-muted)' }}
         data-testid="sleep-timer-status"
       >
         {sleepAtTrackEnd
@@ -58,27 +58,27 @@ export const SleepTimerPanel: React.FC<SleepTimerPanelProps> = ({ onPicked }) =>
       <div
         role="group"
         aria-label="Таймер сна"
-        style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 'var(--space-2)' }}
+        className="grid gap-2" style={{ gridTemplateColumns: 'repeat(3, 1fr)' }}
       >
         {SLEEP_PANEL_OPTIONS.map((minutes) => (
           <button
             key={minutes}
             type="button"
-            className="chip"
-            style={{ justifyContent: 'center', minHeight: '44px' }}
+            className="chip justify-center"
+            style={{ minHeight: '44px' }}
             onClick={() => pick(() => setSleepTimer(minutes))}
             data-testid={`sleep-panel-${minutes}`}
           >
             <span data-numeric>{minutes}</span>
-            <span style={{ color: 'var(--text-faint)' }}>мин</span>
+            <span className="text-faint">мин</span>
           </button>
         ))}
         <button
           type="button"
-          className="chip"
+          className="chip justify-center"
           data-active={sleepAtTrackEnd}
           aria-pressed={sleepAtTrackEnd}
-          style={{ justifyContent: 'center', minHeight: '44px' }}
+          style={{ minHeight: '44px' }}
           onClick={() => pick(() => setSleepAtTrackEnd(true))}
           data-testid="sleep-panel-track-end"
         >
@@ -88,8 +88,8 @@ export const SleepTimerPanel: React.FC<SleepTimerPanelProps> = ({ onPicked }) =>
       {active && (
         <button
           type="button"
-          className="chip"
-          style={{ justifyContent: 'center', minHeight: '44px' }}
+          className="chip justify-center"
+          style={{ minHeight: '44px' }}
           onClick={() => pick(() => setSleepTimer(null))}
           data-testid="sleep-panel-off"
         >

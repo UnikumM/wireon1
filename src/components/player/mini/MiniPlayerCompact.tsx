@@ -43,17 +43,10 @@ export const MiniPlayerCompact: React.FC = () => {
 
   return (
     <div
-      style={{
-        display: 'flex',
-        flexDirection: 'column',
-        height: '100%',
-        justifyContent: 'space-between',
-        padding: '8px 12px',
-        position: 'relative'
-      }}
+      className="stack h-full justify-between relative" style={{ padding: '8px 12px' }}
       data-testid="mini-player-compact"
     >
-      <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flex: 1, minWidth: 0 }}>
+      <div className="row grow gap-3">
         {/* Cover Art */}
         <div
           style={{
@@ -75,36 +68,27 @@ export const MiniPlayerCompact: React.FC = () => {
             <img
               src={currentTrack.artworkUrl}
               alt={currentTrack.title}
-              style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+              className="fill-cover"
             />
           ) : (
-            <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-faint)' }}>
+            <div className="w-full h-full row justify-center text-faint">
               <Music2 size={ICON.lg} />
             </div>
           )}
         </div>
 
         {/* Title & Artist */}
-        <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: '2px' }}>
+        <div className="grow stack gap-px">
           <div
-            className="text-truncate"
-            style={{
-              fontSize: 'var(--text-sm)',
-              fontWeight: 'var(--weight-semibold)',
-              color: 'var(--text-primary)',
-              lineHeight: 1.2
-            }}
+            className="text-truncate text-sm weight-semibold text-primary"
+            style={{ lineHeight: 1.2 }}
             title={currentTrack?.title || 'Ничего не играет'}
           >
             {currentTrack?.title || 'Ничего не играет'}
           </div>
           <div
-            className="text-truncate"
-            style={{
-              fontSize: 'var(--text-xs)',
-              color: 'var(--text-secondary)',
-              lineHeight: 1.2
-            }}
+            className="text-truncate text-xs text-secondary"
+            style={{ lineHeight: 1.2 }}
             title={currentTrack?.artist || 'Выберите трек'}
           >
             {currentTrack?.artist || 'Выберите трек'}
@@ -113,26 +97,18 @@ export const MiniPlayerCompact: React.FC = () => {
 
         {/* Visualizer if enabled */}
         {miniPlayerShowVisualizer && (
-          <div style={{ width: '42px', height: '26px', flexShrink: 0, opacity: 0.85 }}>
+          <div className="shrink-0" style={{ width: '42px', height: '26px', opacity: 0.85 }}>
             <AudioVisualizer preset={visualizerPreset} width={42} height={26} />
           </div>
         )}
 
         {/* Controls */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexShrink: 0 }}>
+        <div className="row shrink-0" style={{ gap: '6px' }}>
           {currentTrack && (
             <button
               type="button"
               onClick={() => toggleFavorite(currentTrack)}
-              style={{
-                background: 'none',
-                border: 'none',
-                color: isFav ? 'var(--accent)' : 'var(--text-muted)',
-                cursor: 'pointer',
-                padding: '4px',
-                display: 'flex',
-                alignItems: 'center'
-              }}
+              className="pointer row bg-none border-none p-1" style={{ color: isFav ? 'var(--accent)' : 'var(--text-muted)' }}
               title={isFav ? 'В любимом' : 'Добавить в любимое'}
               data-testid="mini-compact-fav-btn"
             >
@@ -143,15 +119,7 @@ export const MiniPlayerCompact: React.FC = () => {
           <button
             type="button"
             onClick={() => prevTrack()}
-            style={{
-              background: 'none',
-              border: 'none',
-              color: 'var(--text-primary)',
-              cursor: 'pointer',
-              padding: '4px',
-              display: 'flex',
-              alignItems: 'center'
-            }}
+            className="text-primary pointer row bg-none border-none p-1"
             title="Предыдущий трек"
             data-testid="mini-compact-prev-btn"
           >
@@ -161,20 +129,7 @@ export const MiniPlayerCompact: React.FC = () => {
           <button
             type="button"
             onClick={() => togglePlayPause()}
-            style={{
-              width: 'var(--control-md)',
-              height: 'var(--control-md)',
-              borderRadius: 'var(--radius-full)',
-              backgroundColor: 'var(--accent)',
-              border: 'none',
-              color: 'var(--text-on-accent)',
-              cursor: 'pointer',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              flexShrink: 0,
-              boxShadow: 'var(--shadow-sm)'
-            }}
+            className="control-md radius-full pointer row justify-center shrink-0 bg-accent border-none" style={{ color: 'var(--text-on-accent)', boxShadow: 'var(--shadow-sm)' }}
             title={showPause ? 'Пауза' : 'Играть'}
             data-testid="mini-compact-play-btn"
           >
@@ -190,15 +145,7 @@ export const MiniPlayerCompact: React.FC = () => {
           <button
             type="button"
             onClick={() => nextTrack(true)}
-            style={{
-              background: 'none',
-              border: 'none',
-              color: 'var(--text-primary)',
-              cursor: 'pointer',
-              padding: '4px',
-              display: 'flex',
-              alignItems: 'center'
-            }}
+            className="text-primary pointer row bg-none border-none p-1"
             title="Следующий трек"
             data-testid="mini-compact-next-btn"
           >
@@ -208,15 +155,7 @@ export const MiniPlayerCompact: React.FC = () => {
           <button
             type="button"
             onClick={() => setAutoplayRadio(!autoplayRadio)}
-            style={{
-              background: 'none',
-              border: 'none',
-              color: autoplayRadio ? 'var(--accent)' : 'var(--text-muted)',
-              cursor: 'pointer',
-              padding: '4px',
-              display: 'flex',
-              alignItems: 'center'
-            }}
+            className="pointer row bg-none border-none p-1" style={{ color: autoplayRadio ? 'var(--accent)' : 'var(--text-muted)' }}
             title={autoplayRadio ? 'Автопоток включён' : 'Автопоток выключен'}
             data-testid="mini-compact-radio-btn"
           >
@@ -229,16 +168,7 @@ export const MiniPlayerCompact: React.FC = () => {
       {miniPlayerShowProgress && (
         <div
           onClick={handleProgressBarClick}
-          style={{
-            position: 'relative',
-            width: '100%',
-            height: '4px',
-            backgroundColor: 'var(--surface-active)',
-            borderRadius: 'var(--radius-full)',
-            cursor: 'pointer',
-            marginTop: '6px',
-            overflow: 'hidden'
-          }}
+          className="relative w-full radius-full pointer overflow-hidden" style={{ height: '4px', backgroundColor: 'var(--surface-active)', marginTop: '6px' }}
           data-testid="mini-compact-progress-bar"
         >
           {/* Buffer */}

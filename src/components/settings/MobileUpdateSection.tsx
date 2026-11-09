@@ -71,16 +71,16 @@ export const MobileUpdateSection: React.FC = () => {
       description={`Установлена версия ${installed}.`}
     >
       {error && (
-        <p style={{ margin: 0, fontSize: 'var(--text-sm)', color: 'var(--danger)' }}>{error}</p>
+        <p className="m-0 text-sm text-danger">{error}</p>
       )}
 
       {update ? (
         <>
-          <p style={{ margin: 0, fontSize: 'var(--text-sm)', color: 'var(--text-primary)' }}>
+          <p className="m-0 text-sm text-primary">
             Доступна версия {update.version} — {(update.size / 1048576).toFixed(0)} МБ.
           </p>
           {busy && progress > 0 && (
-            <p style={{ margin: 0, fontSize: 'var(--text-xs)', color: 'var(--text-muted)' }}>
+            <p className="m-0 text-xs text-muted">
               Скачиваем… {Math.round(progress * 100)}%
             </p>
           )}
@@ -91,7 +91,7 @@ export const MobileUpdateSection: React.FC = () => {
       ) : (
         <>
           {checked && !busy && (
-            <p style={{ margin: 0, fontSize: 'var(--text-sm)', color: 'var(--text-secondary)' }}>
+            <p className="m-0 text-sm text-secondary">
               Установлена последняя версия.
             </p>
           )}

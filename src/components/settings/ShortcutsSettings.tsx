@@ -116,18 +116,11 @@ const GlobalHotkeysSection: React.FC = () => {
         onChange={setEnabled}
       />
 
-      <ul style={{ listStyle: 'none', margin: 'var(--space-3) 0 0', padding: 0, display: 'grid', gap: 'var(--space-2)' }}>
+      <ul className="p-0 grid gap-2 list-none" style={{ margin: 'var(--space-3) 0 0' }}>
         {GLOBAL_ACTIONS.map(({ action, label }) => (
           <li
             key={action}
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-              gap: 'var(--space-4)',
-              fontSize: 'var(--text-sm)',
-              color: enabled ? 'var(--text-primary)' : 'var(--text-muted)'
-            }}
+            className="row justify-between gap-4 text-sm" style={{ color: enabled ? 'var(--text-primary)' : 'var(--text-muted)' }}
           >
             <span>{label}</span>
             <button
@@ -150,7 +143,7 @@ const GlobalHotkeysSection: React.FC = () => {
         ))}
       </ul>
 
-      <p style={{ margin: 'var(--space-2) 0 0', fontSize: 'var(--text-xs)', color: 'var(--text-muted)' }}>
+      <p className="text-xs text-muted" style={{ margin: 'var(--space-2) 0 0' }}>
         Во время записи: Esc — отменить, Backspace — снять клавишу с действия.
       </p>
 
@@ -159,16 +152,7 @@ const GlobalHotkeysSection: React.FC = () => {
       <button
         type="button"
         onClick={resetHotkeys}
-        style={{
-          marginTop: 'var(--space-3)',
-          padding: '6px 12px',
-          borderRadius: 'var(--radius-sm)',
-          border: '1px solid var(--border-subtle)',
-          background: 'var(--surface-2)',
-          color: 'var(--text-secondary)',
-          fontSize: 'var(--text-xs)',
-          cursor: 'pointer'
-        }}
+        className="mt-3 radius-sm text-secondary text-xs pointer border-subtle bg-surface-2" style={{ padding: '6px 12px' }}
       >
         Вернуть стандартные
       </button>
@@ -211,16 +195,16 @@ const SystemShortcutHint: React.FC = () => {
   };
 
   const commands = (
-    <ul style={{ listStyle: 'none', margin: 'var(--space-2) 0 0', padding: 0, display: 'grid', gap: 'var(--space-1)' }}>
+    <ul className="p-0 grid gap-1 list-none" style={{ margin: 'var(--space-2) 0 0' }}>
       {GLOBAL_ACTIONS.map(({ action, label }) => {
         const line = `${control.command} --${action}`;
         return (
-          <li key={action} style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)', minWidth: 0 }}>
-            <span style={{ flexShrink: 0, minWidth: '130px', color: 'var(--text-secondary)' }}>{label}</span>
+          <li key={action} className="row gap-2 min-0">
+            <span className="shrink-0 text-secondary" style={{ minWidth: '130px' }}>{label}</span>
             <code
-              className="text-truncate"
+              className="text-truncate grow text-xs text-muted"
               title={line}
-              style={{ flex: 1, minWidth: 0, fontFamily: 'var(--font-mono)', fontSize: 'var(--text-xs)', color: 'var(--text-muted)' }}
+              style={{ fontFamily: 'var(--font-mono)' }}
             >
               {line}
             </code>
@@ -259,12 +243,12 @@ const SystemShortcutHint: React.FC = () => {
     >
       {control.wayland ? (
         <>
-          <p style={{ margin: 0 }}>{intro}</p>
+          <p className="m-0">{intro}</p>
           {commands}
         </>
       ) : (
         <details>
-          <summary style={{ cursor: 'pointer' }}>Команды для системных сочетаний</summary>
+          <summary className="pointer">Команды для системных сочетаний</summary>
           <p style={{ margin: 'var(--space-2) 0 0' }}>{intro}</p>
           {commands}
         </details>
@@ -286,33 +270,18 @@ export const ShortcutsSettings: React.FC = () => {
       description="Не срабатывают, пока курсор стоит в поле ввода."
     >
       <ul
-        style={{
-          listStyle: 'none',
-          margin: 0,
-          padding: 0,
-          display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))',
-          gap: 'var(--space-2) var(--space-6)'
-        }}
+        className="m-0 p-0 grid list-none" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: 'var(--space-2) var(--space-6)' }}
       >
         {shortcuts(mod).map((shortcut) => (
           <li
             key={shortcut.action}
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-              gap: 'var(--space-4)',
-              fontSize: 'var(--text-sm)',
-              lineHeight: 'var(--leading-sm)',
-              color: 'var(--text-primary)'
-            }}
+            className="row justify-between gap-4 text-sm text-primary leading-sm"
           >
             <span>{shortcut.action}</span>
-            <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', flexShrink: 0 }}>
+            <span className="inline-row shrink-0 gap-1">
               {shortcut.keys.map((key, i) => (
                 <React.Fragment key={key}>
-                  {i > 0 && <span style={{ color: 'var(--text-muted)', fontSize: 'var(--text-xs)' }}>+</span>}
+                  {i > 0 && <span className="text-muted text-xs">+</span>}
                   <kbd style={kbdStyle}>{key}</kbd>
                 </React.Fragment>
               ))}

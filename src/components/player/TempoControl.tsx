@@ -69,14 +69,9 @@ export const TempoPanel: React.FC<TempoPanelProps> = ({ columns = 2 }) => {
   const activePreset = TEMPO_PRESETS.find((preset) => Math.abs(preset.rate - playbackRate) < 0.001);
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
+    <div className="stack gap-3">
         <div
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            gap: 'var(--space-2)'
-          }}
+          className="row justify-between gap-2"
         >
           {/*
             * Строчными, а не капсом. Капс требует разрядки — набранный
@@ -86,12 +81,7 @@ export const TempoPanel: React.FC<TempoPanelProps> = ({ columns = 2 }) => {
             * `aria-label`, а открывается с кнопки «Настроить песню».
             */}
           <span
-            style={{
-              fontSize: 'var(--text-sm)',
-              letterSpacing: 'var(--tracking-sm)',
-              fontWeight: 'var(--weight-medium)',
-              color: 'var(--text-secondary)'
-            }}
+            className="text-sm weight-medium text-secondary tracking-sm"
           >
             Скорость
           </span>
@@ -111,26 +101,21 @@ export const TempoPanel: React.FC<TempoPanelProps> = ({ columns = 2 }) => {
         <div
           role="group"
           aria-label="Пресеты скорости"
-          style={{
-            display: 'grid',
-            gridTemplateColumns:
-              columns === 1 ? 'minmax(0, 1fr)' : 'minmax(0, 1fr) minmax(0, 1fr)',
-            gap: 'var(--space-1)'
-          }}
+          className="grid gap-1" style={{ gridTemplateColumns:
+              columns === 1 ? 'minmax(0, 1fr)' : 'minmax(0, 1fr) minmax(0, 1fr)' }}
         >
           {TEMPO_PRESETS.map((preset) => (
             <button
               key={preset.label}
-              className="chip focus-ring"
+              className="chip focus-ring justify-between"
               role="radio"
               aria-checked={activePreset?.label === preset.label}
               data-active={activePreset?.label === preset.label}
               onClick={() => setPlaybackRate(preset.rate)}
               title={preset.hint}
-              style={{ justifyContent: 'space-between' }}
               data-testid={`tempo-preset-${preset.rate}`}
             >
-              <span style={{ minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis' }}>{preset.label}</span>
+              <span className="min-0 overflow-hidden" style={{ textOverflow: 'ellipsis' }}>{preset.label}</span>
               {/*
                 * Числа стоят столбцом, а не «где придётся».
                 *
@@ -144,12 +129,7 @@ export const TempoPanel: React.FC<TempoPanelProps> = ({ columns = 2 }) => {
                 */}
               <span
                 data-numeric
-                style={{
-                  minWidth: '3.05em',
-                  textAlign: 'right',
-                  flexShrink: 0,
-                  color: 'var(--text-faint)'
-                }}
+                className="text-right shrink-0 text-faint" style={{ minWidth: '3.05em' }}
               >
                 {formatRate(preset.rate)}
               </span>
@@ -158,19 +138,14 @@ export const TempoPanel: React.FC<TempoPanelProps> = ({ columns = 2 }) => {
         </div>
 
         <label
-          style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' }}
+          className="stack gap-2"
           data-testid="tempo-manual"
         >
           <span
-            style={{
-              display: 'flex',
-              justifyContent: 'space-between',
-              fontSize: 'var(--text-xs)',
-              color: 'var(--text-secondary)'
-            }}
+            className="row-stretch justify-between text-xs text-secondary"
           >
             <span>Вручную</span>
-            <span data-numeric style={{ color: 'var(--text-primary)' }}>
+            <span data-numeric className="text-primary">
               {formatRate(playbackRate)}
             </span>
           </span>
@@ -211,29 +186,19 @@ export const TempoPanel: React.FC<TempoPanelProps> = ({ columns = 2 }) => {
         <button
           role="switch"
           aria-checked={preservePitch}
-          className="menu-item-hover focus-ring"
+          className="menu-item-hover focus-ring text-left"
           onClick={() => setPreservePitch(!preservePitch)}
           title={
             preservePitch
               ? 'Меняется только темп, голос остаётся прежним'
               : 'Голос меняется вместе с темпом, как в slowed и nightcore'
           }
-          style={{ textAlign: 'left' }}
           data-testid="tempo-preserve-pitch"
         >
-          <span style={{ flex: 1, minWidth: 0, color: 'var(--text-primary)' }}>Сохранять тональность</span>
+          <span className="grow text-primary">Сохранять тональность</span>
           <span
             aria-hidden="true"
-            style={{
-              width: '30px',
-              height: '16px',
-              flexShrink: 0,
-              borderRadius: 'var(--radius-full)',
-              backgroundColor: preservePitch ? 'var(--accent)' : 'var(--surface-3)',
-              border: '1px solid var(--border-subtle)',
-              position: 'relative',
-              transition: 'background-color var(--dur-fast) var(--ease-out)'
-            }}
+            className="shrink-0 radius-full relative border-subtle" style={{ width: '30px', height: '16px', backgroundColor: preservePitch ? 'var(--accent)' : 'var(--surface-3)', transition: 'background-color var(--dur-fast) var(--ease-out)' }}
           >
             <span
               style={{
@@ -284,7 +249,7 @@ export const TempoControl: React.FC<TempoControlProps> = ({ align = 'right', siz
   const iconSize = sizeName === 'lg' ? ICON.lg : ICON.md;
 
   return (
-    <div style={{ position: 'relative', flexShrink: 0 }}>
+    <div className="relative shrink-0">
       <Button
         variant="ghost"
         size="icon"
@@ -317,12 +282,7 @@ export const TempoControl: React.FC<TempoControlProps> = ({ align = 'right', siz
         {isModified && (
           <span
             data-numeric
-            style={{
-              fontSize: 'var(--text-xs)',
-              fontWeight: 'var(--weight-semibold)',
-              lineHeight: 1,
-              letterSpacing: 'var(--tracking-xs)'
-            }}
+            className="text-xs weight-semibold tracking-xs" style={{ lineHeight: 1 }}
             data-testid="tempo-badge"
           >
             {formatRate(playbackRate)}

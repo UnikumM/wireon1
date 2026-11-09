@@ -132,18 +132,13 @@ export const WaveSourcePicker: React.FC<WaveSourcePickerProps> = ({
 
   return (
     <div
-      className={`wave-source-picker ${className}`}
-      style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)', width: '100%' }}
+      className={`wave-source-picker ${className} stack gap-3 w-full`}
       data-testid="wave-source-picker"
     >
       <div className="section-label">Откуда берём музыку</div>
 
       <div
-        style={{
-          display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))',
-          gap: 'var(--space-2)'
-        }}
+        className="grid gap-2" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))' }}
       >
         {SOURCES.map((source) => {
           const isActive = seedKind === source.id;
@@ -190,22 +185,15 @@ export const WaveSourcePicker: React.FC<WaveSourcePickerProps> = ({
               data-testid={`wave-source-chip-${source.id}`}
             >
               <span
-                style={{
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  gap: 'var(--space-2)',
-                  fontSize: 'var(--text-sm)',
-                  fontWeight: isActive ? 'var(--weight-semibold)' : 'var(--weight-medium)'
-                }}
+                className="inline-row gap-2 text-sm" style={{ fontWeight: isActive ? 'var(--weight-semibold)' : 'var(--weight-medium)' }}
               >
-                <span style={{ display: 'inline-flex', color: isActive ? 'var(--accent)' : 'var(--text-muted)' }}>
+                <span className="inline-row" style={{ color: isActive ? 'var(--accent)' : 'var(--text-muted)' }}>
                   {source.icon}
                 </span>
                 {source.label}
               </span>
               <span
-                className="text-truncate"
-                style={{ fontSize: 'var(--text-xs)', color: 'var(--text-muted)', maxWidth: '100%' }}
+                className="text-truncate text-xs text-muted max-w-full"
               >
                 {hint}
               </span>
@@ -216,8 +204,7 @@ export const WaveSourcePicker: React.FC<WaveSourcePickerProps> = ({
 
       {seedKind === 'artist' && artistOptions.length > 0 && (
         <div
-          className="animate-slide-up"
-          style={{ display: 'flex', flexWrap: 'wrap', gap: 'var(--space-1)' }}
+          className="animate-slide-up row-stretch wrap gap-1"
           data-testid="wave-seed-artist-list"
         >
           {artistOptions.map((artist, i) => {

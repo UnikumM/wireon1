@@ -228,7 +228,7 @@ export const FullscreenPlayer: React.FC<FullscreenPlayerProps> = ({ className = 
           screen is alive without anything blinking. */}
       <div
         aria-hidden="true"
-        style={{ position: 'absolute', inset: 0, pointerEvents: 'none', overflow: 'hidden' }}
+        className="no-events overflow-hidden" style={{ position: 'absolute', inset: 0 }}
         data-testid="fullscreen-ambient"
       >
         <div
@@ -280,12 +280,7 @@ export const FullscreenPlayer: React.FC<FullscreenPlayerProps> = ({ className = 
       {isNarrow && (
         <div
           aria-hidden="true"
-          style={{
-            position: 'relative',
-            display: 'flex',
-            justifyContent: 'center',
-            paddingTop: 'var(--space-2)'
-          }}
+          className="relative row-stretch justify-center pt-2"
           data-testid="fullscreen-grabber"
         >
           <span
@@ -319,13 +314,13 @@ export const FullscreenPlayer: React.FC<FullscreenPlayerProps> = ({ className = 
           onClick={() => setFullscreenPlayerOpen(false)}
           title="Свернуть (Esc)"
           aria-label="Свернуть полноэкранный плеер"
-          style={{ width: 'var(--control-lg)', height: 'var(--control-lg)' }}
+          className="control-lg"
           data-testid="fullscreen-close-btn"
         >
           <Minimize2 size={ICON.lg} />
         </Button>
 
-        <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>
+        <div className="row gap-2">
           {fullscreenModules.lyrics && (
             <Button
               variant="ghost"
@@ -335,7 +330,7 @@ export const FullscreenPlayer: React.FC<FullscreenPlayerProps> = ({ className = 
               title={isLyricsOpen ? 'Скрыть текст' : 'Текст песни'}
               aria-label="Текст песни"
               aria-pressed={isLyricsOpen}
-              style={{ width: 'var(--control-lg)', height: 'var(--control-lg)' }}
+              className="control-lg"
               data-testid="fullscreen-lyrics-btn"
             >
               <Mic size={ICON.lg} />
@@ -351,7 +346,7 @@ export const FullscreenPlayer: React.FC<FullscreenPlayerProps> = ({ className = 
               title={isQueueOpen ? 'Скрыть очередь' : 'Показать очередь'}
               aria-label="Очередь"
               aria-pressed={isQueueOpen}
-              style={{ width: 'var(--control-lg)', height: 'var(--control-lg)' }}
+              className="control-lg"
               data-testid="fullscreen-queue-toggle"
             >
               <ListMusic size={ICON.lg} />
@@ -363,16 +358,7 @@ export const FullscreenPlayer: React.FC<FullscreenPlayerProps> = ({ className = 
       {currentTrack ? (
         <>
           <div
-            style={{
-              position: 'relative',
-              flex: 1,
-              minHeight: 0,
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              gap: 'var(--space-7)',
-              padding: isNarrow ? '0 var(--space-4)' : '0 var(--space-6)'
-            }}
+            className="relative flex-1 row justify-center gap-7 min-h-0" style={{ padding: isNarrow ? '0 var(--space-4)' : '0 var(--space-6)' }}
           >
             <div
               className="animate-rise"
@@ -434,13 +420,13 @@ export const FullscreenPlayer: React.FC<FullscreenPlayerProps> = ({ className = 
                     <img
                       src={currentTrack.artworkUrl}
                       alt={`Обложка «${currentTrack.title}»`}
-                      style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                      className="fill-cover"
                       onError={(event) => {
                         event.currentTarget.style.display = 'none';
                       }}
                     />
                   ) : (
-                    <Music2 size={ICON.hero} aria-hidden="true" style={{ color: 'var(--text-faint)' }} />
+                    <Music2 size={ICON.hero} aria-hidden="true" className="text-faint" />
                   )}
                 </div>
               )}
@@ -477,8 +463,8 @@ export const FullscreenPlayer: React.FC<FullscreenPlayerProps> = ({ className = 
             {fullscreenModules.queue && isQueueOpen && (
               <aside
                 aria-labelledby="fullscreen-peek-label"
-                className="animate-slide-left"
-                style={{ width: '260px', flexShrink: 0, alignSelf: 'center' }}
+                className="animate-slide-left shrink-0 self-center"
+                style={{ width: '260px' }}
                 // Очередь прокручивается своим содержимым: жест закрытия здесь
                 // забирал бы движение у списка.
                 data-swipe-ignore="true"
@@ -503,45 +489,36 @@ export const FullscreenPlayer: React.FC<FullscreenPlayerProps> = ({ className = 
 
                 {peekRows.length === 0 ? (
                   <div
-                    className="panel-inset"
-                    style={{
-                      padding: 'var(--space-4)',
-                      fontSize: 'var(--text-xs)',
-                      color: 'var(--text-muted)',
-                      textAlign: 'center'
-                    }}
+                    className="panel-inset p-4 text-xs text-muted text-center"
                     data-testid="fullscreen-peek-empty"
                   >
                     Очередь пуста
                   </div>
                 ) : (
-                  <ul style={{ listStyle: 'none', margin: 0, padding: 0 }}>
+                  <ul className="m-0 p-0 list-none">
                     {peekRows.map(({ key, track, play }) => (
                       <li key={key}>
                         <button
-                          className="menu-item-hover"
+                          className="menu-item-hover gap-2 py-1 px-2"
                           onClick={play}
                           title={`Включить «${track.title}»`}
                           aria-label={`Включить «${track.title}»`}
-                          style={{ gap: 'var(--space-2)', padding: 'var(--space-1) var(--space-2)' }}
                         >
-                          <span style={{ flex: 1, minWidth: 0, display: 'block' }}>
+                          <span className="grow block">
                             <span
-                              className="text-truncate"
-                              style={{ display: 'block', fontSize: 'var(--text-sm)', color: 'var(--text-primary)' }}
+                              className="text-truncate block text-sm text-primary"
                             >
                               {track.title}
                             </span>
                             <span
-                              className="text-truncate"
-                              style={{ display: 'block', fontSize: 'var(--text-xs)', color: 'var(--text-secondary)' }}
+                              className="text-truncate block text-xs text-secondary"
                             >
                               {track.artist}
                             </span>
                           </span>
                           <span
                             data-numeric
-                            style={{ fontSize: 'var(--text-xs)', color: 'var(--text-muted)', flexShrink: 0 }}
+                            className="text-xs text-muted shrink-0"
                           >
                             {formatDuration(track.duration)}
                           </span>
@@ -572,30 +549,15 @@ export const FullscreenPlayer: React.FC<FullscreenPlayerProps> = ({ className = 
               } as React.CSSProperties
             }
           >
-            <div style={{ display: 'flex', alignItems: 'flex-end', gap: 'var(--space-4)' }}>
-              <div style={{ flex: 1, minWidth: 0 }}>
+            <div className="row-end gap-4">
+              <div className="grow">
                 <h1
-                  style={{
-                    margin: 0,
-                    display: 'flex',
-                    minWidth: 0,
-                    fontSize: 'var(--text-2xl)',
-                    lineHeight: 'var(--leading-2xl)',
-                    letterSpacing: 'var(--tracking-2xl)',
-                    fontWeight: 'var(--weight-semibold)',
-                    color: 'var(--text-primary)'
-                  }}
+                  className="m-0 row-stretch min-0 weight-semibold text-primary type-2xl"
                 >
                   <MarqueeText text={currentTrack.title} data-testid="fullscreen-track-title" />
                 </h1>
                 <div
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: 'var(--space-2)',
-                    marginTop: 'var(--space-1)',
-                    minWidth: 0
-                  }}
+                  className="row gap-2 mt-1 min-0"
                 >
                   <button
                     type="button"
@@ -604,16 +566,7 @@ export const FullscreenPlayer: React.FC<FullscreenPlayerProps> = ({ className = 
                         openArtist(currentTrack.artist);
                       }
                     }}
-                    className="text-truncate focus-ring hover-underline"
-                    style={{
-                      fontSize: 'var(--text-base)',
-                      color: 'var(--text-secondary)',
-                      padding: 0,
-                      background: 'none',
-                      border: 'none',
-                      cursor: 'pointer',
-                      textAlign: 'left'
-                    }}
+                    className="text-truncate focus-ring hover-underline text-base text-secondary p-0 pointer text-left bg-none border-none"
                     title={`Открыть артиста ${currentTrack.artist}`}
                     data-testid="fullscreen-track-artist"
                   >
@@ -630,7 +583,7 @@ export const FullscreenPlayer: React.FC<FullscreenPlayerProps> = ({ className = 
                 title={isFavorite ? 'Убрать из избранного' : 'В избранное'}
                 aria-label={isFavorite ? 'Убрать из избранного' : 'В избранное'}
                 aria-pressed={isFavorite}
-                style={{ width: 'var(--control-lg)', height: 'var(--control-lg)', color: isFavorite ? 'var(--accent)' : 'var(--text-muted)' }}
+                className="control-lg" style={{ color: isFavorite ? 'var(--accent)' : 'var(--text-muted)' }}
                 data-testid="fullscreen-fav-btn"
               >
                 <Heart size={ICON.lg} fill={isFavorite ? 'currentColor' : 'none'} />
@@ -653,15 +606,10 @@ export const FullscreenPlayer: React.FC<FullscreenPlayerProps> = ({ className = 
                 * одного и того же.
                 */
               <div
-                style={{
-                  display: 'flex',
-                  flexDirection: 'column',
-                  alignItems: 'center',
-                  gap: 'var(--space-4)'
-                }}
+                className="stack-center gap-4"
               >
                 <TransportControls variant="comfortable" idPrefix="fullscreen" />
-                <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-3)' }}>
+                <div className="row gap-3">
                   <TempoControl align="left" size="lg" />
                 </div>
               </div>
@@ -682,12 +630,12 @@ export const FullscreenPlayer: React.FC<FullscreenPlayerProps> = ({ className = 
                   * 800 px при колонке в 712: громкость вылезала за край и в узком
                   * окне липла к кнопке «∞».
                   */}
-                <div style={{ flex: '1 1 0', minWidth: 0, display: 'flex', alignItems: 'center' }}>
+                <div className="min-0 row" style={{ flex: '1 1 0' }}>
                   {/* Mirrors the volume slider on the right, so the transport stays centred. */}
                   <TempoControl align="left" size="lg" />
                 </div>
                 <TransportControls variant="comfortable" idPrefix="fullscreen" />
-                <div style={{ flex: '1 1 0', minWidth: 0, display: 'flex', justifyContent: 'flex-end' }}>
+                <div className="min-0 row-stretch justify-end" style={{ flex: '1 1 0' }}>
                   <VolumeSlider
                     volume={volume}
                     isMuted={isMuted}
@@ -702,14 +650,7 @@ export const FullscreenPlayer: React.FC<FullscreenPlayerProps> = ({ className = 
         </>
       ) : (
         <div
-          style={{
-            position: 'relative',
-            flex: 1,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            padding: 'var(--space-6)'
-          }}
+          className="relative flex-1 row justify-center p-6"
         >
           {/*
             * Подпись была «Включите трек — и полноэкранный режим оживёт»: обещание

@@ -178,8 +178,8 @@ export const SearchBar: React.FC<SearchBarProps> = ({
   return (
     <div
       ref={containerRef}
-      className={`wireon-search-bar-container ${className}`}
-      style={{ position: 'relative', width: '100%', maxWidth: '780px' }}
+      className={`wireon-search-bar-container ${className} relative w-full`}
+      style={{ maxWidth: '780px' }}
     >
       <div
         style={{
@@ -194,7 +194,7 @@ export const SearchBar: React.FC<SearchBarProps> = ({
           transition: 'border-color var(--dur-fast) var(--ease-out), box-shadow var(--dur-fast) var(--ease-out)',
         }}
       >
-        <Search size={ICON.lg} style={{ color: 'var(--text-muted)', flexShrink: 0 }} aria-hidden="true" />
+        <Search size={ICON.lg} className="text-muted shrink-0" aria-hidden="true" />
 
         <input
           ref={inputRef}
@@ -218,26 +218,14 @@ export const SearchBar: React.FC<SearchBarProps> = ({
           aria-autocomplete="list"
           aria-activedescendant={highlight >= 0 ? `${LISTBOX_ID}-option-${highlight}` : undefined}
           autoComplete="off"
-          style={{
-            flex: 1,
-            minWidth: 0,
-            background: 'transparent',
-            border: 'none',
-            outline: 'none',
-            boxShadow: 'none',
-            padding: 0,
-            color: 'var(--text-primary)',
-            fontSize: 'var(--text-base)',
-            fontFamily: 'inherit',
-          }}
+          className="grow p-0 text-primary text-base bg-transparent border-none" style={{ outline: 'none', boxShadow: 'none', fontFamily: 'inherit' }}
           data-testid="search-input"
         />
 
         {isLoading && (
           <Loader2
             size={ICON.md}
-            className="animate-spin"
-            style={{ color: 'var(--accent)', flexShrink: 0 }}
+            className="animate-spin text-accent shrink-0"
             aria-hidden="true"
             data-testid="search-loading-spinner"
           />
@@ -246,19 +234,9 @@ export const SearchBar: React.FC<SearchBarProps> = ({
         {localQuery && (
           <button
             type="button"
-            className="press focus-ring"
+            className="press focus-ring row justify-center p-1 radius-full text-muted pointer shrink-0"
             onClick={handleClear}
             aria-label="Очистить поиск"
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              padding: 'var(--space-1)',
-              borderRadius: 'var(--radius-full)',
-              color: 'var(--text-muted)',
-              cursor: 'pointer',
-              flexShrink: 0,
-            }}
             data-testid="search-clear-btn"
           >
             <X size={ICON.md} />
@@ -271,19 +249,8 @@ export const SearchBar: React.FC<SearchBarProps> = ({
           id={LISTBOX_ID}
           role="listbox"
           aria-label="Подсказки поиска"
-          className="panel-raised scrollbar-thin animate-drop-in"
-          style={{
-            position: 'absolute',
-            top: 'calc(100% + var(--space-1))',
-            left: 0,
-            right: 0,
-            margin: 0,
-            padding: 'var(--space-1)',
-            listStyle: 'none',
-            maxHeight: '280px',
-            overflowY: 'auto',
-            zIndex: 'var(--z-menu)',
-          }}
+          className="panel-raised scrollbar-thin animate-drop-in m-0 p-1 list-none"
+          style={{ position: 'absolute', top: 'calc(100% + var(--space-1))', left: 0, right: 0, maxHeight: '280px', overflowY: 'auto', zIndex: 'var(--z-menu)' }}
           data-testid="search-suggestions"
         >
           {suggestions.map((s, i) => (
@@ -296,20 +263,10 @@ export const SearchBar: React.FC<SearchBarProps> = ({
               onMouseDown={(e) => e.preventDefault()}
               onMouseEnter={() => setHighlight(i)}
               onClick={() => commit(s)}
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: 'var(--space-3)',
-                padding: 'var(--space-2) var(--space-3)',
-                borderRadius: 'var(--radius-sm)',
-                fontSize: 'var(--text-sm)',
-                color: i === highlight ? 'var(--text-primary)' : 'var(--text-secondary)',
-                background: i === highlight ? 'var(--surface-hover)' : 'transparent',
-                cursor: 'pointer',
-              }}
+              className="row gap-3 radius-sm text-sm pointer py-2 px-3" style={{ color: i === highlight ? 'var(--text-primary)' : 'var(--text-secondary)', background: i === highlight ? 'var(--surface-hover)' : 'transparent' }}
               data-testid={`search-suggestion-${i}`}
             >
-              <Search size={ICON.sm} style={{ color: 'var(--text-faint)', flexShrink: 0 }} aria-hidden="true" />
+              <Search size={ICON.sm} className="text-faint shrink-0" aria-hidden="true" />
               <span className="text-truncate">{s}</span>
             </li>
           ))}
@@ -318,13 +275,7 @@ export const SearchBar: React.FC<SearchBarProps> = ({
 
       {!localQuery && (
         <div
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            flexWrap: 'wrap',
-            gap: 'var(--space-2)',
-            marginTop: 'var(--space-3)',
-          }}
+          className="row wrap gap-2 mt-3"
         >
           {QUICK_TAGS.map((tag) => (
             <button key={tag.query} type="button" className="chip" onClick={() => commit(tag.query)}>

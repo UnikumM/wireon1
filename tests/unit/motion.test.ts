@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
 import path from 'node:path';
-import { EXIT_MS } from '../../src/styles/motion';
+import { DURATION, EASE, EXIT_MS } from '../../src/styles/motion';
 
 /**
  * Стык между кадрами ухода в CSS и таймером в JS, который держит элемент в
@@ -48,6 +48,25 @@ describe('Motion: анимации ухода', () => {
       Number(declared![1]),
       'EXIT_MS в src/styles/motion.ts разъехался с --dur-fast: JS снимет элемент не в тот момент, когда доиграют кадры'
     ).toBe(EXIT_MS);
+  });
+
+  it('шкала DURATION и кривые EASE зеркалят токены theme.css', () => {
+    // Слой движения в JS и таблица стилей обязаны называть одни и те же числа:
+    // иначе островок, который едет через motion, и кнопка рядом, которая едет
+    // через CSS, живут в разном темпе — и это видно.
+    const base = THEME_CSS.slice(0, THEME_CSS.indexOf('@media (prefers-reduced-motion'));
+    for (const [name, ms] of Object.entries(DURATION)) {
+      const declared = base.match(new RegExp(`--dur-${name}:\\s*(\\d+)ms`));
+      expect(declared, `в theme.css нет --dur-${name}`).not.toBeNull();
+      expect(Number(declared![1]), `DURATION.${name} разъехалась с --dur-${name}`).toBe(ms);
+    }
+    const cssName: Record<string, string> = { out: 'out', inOut: 'in-out', spring: 'spring', morph: 'morph' };
+    for (const [name, curve] of Object.entries(EASE)) {
+      const declared = base.match(new RegExp(`--ease-${cssName[name]}:\\s*cubic-bezier\\(([^)]+)\\)`));
+      expect(declared, `в theme.css нет --ease-${cssName[name]}`).not.toBeNull();
+      const numbers = declared![1].split(',').map((n) => Number(n.trim()));
+      expect(numbers, `EASE.${name} разъехалась с --ease-${cssName[name]}`).toEqual([...curve]);
+    }
   });
 
   it('каждая утилита ухода описана и проигрывает свои кадры на --dur-fast', () => {

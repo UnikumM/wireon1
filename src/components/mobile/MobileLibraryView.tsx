@@ -257,8 +257,8 @@ export const MobileLibraryView: React.FC<MobileLibraryViewProps> = ({ onCreatePl
   };
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-4)' }} data-testid="mobile-library">
-      <header style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>
+    <div className="stack gap-4" data-testid="mobile-library">
+      <header className="row gap-2">
         {isSearchOpen ? (
           <>
             <input
@@ -267,17 +267,7 @@ export const MobileLibraryView: React.FC<MobileLibraryViewProps> = ({ onCreatePl
               onChange={(event) => setQuery(event.target.value)}
               placeholder="В медиатеке"
               aria-label="Поиск по медиатеке"
-              style={{
-                flex: 1,
-                minWidth: 0,
-                minHeight: '44px',
-                padding: '0 var(--space-3)',
-                borderRadius: 'var(--radius-pill)',
-                background: 'var(--surface-2)',
-                border: '1px solid var(--border)',
-                color: 'var(--text-primary)',
-                fontSize: 'var(--text-base)'
-              }}
+              className="grow text-primary text-base py-0 px-3 bg-surface-2 border-line" style={{ minHeight: '44px', borderRadius: 'var(--radius-pill)' }}
               data-testid="mobile-library-search-input"
             />
             <IconButton
@@ -294,16 +284,7 @@ export const MobileLibraryView: React.FC<MobileLibraryViewProps> = ({ onCreatePl
         ) : (
           <>
             <h1
-              style={{
-                margin: 0,
-                flex: 1,
-                minWidth: 0,
-                fontSize: 'var(--text-2xl)',
-                lineHeight: 'var(--leading-2xl)',
-                letterSpacing: 'var(--tracking-2xl)',
-                fontWeight: 'var(--weight-bold)',
-                color: 'var(--text-primary)'
-              }}
+              className="m-0 grow weight-bold text-primary type-2xl"
             >
               Медиатека
             </h1>
@@ -345,14 +326,8 @@ export const MobileLibraryView: React.FC<MobileLibraryViewProps> = ({ onCreatePl
         * счётчиками в 328 px не помещались и переносились, съедая ещё этаж.
         */}
       <div
-        className="scroll-x-quiet"
-        style={{
-          display: 'flex',
-          gap: 'var(--space-2)',
-          overflowX: 'auto',
-          margin: '0 calc(var(--mobile-content-pad, var(--space-4)) * -1)',
-          padding: '0 var(--mobile-content-pad, var(--space-4))'
-        }}
+        className="scroll-x-quiet row-stretch gap-2"
+        style={{ overflowX: 'auto', margin: '0 calc(var(--mobile-content-pad, var(--space-4)) * -1)', padding: '0 var(--mobile-content-pad, var(--space-4))' }}
       >
         {TABS.map((item) => {
           const isActive = tab === item.id;
@@ -360,25 +335,16 @@ export const MobileLibraryView: React.FC<MobileLibraryViewProps> = ({ onCreatePl
             <button
               key={item.id}
               type="button"
-              className="chip press"
+              className="chip press row gap-2 shrink-0 pointer py-0 px-3"
               aria-pressed={isActive}
               onClick={() => setActiveView(VIEW_FOR_TAB[item.id])}
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: 'var(--space-2)',
-                flexShrink: 0,
-                minHeight: '38px',
-                padding: '0 var(--space-3)',
-                borderRadius: 'var(--radius-pill)',
-                cursor: 'pointer'
-              }}
+              style={{ minHeight: '38px', borderRadius: 'var(--radius-pill)' }}
               data-testid={`mobile-library-tab-${item.id}`}
             >
               {item.icon}
               {item.label}
               {counts[item.id] > 0 && (
-                <span style={{ color: 'var(--text-faint)' }}>{counts[item.id]}</span>
+                <span className="text-faint">{counts[item.id]}</span>
               )}
             </button>
           );
@@ -434,7 +400,7 @@ export const MobileLibraryView: React.FC<MobileLibraryViewProps> = ({ onCreatePl
       />
 
       {tab === 'playlists' && !needle && (
-        <div style={{ marginBottom: 'var(--space-5)' }}>
+        <div className="mb-5">
           <SmartPlaylistsShelf compact />
         </div>
       )}
@@ -458,11 +424,7 @@ export const MobileLibraryView: React.FC<MobileLibraryViewProps> = ({ onCreatePl
             * состава — и то и другое различается с одного взгляда.
             */
           <div
-            style={{
-              display: 'grid',
-              gridTemplateColumns: 'repeat(2, minmax(0, 1fr))',
-              gap: 'var(--space-4)'
-            }}
+            className="grid gap-4" style={{ gridTemplateColumns: 'repeat(2, minmax(0, 1fr))' }}
           >
             {visiblePlaylists.map((playlist) => (
               <CoverCard
@@ -527,12 +489,7 @@ export const MobileLibraryView: React.FC<MobileLibraryViewProps> = ({ onCreatePl
       >
         {playlists.length === 0 ? (
           <p
-            style={{
-              margin: 0,
-              padding: 'var(--space-4)',
-              fontSize: 'var(--text-sm)',
-              color: 'var(--text-muted)'
-            }}
+            className="m-0 p-4 text-sm text-muted"
             data-testid="mobile-library-move-empty"
           >
             Плейлистов пока нет. Создайте его на закладке «Плейлисты».
@@ -564,20 +521,10 @@ const IconButton: React.FC<{
 }> = ({ label, onClick, children, testId }) => (
   <button
     type="button"
-    className="press focus-ring"
+    className="press focus-ring row justify-center shrink-0 text-secondary pointer"
     onClick={onClick}
     aria-label={label}
-    style={{
-      display: 'flex',
-      alignItems: 'center',
-      justifyContent: 'center',
-      width: '44px',
-      height: '44px',
-      flexShrink: 0,
-      borderRadius: 'var(--radius-pill)',
-      color: 'var(--text-secondary)',
-      cursor: 'pointer'
-    }}
+    style={{ width: '44px', height: '44px', borderRadius: 'var(--radius-pill)' }}
     data-testid={testId}
   >
     {children}
@@ -586,14 +533,7 @@ const IconButton: React.FC<{
 
 const Empty: React.FC<{ text: string }> = ({ text }) => (
   <p
-    style={{
-      margin: 0,
-      padding: 'var(--space-5) 0',
-      fontSize: 'var(--text-sm)',
-      lineHeight: 'var(--leading-sm)',
-      letterSpacing: 'var(--tracking-sm)',
-      color: 'var(--text-muted)'
-    }}
+    className="m-0 text-sm text-muted py-5 px-0 leading-sm tracking-sm"
     data-testid="mobile-library-empty"
   >
     {text}

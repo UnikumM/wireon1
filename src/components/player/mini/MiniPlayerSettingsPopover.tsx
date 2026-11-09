@@ -65,23 +65,16 @@ export const MiniPlayerSettingsPopover: React.FC<MiniPlayerSettingsPopoverProps>
         data-testid="mini-player-settings-popover"
       >
         <div
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            marginBottom: 'var(--space-3)',
-            paddingBottom: 'var(--space-2)',
-            borderBottom: '1px solid var(--border-subtle)'
-          }}
+          className="row justify-between mb-3 pb-2 border-b-subtle"
         >
-          <span style={{ fontSize: 'var(--text-xs)', fontWeight: 'var(--weight-semibold)', color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: '6px' }}>
-            <Sliders size={ICON.sm} style={{ color: 'var(--text-secondary)' }} />
+          <span className="text-xs weight-semibold text-primary row" style={{ gap: '6px' }}>
+            <Sliders size={ICON.sm} className="text-secondary" />
             Настройки мини-плеера
           </span>
           <button
             type="button"
             onClick={onClose}
-            style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', padding: '2px' }}
+            className="text-muted pointer bg-none border-none" style={{ padding: '2px' }}
             aria-label="Закрыть"
           >
             <X size={ICON.sm} />
@@ -89,12 +82,12 @@ export const MiniPlayerSettingsPopover: React.FC<MiniPlayerSettingsPopoverProps>
         </div>
 
         {/* Opacity Slider */}
-        <div style={{ marginBottom: 'var(--space-3)' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 'var(--text-xs)', color: 'var(--text-secondary)', marginBottom: '4px' }}>
-            <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+        <div className="mb-3">
+          <div className="row-stretch justify-between text-xs text-secondary mb-1">
+            <span className="row gap-1">
               <Layers size={ICON.xs} /> Прозрачность
             </span>
-            <span data-numeric style={{ color: 'var(--text-primary)', fontWeight: 'var(--weight-semibold)' }}>
+            <span data-numeric className="text-primary weight-semibold">
               {Math.round(miniPlayerOpacity * 100)}%
             </span>
           </div>
@@ -126,7 +119,7 @@ export const MiniPlayerSettingsPopover: React.FC<MiniPlayerSettingsPopoverProps>
         </div>
 
         {/* Always on top toggle */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' }}>
+        <div className="stack gap-2">
           <button
             type="button"
             onClick={() => void setMiniPlayerAlwaysOnTop(!miniPlayerAlwaysOnTop)}
@@ -150,8 +143,8 @@ export const MiniPlayerSettingsPopover: React.FC<MiniPlayerSettingsPopoverProps>
             aria-pressed={miniPlayerAlwaysOnTop}
             data-testid="mini-always-on-top-btn"
           >
-            <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-              {miniPlayerAlwaysOnTop ? <Pin size={ICON.sm} style={{ color: 'var(--accent)' }} /> : <PinOff size={ICON.sm} />}
+            <span className="row" style={{ gap: '6px' }}>
+              {miniPlayerAlwaysOnTop ? <Pin size={ICON.sm} className="text-accent" /> : <PinOff size={ICON.sm} />}
               Поверх всех окон
             </span>
             {/*
@@ -184,7 +177,7 @@ export const MiniPlayerSettingsPopover: React.FC<MiniPlayerSettingsPopoverProps>
             aria-pressed={miniPlayerShowVisualizer}
             data-testid="mini-visualizer-toggle-btn"
           >
-            <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+            <span className="row" style={{ gap: '6px' }}>
               {/* Не Sparkles: пункт про полосы, отзывающиеся на звук, — они и нарисованы. */}
               <AudioLines size={ICON.sm} style={{ color: miniPlayerShowVisualizer ? 'var(--accent)' : 'inherit' }} />
               Визуализатор звука
@@ -214,7 +207,7 @@ export const MiniPlayerSettingsPopover: React.FC<MiniPlayerSettingsPopoverProps>
             aria-pressed={miniPlayerShowProgress}
             data-testid="mini-progress-toggle-btn"
           >
-            <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+            <span className="row" style={{ gap: '6px' }}>
               <SlidersHorizontal size={ICON.sm} style={{ color: miniPlayerShowProgress ? 'var(--accent)' : 'inherit' }} />
               Полоса перемотки
             </span>

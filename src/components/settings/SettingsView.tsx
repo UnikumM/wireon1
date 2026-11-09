@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import clsx from 'clsx';
 import { PlaybackSettings } from './PlaybackSettings';
 import { PlayerLayoutSettings } from './PlayerLayoutSettings';
 import { AppearanceSettings } from './AppearanceSettings';
@@ -97,8 +98,7 @@ export const SettingsView: React.FC<{ className?: string }> = ({ className }) =>
       // The entry animation goes on the whole page rather than on each section:
       // eleven sections animating at once would each get its own compositor
       // layer, and the settings page is the longest tree in the app.
-      className={className ? `${className} animate-view-in` : 'animate-view-in'}
-      style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-5)', width: '100%' }}
+      className={clsx('animate-view-in stack gap-5 w-full', className)}
       data-testid="settings-view"
     >
       {/*
@@ -107,20 +107,13 @@ export const SettingsView: React.FC<{ className?: string }> = ({ className }) =>
         * первой настройки и без них уходило больше половины экрана.
         */}
       {!isNarrow && (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-1)' }}>
+        <div className="stack gap-1">
           <h1
-            style={{
-              margin: 0,
-              fontSize: 'var(--text-2xl)',
-              lineHeight: 'var(--leading-2xl)',
-              letterSpacing: 'var(--tracking-2xl)',
-              fontWeight: 'var(--weight-semibold)',
-              color: 'var(--text-primary)'
-            }}
+            className="m-0 weight-semibold text-primary type-2xl"
           >
             Настройки
           </h1>
-          <p style={{ margin: 0, fontSize: 'var(--text-sm)', color: 'var(--text-muted)' }}>
+          <p className="m-0 text-sm text-muted">
             Изменения сохраняются на этом устройстве сразу.
           </p>
         </div>
@@ -151,7 +144,7 @@ export const SettingsView: React.FC<{ className?: string }> = ({ className }) =>
           })}
         </nav>
 
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-5)', minWidth: 0 }}>
+        <div className="stack gap-5 min-0">
           {sections.map((section) => (
             <div key={section.id} data-section-id={section.id}>
               {section.render()}

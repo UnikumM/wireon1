@@ -135,7 +135,7 @@ export const WaveControls: React.FC<WaveControlsProps> = ({
         действие занимает свой ряд, оценки и настройка живут под ним и при
         нехватке ширины переносятся, а не выходят за границу.
       */}
-      <div style={{ display: 'flex', justifyContent: 'center' }}>
+      <div className="row-stretch justify-center">
         <Button
           variant="primary"
           size="lg"
@@ -147,7 +147,7 @@ export const WaveControls: React.FC<WaveControlsProps> = ({
             ) : isWavePlaying ? (
               <Pause size={ICON.lg} />
             ) : (
-              <Play size={ICON.lg} style={{ marginLeft: '2px' }} />
+              <Play size={ICON.lg} className="ml-px" />
             )
           }
           style={{
@@ -179,13 +179,7 @@ export const WaveControls: React.FC<WaveControlsProps> = ({
       </div>
 
       <div
-        style={{
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          flexWrap: 'wrap',
-          gap: 'var(--space-1)'
-        }}
+        className="row justify-center wrap gap-1"
       >
         {/* Dislike / Не рекомендовать */}
         <Button

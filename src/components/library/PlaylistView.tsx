@@ -368,8 +368,7 @@ export const PlaylistView: React.FC<PlaylistViewProps> = ({ playlistId: propPlay
   return (
     <>
       <div
-        className={`animate-view-in ${className}`}
-        style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-5)', width: '100%' }}
+        className={`animate-view-in ${className} stack gap-5 w-full`}
         data-testid="playlist-view"
       >
         <header
@@ -393,7 +392,7 @@ export const PlaylistView: React.FC<PlaylistViewProps> = ({ playlistId: propPlay
             * Ввод файла спрятан, но остаётся в разметке — только так системное
             * окно выбора открывается по нашему нажатию, а не по своему.
             */}
-          <div style={{ position: 'relative', flexShrink: 0 }}>
+          <div className="relative shrink-0">
             <button
               type="button"
               className="cover-button focus-ring"
@@ -433,11 +432,11 @@ export const PlaylistView: React.FC<PlaylistViewProps> = ({ playlistId: propPlay
             )}
           </div>
 
-          <div style={{ flex: '1 1 280px', minWidth: 0, display: 'flex', flexDirection: 'column', gap: 'var(--space-1)' }}>
+          <div className="min-0 stack gap-1" style={{ flex: '1 1 280px' }}>
             <span className="section-label">Плейлист</span>
 
             {isEditingTitle ? (
-              <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>
+              <div className="row gap-2">
                 <input
                   type="text"
                   value={editedTitle}
@@ -453,7 +452,7 @@ export const PlaylistView: React.FC<PlaylistViewProps> = ({ playlistId: propPlay
                   }}
                   aria-label="Название плейлиста"
                   autoFocus
-                  style={{ fontSize: 'var(--text-xl)', fontWeight: 'var(--weight-semibold)', maxWidth: '420px' }}
+                  className="text-xl weight-semibold" style={{ maxWidth: '420px' }}
                   data-testid="playlist-rename-input"
                 />
                 <Button
@@ -470,17 +469,9 @@ export const PlaylistView: React.FC<PlaylistViewProps> = ({ playlistId: propPlay
                 </Button>
               </div>
             ) : (
-              <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)', minWidth: 0 }}>
+              <div className="row gap-2 min-0">
                 <h1
-                  className="text-truncate"
-                  style={{
-                    margin: 0,
-                    fontSize: 'var(--text-2xl)',
-                    lineHeight: 'var(--leading-2xl)',
-                    letterSpacing: 'var(--tracking-2xl)',
-                    fontWeight: 'var(--weight-semibold)',
-                    color: 'var(--text-primary)'
-                  }}
+                  className="text-truncate m-0 weight-semibold text-primary type-2xl"
                   data-testid="playlist-title"
                 >
                   {playlist.title}
@@ -502,17 +493,17 @@ export const PlaylistView: React.FC<PlaylistViewProps> = ({ playlistId: propPlay
             )}
 
             {playlist.description && (
-              <p style={{ margin: 0, fontSize: 'var(--text-sm)', color: 'var(--text-secondary)' }}>
+              <p className="m-0 text-sm text-secondary">
                 {playlist.description}
               </p>
             )}
 
-            <p data-numeric style={{ margin: 0, fontSize: 'var(--text-xs)', color: 'var(--text-muted)' }}>
+            <p data-numeric className="m-0 text-xs text-muted">
               {totals}
             </p>
           </div>
 
-          <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 'var(--space-2)', minWidth: 0 }}>
+          <div className="row wrap gap-2 min-0">
             {tracks.length > 0 && (
               <>
                 <Button
@@ -627,22 +618,16 @@ export const PlaylistView: React.FC<PlaylistViewProps> = ({ playlistId: propPlay
 
         {tracks.length > 1 && (
           <div
-            style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)', flexWrap: 'wrap' }}
+            className="row gap-2 wrap"
             data-testid="playlist-toolbar"
           >
             <label
-              style={{
-                position: 'relative',
-                display: 'flex',
-                alignItems: 'center',
-                flex: '1 1 220px',
-                maxWidth: '360px'
-              }}
+              className="relative row" style={{ flex: '1 1 220px', maxWidth: '360px' }}
             >
               <Search
                 size={ICON.sm}
                 aria-hidden="true"
-                style={{ position: 'absolute', left: 'var(--space-3)', color: 'var(--text-muted)', pointerEvents: 'none' }}
+                className="text-muted no-events" style={{ position: 'absolute', left: 'var(--space-3)' }}
               />
               <input
                 type="search"
@@ -650,7 +635,7 @@ export const PlaylistView: React.FC<PlaylistViewProps> = ({ playlistId: propPlay
                 onChange={(e) => setQuery(e.target.value)}
                 placeholder="Найти в плейлисте"
                 aria-label="Найти в плейлисте"
-                style={{ width: '100%', paddingLeft: 'calc(var(--space-3) + 22px)' }}
+                className="w-full" style={{ paddingLeft: 'calc(var(--space-3) + 22px)' }}
                 data-testid="playlist-filter-input"
               />
             </label>
@@ -692,7 +677,7 @@ export const PlaylistView: React.FC<PlaylistViewProps> = ({ playlistId: propPlay
               </Button>
             )}
             {query.trim() !== '' && (
-              <span style={{ fontSize: 'var(--text-xs)', color: 'var(--text-muted)' }} data-testid="playlist-filter-count">
+              <span className="text-xs text-muted" data-testid="playlist-filter-count">
                 Найдено: {entries.length}
               </span>
             )}
@@ -723,13 +708,7 @@ export const PlaylistView: React.FC<PlaylistViewProps> = ({ playlistId: propPlay
         ) : (
           <div
             ref={listRef}
-            style={{
-              display: 'flex',
-              flexDirection: 'column',
-              gap: 'var(--space-1)',
-              paddingTop: virtual.paddingTop,
-              paddingBottom: virtual.paddingBottom
-            }}
+            className="stack gap-1" style={{ paddingTop: virtual.paddingTop, paddingBottom: virtual.paddingBottom }}
           >
             {entries.slice(virtual.startIndex, virtual.endIndex).map(({ track, index: idx }, offset) => {
               const viewIdx = virtual.startIndex + offset;
@@ -737,10 +716,10 @@ export const PlaylistView: React.FC<PlaylistViewProps> = ({ playlistId: propPlay
               <div
                 key={`${track.id}_${idx}`}
                 onKeyDown={(e) => handleRowKeyDown(e, idx)}
-                style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}
+                className="row gap-2"
                 data-testid={`playlist-track-row-${idx}`}
               >
-                <div style={{ flex: 1, minWidth: 0 }}>
+                <div className="grow">
                   <TrackCard
                     track={track}
                     index={isCustomView ? idx : viewIdx}
@@ -750,7 +729,7 @@ export const PlaylistView: React.FC<PlaylistViewProps> = ({ playlistId: propPlay
                   />
                 </div>
 
-                <div style={{ display: 'flex', alignItems: 'center', gap: '2px', flexShrink: 0 }}>
+                <div className="row gap-px shrink-0">
                   {isCustomView && (
                   <>
                   <button

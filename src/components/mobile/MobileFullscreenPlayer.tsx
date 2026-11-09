@@ -125,7 +125,7 @@ export const MobileFullscreenPlayer: React.FC = () => {
       data-testid="mobile-fullscreen-player"
     >
       {/* Ухватка: сообщает, что экран смахивается, до того как это попробуют. */}
-      <div {...handlers} style={{ display: 'flex', justifyContent: 'center', flexShrink: 0, touchAction: 'none', padding: 'var(--space-2) 0' }}>
+      <div {...handlers} className="row-stretch justify-center shrink-0 py-2 px-0" style={{ touchAction: 'none' }}>
         <div
           aria-hidden="true"
           style={{
@@ -139,19 +139,12 @@ export const MobileFullscreenPlayer: React.FC = () => {
 
       <header
         {...handlers}
-        style={{
-          display: 'flex',
-          alignItems: 'center',
-          gap: 'var(--space-2)',
-          flexShrink: 0,
-          padding: 'var(--space-2) 0',
-          touchAction: 'none'
-        }}
+        className="row gap-2 shrink-0 py-2 px-0" style={{ touchAction: 'none' }}
       >
         <RoundButton label="Свернуть плеер" onClick={close} testId="mobile-fullscreen-close">
           <ChevronDown size={ICON.xl} aria-hidden="true" />
         </RoundButton>
-        <span style={{ flex: 1 }} />
+        <span className="flex-1" />
         <RoundButton
           label={`Действия с «${currentTrack.title}»`}
           onClick={() => openTrackActions(currentTrack)}
@@ -167,14 +160,7 @@ export const MobileFullscreenPlayer: React.FC = () => {
         * невысоком экране низ с кнопками уезжает за край.
         */}
       <div
-        style={{
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          flex: '1 0 auto',
-          minHeight: 0,
-          padding: 'var(--space-4) 0'
-        }}
+        className="row justify-center min-h-0 py-4 px-0" style={{ flex: '1 0 auto' }}
       >
         <div
           style={{
@@ -197,39 +183,27 @@ export const MobileFullscreenPlayer: React.FC = () => {
           data-testid="mobile-fullscreen-artwork"
         >
           {artworkFailed || !currentTrack.artworkUrl ? (
-            <Music2 size={ICON.hero} style={{ color: 'var(--text-faint)' }} aria-hidden="true" />
+            <Music2 size={ICON.hero} className="text-faint" aria-hidden="true" />
           ) : (
             <img
               src={currentTrack.artworkUrl}
               alt=""
-              style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+              className="fill-cover"
               onError={() => setArtworkFailed(true)}
             />
           )}
         </div>
       </div>
 
-      <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-3)', flexShrink: 0 }}>
-        <div style={{ minWidth: 0, flex: 1 }}>
+      <div className="row gap-3 shrink-0">
+        <div className="grow">
           <MarqueeText
             text={currentTrack.title}
-            style={{
-              fontSize: 'var(--text-xl)',
-              lineHeight: 'var(--leading-xl)',
-              letterSpacing: 'var(--tracking-xl)',
-              fontWeight: 'var(--weight-bold)',
-              color: 'var(--text-primary)'
-            }}
+            className="text-xl weight-bold text-primary leading-xl tracking-xl"
             data-testid="mobile-fullscreen-title"
           />
           <div
-            className="text-truncate"
-            style={{
-              fontSize: 'var(--text-base)',
-              lineHeight: 'var(--leading-base)',
-              letterSpacing: 'var(--tracking-base)',
-              color: 'var(--text-muted)'
-            }}
+            className="text-truncate text-base text-muted leading-base tracking-base"
           >
             {currentTrack.artist}
           </div>
@@ -248,7 +222,7 @@ export const MobileFullscreenPlayer: React.FC = () => {
         </RoundButton>
       </div>
 
-      <div style={{ flexShrink: 0, padding: 'var(--space-3) 0' }}>
+      <div className="shrink-0 py-3 px-0">
         <SeekBar
           currentTime={currentTime}
           duration={duration}
@@ -265,13 +239,7 @@ export const MobileFullscreenPlayer: React.FC = () => {
         * левее середины.
         */}
       <div
-        style={{
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          flexShrink: 0,
-          padding: 'var(--space-2) 0'
-        }}
+        className="row justify-between shrink-0 py-2 px-0"
         data-testid="mobile-fullscreen-transport"
       >
         <RoundButton
@@ -295,13 +263,7 @@ export const MobileFullscreenPlayer: React.FC = () => {
           variant="primary"
           onClick={() => void togglePlayPause()}
           aria-label={isPlaying ? 'Пауза' : 'Играть'}
-          style={{
-            width: '64px',
-            height: '64px',
-            padding: 0,
-            flexShrink: 0,
-            borderRadius: 'var(--radius-pill)'
-          }}
+          className="p-0 shrink-0" style={{ width: '64px', height: '64px', borderRadius: 'var(--radius-pill)' }}
           data-testid="mobile-fullscreen-play"
         >
           {isPlaying ? (
@@ -342,14 +304,7 @@ export const MobileFullscreenPlayer: React.FC = () => {
         * общие, переписывать их не понадобилось — не хватало входа.
         */}
       <div
-        style={{
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-around',
-          flexWrap: 'wrap',
-          flexShrink: 0,
-          gap: 'var(--space-2)'
-        }}
+        className="row wrap shrink-0 gap-2 justify-around"
       >
         <LabelledButton
           icon={<Mic2 size={ICON.md} aria-hidden="true" />}
@@ -435,22 +390,10 @@ const LabelledButton: React.FC<{
 }> = ({ icon, label, onClick, active = false, testId }) => (
   <button
     type="button"
-    className="press"
+    className="press row gap-2 text-sm pointer py-0 px-3 leading-sm tracking-sm"
     onClick={onClick}
     aria-pressed={active || undefined}
-    style={{
-      display: 'flex',
-      alignItems: 'center',
-      gap: 'var(--space-2)',
-      minHeight: '44px',
-      padding: '0 var(--space-3)',
-      borderRadius: 'var(--radius-pill)',
-      color: active ? 'var(--accent)' : 'var(--text-secondary)',
-      fontSize: 'var(--text-sm)',
-      lineHeight: 'var(--leading-sm)',
-      letterSpacing: 'var(--tracking-sm)',
-      cursor: 'pointer'
-    }}
+    style={{ minHeight: '44px', borderRadius: 'var(--radius-pill)', color: active ? 'var(--accent)' : 'var(--text-secondary)' }}
     data-testid={testId}
   >
     {icon}
@@ -467,21 +410,11 @@ const RoundButton: React.FC<{
 }> = ({ label, onClick, children, active = false, testId }) => (
   <button
     type="button"
-    className="press focus-ring"
+    className="press focus-ring row justify-center shrink-0 pointer"
     onClick={onClick}
     aria-label={label}
     aria-pressed={active || undefined}
-    style={{
-      display: 'flex',
-      alignItems: 'center',
-      justifyContent: 'center',
-      width: '48px',
-      height: '48px',
-      flexShrink: 0,
-      borderRadius: 'var(--radius-pill)',
-      color: active ? 'var(--accent)' : 'var(--text-secondary)',
-      cursor: 'pointer'
-    }}
+    style={{ width: '48px', height: '48px', borderRadius: 'var(--radius-pill)', color: active ? 'var(--accent)' : 'var(--text-secondary)' }}
     data-testid={testId}
   >
     {children}

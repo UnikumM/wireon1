@@ -125,14 +125,7 @@ export const Sheet: React.FC<SheetProps> = ({
         <div
           // Disabling touch on the panel also disables native scrolling in its children.
           {...handlers}
-          style={{
-            display: 'flex',
-            justifyContent: 'center',
-            paddingTop: 'var(--space-3)',
-            paddingBottom: header || title ? 0 : 'var(--space-2)',
-            flexShrink: 0,
-            touchAction: 'none'
-          }}
+          className="row-stretch justify-center shrink-0 pt-3" style={{ paddingBottom: header || title ? 0 : 'var(--space-2)', touchAction: 'none' }}
         >
           <div
             data-testid="sheet-grabber"
@@ -147,24 +140,12 @@ export const Sheet: React.FC<SheetProps> = ({
         </div>
 
         {header ? (
-          <div {...handlers} style={{ flexShrink: 0, minWidth: 0, touchAction: 'none', padding: 'var(--space-4) var(--space-4) var(--space-2)' }}>{header}</div>
+          <div {...handlers} className="shrink-0 min-0" style={{ touchAction: 'none', padding: 'var(--space-4) var(--space-4) var(--space-2)' }}>{header}</div>
         ) : title ? (
           <h2
             {...handlers}
             id={titleId}
-            style={{
-              flexShrink: 0,
-              minWidth: 0,
-              overflowWrap: 'anywhere',
-              touchAction: 'none',
-              margin: 0,
-              padding: 'var(--space-4) var(--space-4) var(--space-2)',
-              fontSize: 'var(--text-lg)',
-              lineHeight: 'var(--leading-lg)',
-              letterSpacing: 'var(--tracking-lg)',
-              fontWeight: 'var(--weight-semibold)',
-              color: 'var(--text-primary)'
-            }}
+            className="shrink-0 min-0 m-0 text-lg weight-semibold text-primary leading-lg tracking-lg" style={{ overflowWrap: 'anywhere', touchAction: 'none', padding: 'var(--space-4) var(--space-4) var(--space-2)' }}
           >
             {title}
           </h2>
@@ -175,16 +156,9 @@ export const Sheet: React.FC<SheetProps> = ({
           * иначе жест закрытия и прокрутка списка ловили бы одно движение.
           */}
         <div
-          className="wireon-sheet-content scrollbar-thin"
+          className="wireon-sheet-content scrollbar-thin min-0 min-h-0"
           data-swipe-ignore
-          style={{
-            overflowY: 'auto',
-            minHeight: 0,
-            minWidth: 0,
-            overscrollBehavior: 'contain',
-            paddingBottom: 'calc(max(var(--safe-bottom), var(--space-2)) + var(--space-2))',
-            touchAction: 'pan-y'
-          }}
+          style={{ overflowY: 'auto', overscrollBehavior: 'contain', paddingBottom: 'calc(max(var(--safe-bottom), var(--space-2)) + var(--space-2))', touchAction: 'pan-y' }}
         >
           {children}
         </div>
@@ -225,49 +199,28 @@ export const SheetRow: React.FC<SheetRowProps> = ({
 }) => (
   <button
     type="button"
-    className="menu-item-hover press"
+    className="menu-item-hover press row gap-4 w-full text-left pointer py-2 px-4"
     onClick={onClick}
     data-testid={testId}
-    style={{
-      display: 'flex',
-      alignItems: 'center',
-      gap: 'var(--space-4)',
-      width: '100%',
-      minHeight: '56px',
-      padding: 'var(--space-2) var(--space-4)',
-      color: danger ? 'var(--danger)' : 'var(--text-primary)',
-      textAlign: 'left',
-      cursor: 'pointer'
-    }}
+    style={{ minHeight: '56px', color: danger ? 'var(--danger)' : 'var(--text-primary)' }}
   >
-    <span style={{ display: 'flex', flexShrink: 0, color: danger ? 'var(--danger)' : 'var(--text-secondary)' }}>
+    <span className="row-stretch shrink-0" style={{ color: danger ? 'var(--danger)' : 'var(--text-secondary)' }}>
       {icon}
     </span>
-    <span style={{ display: 'flex', flexDirection: 'column', minWidth: 0, flex: 1, gap: '2px' }}>
+    <span className="stack grow gap-px">
       <span
-        className="text-truncate"
-        style={{
-          fontSize: 'var(--text-base)',
-          lineHeight: 'var(--leading-base)',
-          letterSpacing: 'var(--tracking-base)'
-        }}
+        className="text-truncate text-base leading-base tracking-base"
       >
         {label}
       </span>
       {hint && (
         <span
-          className="text-truncate"
-          style={{
-            fontSize: 'var(--text-sm)',
-            lineHeight: 'var(--leading-sm)',
-            letterSpacing: 'var(--tracking-sm)',
-            color: 'var(--text-muted)'
-          }}
+          className="text-truncate text-sm text-muted leading-sm tracking-sm"
         >
           {hint}
         </span>
       )}
     </span>
-    {chevron && <span style={{ display: 'flex', flexShrink: 0, color: 'var(--text-faint)' }}>{chevron}</span>}
+    {chevron && <span className="row-stretch shrink-0 text-faint">{chevron}</span>}
   </button>
 );

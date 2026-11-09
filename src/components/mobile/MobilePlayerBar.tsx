@@ -100,80 +100,39 @@ export const MobilePlayerBar: React.FC = () => {
   return (
     <div
       ref={rootRef}
-      style={{
-        flexShrink: 0,
-        margin: '0 var(--space-2) var(--space-2)',
-        borderRadius: 'var(--radius-md)',
-        background: 'var(--surface-3)',
-        border: '1px solid var(--border)',
-        boxShadow: 'var(--shadow-md)',
-        overflow: 'hidden'
-      }}
+      className="shrink-0 radius-md overflow-hidden bg-surface-3 border-line" style={{ margin: '0 var(--space-2) var(--space-2)', boxShadow: 'var(--shadow-md)' }}
       data-testid="mobile-player-bar"
     >
-      <div style={{ display: 'flex', alignItems: 'center', height: '56px' }}>
+      <div className="row" style={{ height: '56px' }}>
         <button
           type="button"
-          className="press"
+          className="press row gap-3 grow h-full text-left pointer py-0 px-2"
           onClick={() => setFullscreenPlayerOpen(true)}
           aria-label={`Открыть плеер: ${currentTrack.title}`}
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: 'var(--space-3)',
-            flex: 1,
-            minWidth: 0,
-            height: '100%',
-            padding: '0 var(--space-2)',
-            textAlign: 'left',
-            cursor: 'pointer'
-          }}
           data-testid="mobile-player-open-fullscreen"
         >
           <span
-            style={{
-              width: '44px',
-              height: '44px',
-              flexShrink: 0,
-              borderRadius: 'var(--radius-xs)',
-              overflow: 'hidden',
-              background: 'var(--surface-sunken)',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center'
-            }}
+            className="shrink-0 radius-xs overflow-hidden row justify-center bg-sunken" style={{ width: '44px', height: '44px' }}
           >
             {artworkFailed || !currentTrack.artworkUrl ? (
-              <Music2 size={ICON.md} style={{ color: 'var(--text-faint)' }} aria-hidden="true" />
+              <Music2 size={ICON.md} className="text-faint" aria-hidden="true" />
             ) : (
               <img
                 src={currentTrack.artworkUrl}
                 alt=""
-                style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                className="fill-cover"
                 onError={() => setArtworkFailed(true)}
               />
             )}
           </span>
 
-          <span style={{ display: 'flex', flexDirection: 'column', minWidth: 0, flex: 1, gap: '1px' }}>
+          <span className="stack grow" style={{ gap: '1px' }}>
             <MarqueeText
               text={currentTrack.title}
-              style={{
-                fontSize: 'var(--text-sm)',
-                lineHeight: 'var(--leading-sm)',
-                letterSpacing: 'var(--tracking-sm)',
-                fontWeight: 'var(--weight-semibold)',
-                color: 'var(--text-primary)'
-              }}
+              className="text-sm weight-semibold text-primary leading-sm tracking-sm"
             />
             <span
-              className="text-truncate"
-              style={{
-                fontSize: 'var(--text-xs)',
-                lineHeight: 'var(--leading-xs)',
-                letterSpacing: 'var(--tracking-xs)',
-                color: 'var(--text-muted)'
-              }}
+              className="text-truncate text-xs text-muted leading-xs tracking-xs"
             >
               {currentTrack.artist}
             </span>
@@ -195,21 +154,10 @@ export const MobilePlayerBar: React.FC = () => {
 
         <button
           type="button"
-          className="press focus-ring"
+          className="press focus-ring row justify-center shrink-0 mr-1 text-primary pointer"
           onClick={() => void togglePlayPause()}
           aria-label={isPlaying ? 'Пауза' : 'Играть'}
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            width: '48px',
-            height: '48px',
-            flexShrink: 0,
-            marginRight: 'var(--space-1)',
-            borderRadius: 'var(--radius-pill)',
-            color: 'var(--text-primary)',
-            cursor: 'pointer'
-          }}
+          style={{ width: '48px', height: '48px', borderRadius: 'var(--radius-pill)' }}
           data-testid="mobile-player-play-pause"
         >
           {isPlaying ? (
@@ -237,7 +185,7 @@ export const MobilePlayerBar: React.FC = () => {
               onVolumeChange={setVolume}
               onToggleMute={toggleMute}
               width="88px"
-              style={{ flexShrink: 0, marginRight: 'var(--space-2)' }}
+              className="shrink-0 mr-2"
             />
           </>
         )}

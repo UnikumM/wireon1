@@ -122,7 +122,7 @@ export const VolumeSlider: React.FC<VolumeSliderProps> = ({
         title={muted ? 'Включить звук' : 'Выключить звук'}
         aria-label={muted ? 'Включить звук' : 'Выключить звук'}
         aria-pressed={muted}
-        style={{ width: 'var(--control-md)', height: 'var(--control-md)' }}
+        className="control-md"
         data-testid="volume-mute-btn"
       >
         {icon()}
@@ -161,12 +161,7 @@ export const VolumeSlider: React.FC<VolumeSliderProps> = ({
       {showPercentage && (
         <span
           data-numeric
-          style={{
-            fontSize: 'var(--text-xs)',
-            color: 'var(--text-muted)',
-            width: '34px',
-            textAlign: 'right'
-          }}
+          className="text-xs text-muted text-right" style={{ width: '34px' }}
         >
           {percentage}%
         </span>

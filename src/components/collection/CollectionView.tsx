@@ -109,8 +109,7 @@ export const CollectionView: React.FC = () => {
 
   return (
     <div
-      className="animate-view-in"
-      style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-6)', width: '100%' }}
+      className="animate-view-in stack gap-6 w-full"
       data-testid="collection-view"
     >
       <div>
@@ -125,61 +124,43 @@ export const CollectionView: React.FC = () => {
         </Button>
       </div>
 
-      <div style={{ display: 'flex', gap: 'var(--space-5)', flexWrap: 'wrap' }}>
+      <div className="row-stretch gap-5 wrap">
         <div
-          style={{
-            width: 'min(200px, 100%)',
-            aspectRatio: '1',
-            flexShrink: 0,
-            borderRadius: 'var(--radius-lg)',
-            overflow: 'hidden',
-            background: 'var(--surface-2)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center'
-          }}
+          className="shrink-0 radius-lg overflow-hidden row justify-center bg-surface-2" style={{ width: 'min(200px, 100%)', aspectRatio: '1' }}
         >
           {collection.artworkUrl ? (
             <img
               src={collection.artworkUrl}
               alt=""
-              style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+              className="fill-cover"
             />
           ) : (
             <Icon size={ICON.display} />
           )}
         </div>
 
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)', minWidth: 0 }}>
+        <div className="stack gap-3 min-0">
           <h1
-            style={{
-              margin: 0,
-              fontSize: 'var(--text-2xl)',
-              lineHeight: 'var(--leading-2xl)',
-              letterSpacing: 'var(--tracking-2xl)',
-              fontWeight: 'var(--weight-semibold)',
-              color: 'var(--text-primary)',
-              overflowWrap: 'anywhere'
-            }}
+            className="m-0 weight-semibold text-primary type-2xl" style={{ overflowWrap: 'anywhere' }}
             data-testid="collection-title"
           >
             {title}
           </h1>
 
           {collection.subtitle && (
-            <p style={{ margin: 0, fontSize: 'var(--text-sm)', color: 'var(--text-secondary)' }}>
+            <p className="m-0 text-sm text-secondary">
               {collection.subtitle}
             </p>
           )}
 
           {!isLoading && tracks.length > 0 && (
-            <p style={{ margin: 0, fontSize: 'var(--text-sm)', color: 'var(--text-muted)' }}>
+            <p className="m-0 text-sm text-muted">
               <span data-numeric>{tracks.length}</span>{' '}
               {plural(tracks.length, 'трек', 'трека', 'треков')}
             </p>
           )}
 
-          <div style={{ display: 'flex', gap: 'var(--space-2)', flexWrap: 'wrap' }}>
+          <div className="row-stretch gap-2 wrap">
             <Button
               variant="primary"
               size="md"
@@ -230,13 +211,7 @@ export const CollectionView: React.FC = () => {
         <div
           ref={virtual.containerRef}
           role="list"
-          style={{
-            display: 'flex',
-            flexDirection: 'column',
-            gap: '2px',
-            paddingTop: virtual.paddingTop,
-            paddingBottom: virtual.paddingBottom
-          }}
+          className="stack gap-px" style={{ paddingTop: virtual.paddingTop, paddingBottom: virtual.paddingBottom }}
           data-testid="collection-track-list"
         >
           {tracks.slice(virtual.startIndex, virtual.endIndex).map((track, offset) => {

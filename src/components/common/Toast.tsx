@@ -136,44 +136,23 @@ const ToastCard: React.FC<ToastCardProps> = ({ entry, onDismiss }) => {
       data-leaving={entry.isLeaving || undefined}
     >
       <span
-        style={{
-          display: 'inline-flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          width: '26px',
-          height: '26px',
-          borderRadius: 'var(--radius-full)',
-          backgroundColor: tokens.soft,
-          flexShrink: 0
-        }}
+        className="inline-row justify-center radius-full shrink-0" style={{ width: '26px', height: '26px', backgroundColor: tokens.soft }}
       >
         {variantIcon(entry.variant)}
       </span>
 
       <span
-        style={{
-          flex: 1,
-          minWidth: 0,
-          fontSize: 'var(--text-sm)',
-          lineHeight: 'var(--leading-sm)',
-          color: 'var(--text-primary)'
-        }}
+        className="grow text-sm text-primary leading-sm"
       >
         {entry.text}
       </span>
 
       <button
         type="button"
-        className="press"
+        className="press text-muted radius-xs shrink-0"
         onClick={() => onDismiss(entry.key)}
         aria-label="Закрыть уведомление"
-        style={{
-          color: 'var(--text-muted)',
-          width: '24px',
-          height: '24px',
-          borderRadius: 'var(--radius-xs)',
-          flexShrink: 0
-        }}
+        style={{ width: '24px', height: '24px' }}
       >
         <X size={ICON.sm} />
       </button>

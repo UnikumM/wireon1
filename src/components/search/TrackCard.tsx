@@ -80,19 +80,7 @@ interface ArtworkProps {
  */
 const TrackArtwork: React.FC<ArtworkProps> = ({ track, size, radius, failed, onFailed, children }) => (
   <div
-    style={{
-      position: 'relative',
-      width: size,
-      height: size,
-      flexShrink: 0,
-      borderRadius: radius,
-      overflow: 'hidden',
-      background: 'var(--surface-sunken)',
-      border: '1px solid var(--border-subtle)',
-      display: 'flex',
-      alignItems: 'center',
-      justifyContent: 'center',
-    }}
+    className="relative shrink-0 overflow-hidden row justify-center bg-sunken border-subtle" style={{ width: size, height: size, borderRadius: radius }}
   >
     {failed || !track.artworkUrl ? (
       // Размер по шкале, а не 40% от плитки.
@@ -104,7 +92,7 @@ const TrackArtwork: React.FC<ArtworkProps> = ({ track, size, radius, failed, onF
       // (40) и карточка (132/160), поэтому и размеров хватает двух.
       <Music2
         size={size >= 96 ? ICON.hero : ICON.md}
-        style={{ color: 'var(--text-faint)' }}
+        className="text-faint"
         aria-hidden="true"
       />
     ) : (
@@ -112,7 +100,7 @@ const TrackArtwork: React.FC<ArtworkProps> = ({ track, size, radius, failed, onF
         src={track.artworkUrl}
         alt=""
         loading="lazy"
-        style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+        className="fill-cover"
         onError={onFailed}
       />
     )}
@@ -429,11 +417,11 @@ export const TrackCard: React.FC<TrackCardProps> = ({
   };
 
   const contextMenu = (
-    <div style={{ position: 'relative' }} ref={menuRef}>
+    <div className="relative" ref={menuRef}>
       <button
         type="button"
         ref={menuTriggerRef}
-        className="press focus-ring"
+        className="press focus-ring p-2 text-secondary pointer"
         onClick={(e) => {
           e.stopPropagation();
           if (isMobileShell) {
@@ -445,7 +433,6 @@ export const TrackCard: React.FC<TrackCardProps> = ({
         aria-label={`Другие действия с «${track.title}»`}
         aria-haspopup="menu"
         aria-expanded={isMenuOpen}
-        style={{ padding: 'var(--space-2)', color: 'var(--text-secondary)', cursor: 'pointer' }}
         data-testid={`track-more-btn-${track.id}`}
       >
         <MoreHorizontal size={ICON.md} />
@@ -583,39 +570,20 @@ export const TrackCard: React.FC<TrackCardProps> = ({
   const playOverlay = (
     <button
       type="button"
-      className="focus-ring"
+      className="focus-ring row justify-center pointer"
       onClick={handleActivateClick}
       onMouseEnter={() => setOverlayActive(true)}
       onMouseLeave={() => setOverlayActive(false)}
       onFocus={() => setOverlayActive(true)}
       onBlur={() => setOverlayActive(false)}
       aria-label={isTrackPlaying ? `Пауза: ${track.title}` : `Слушать: ${track.title}`}
-      style={{
-        position: 'absolute',
-        inset: 0,
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        background: 'var(--surface-active)',
-        opacity: overlayActive || isTrackPlaying ? 1 : 0,
-        transition: 'opacity var(--dur-fast) var(--ease-out)',
-        cursor: 'pointer',
-      }}
+      style={{ position: 'absolute', inset: 0, background: 'var(--surface-active)', opacity: overlayActive || isTrackPlaying ? 1 : 0, transition: 'opacity var(--dur-fast) var(--ease-out)' }}
       data-testid={`track-artwork-play-${track.id}`}
     >
       <span
-        style={{
-          width: 'var(--control-lg)',
-          height: 'var(--control-lg)',
-          borderRadius: 'var(--radius-full)',
-          background: 'var(--accent)',
-          color: 'var(--text-on-accent)',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-        }}
+        className="control-lg radius-full row justify-center bg-accent" style={{ color: 'var(--text-on-accent)' }}
       >
-        {isTrackPlaying ? <Pause size={ICON.lg} /> : <Play size={ICON.lg} style={{ marginLeft: '2px' }} />}
+        {isTrackPlaying ? <Pause size={ICON.lg} /> : <Play size={ICON.lg} className="ml-px" />}
       </span>
     </button>
   );
@@ -652,25 +620,15 @@ export const TrackCard: React.FC<TrackCardProps> = ({
           {playOverlay}
         </TrackArtwork>
 
-        <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>
+        <div className="grow stack gap-2">
+          <div className="row gap-2">
             <span className="section-label">Лучшее совпадение</span>
             <SourceBadge source={track.source} size="xs" />
             {isDownloaded && (
               <span
                 title="Доступно офлайн"
                 aria-label="Доступно офлайн"
-                style={{
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  gap: 'var(--space-1)',
-                  padding: '2px 6px',
-                  borderRadius: 'var(--radius-xs)',
-                  backgroundColor: 'var(--surface-active)',
-                  color: 'var(--text-secondary)',
-                  fontSize: 'var(--text-xs)',
-                  fontWeight: 'var(--weight-semibold)'
-                }}
+                className="inline-row gap-1 radius-xs text-secondary text-xs weight-semibold" style={{ padding: '2px 6px', backgroundColor: 'var(--surface-active)' }}
                 data-testid={`hero-offline-badge-${track.id}`}
               >
                 <CheckCircle2 size={ICON.xs} aria-hidden="true" />
@@ -680,15 +638,7 @@ export const TrackCard: React.FC<TrackCardProps> = ({
           </div>
 
           <h3
-            className="text-truncate"
-            style={{
-              fontSize: 'var(--text-2xl)',
-              lineHeight: 'var(--leading-2xl)',
-              letterSpacing: 'var(--tracking-2xl)',
-              fontWeight: 'var(--weight-semibold)',
-              color: 'var(--text-primary)',
-              margin: 0,
-            }}
+            className="text-truncate weight-semibold text-primary m-0 type-2xl"
             title={track.title}
           >
             {track.title}
@@ -723,12 +673,7 @@ export const TrackCard: React.FC<TrackCardProps> = ({
           </p>
 
           <div
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: 'var(--space-3)',
-              marginTop: 'var(--space-2)',
-            }}
+            className="row gap-3 mt-2"
           >
             <Button
               variant="primary"
@@ -770,11 +715,7 @@ export const TrackCard: React.FC<TrackCardProps> = ({
 
             <span
               data-numeric
-              style={{
-                fontSize: 'var(--text-sm)',
-                color: 'var(--text-muted)',
-                marginLeft: 'auto',
-              }}
+              className="text-sm text-muted ml-auto"
             >
               {formatDuration(track.duration)}
             </span>
@@ -788,15 +729,9 @@ export const TrackCard: React.FC<TrackCardProps> = ({
   if (layout === 'card') {
     return (
       <div
-        className={`card-interactive ${className}`}
+        className={`card-interactive ${className} stack gap-3 p-3`}
         aria-selected={isCurrent}
-        style={{
-          display: 'flex',
-          flexDirection: 'column',
-          gap: 'var(--space-3)',
-          padding: 'var(--space-3)',
-          cursor: 'default',
-        }}
+        style={{ cursor: 'default' }}
         data-testid={`track-card-${track.id}`}
         onMouseEnter={onIntentStart}
         onMouseLeave={onIntentEnd}
@@ -811,15 +746,10 @@ export const TrackCard: React.FC<TrackCardProps> = ({
           {playOverlay}
         </TrackArtwork>
 
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', minWidth: 0 }}>
+        <div className="stack gap-px min-0">
           <span
-            className="text-truncate"
-            style={{
-              fontSize: 'var(--text-lg)',
-              letterSpacing: 'var(--tracking-lg)',
-              fontWeight: 'var(--weight-semibold)',
-              color: isCurrent ? 'var(--accent-hover)' : 'var(--text-primary)',
-            }}
+            className="text-truncate text-lg weight-semibold tracking-lg"
+            style={{ color: isCurrent ? 'var(--accent-hover)' : 'var(--text-primary)' }}
             title={track.title}
           >
             {track.title}
@@ -854,26 +784,22 @@ export const TrackCard: React.FC<TrackCardProps> = ({
           </span>
         </div>
 
-        <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>
+        <div className="row gap-2">
           <SourceBadge source={track.source} size="xs" />
           {isDownloaded && (
             <span
               title="Доступно офлайн"
               aria-label="Доступно офлайн"
-              style={{
-                display: 'inline-flex',
-                alignItems: 'center',
-                color: 'var(--text-secondary)'
-              }}
+              className="inline-row text-secondary"
               data-testid={`card-offline-badge-${track.id}`}
             >
               <CheckCircle2 size={ICON.sm} aria-hidden="true" />
             </span>
           )}
-          <span data-numeric style={{ fontSize: 'var(--text-xs)', color: 'var(--text-muted)' }}>
+          <span data-numeric className="text-xs text-muted">
             {formatDuration(track.duration)}
           </span>
-          <span style={{ marginLeft: 'auto' }}>{contextMenu}</span>
+          <span className="ml-auto">{contextMenu}</span>
         </div>
       </div>
     );
@@ -930,11 +856,8 @@ export const TrackCard: React.FC<TrackCardProps> = ({
       {showIndex && selectedTrackIds === null && (
         <div
           aria-hidden="true"
-          className="track-row-index hide-on-mobile"
-          style={{
-            fontSize: 'var(--text-sm)',
-            color: isCurrent ? 'var(--accent)' : 'var(--text-muted)',
-          }}
+          className="track-row-index hide-on-mobile text-sm"
+          style={{ color: isCurrent ? 'var(--accent)' : 'var(--text-muted)' }}
         >
           {isTrackPlaying ? (
             <span className="eq-bars">
@@ -943,7 +866,7 @@ export const TrackCard: React.FC<TrackCardProps> = ({
               <span className="eq-bar" />
             </span>
           ) : isHovered ? (
-            <Play size={ICON.sm} style={{ color: 'var(--accent)' }} />
+            <Play size={ICON.sm} className="text-accent" />
           ) : (
             <span data-numeric>{index !== undefined ? index + 1 : ''}</span>
           )}
@@ -958,14 +881,10 @@ export const TrackCard: React.FC<TrackCardProps> = ({
         onFailed={() => setArtworkFailed(true)}
       />
 
-      <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: '2px' }}>
+      <div className="grow stack gap-px">
         <span
-          className="text-truncate"
-          style={{
-            fontSize: 'var(--text-base)',
-            fontWeight: isCurrent ? 'var(--weight-semibold)' : 'var(--weight-medium)',
-            color: isCurrent ? 'var(--accent-hover)' : 'var(--text-primary)',
-          }}
+          className="text-truncate text-base"
+          style={{ fontWeight: isCurrent ? 'var(--weight-semibold)' : 'var(--weight-medium)', color: isCurrent ? 'var(--accent-hover)' : 'var(--text-primary)' }}
           title={track.title}
         >
           {track.title}
@@ -1023,12 +942,7 @@ export const TrackCard: React.FC<TrackCardProps> = ({
           <span
             title="Доступно офлайн"
             aria-label="Доступно офлайн"
-            style={{
-              display: 'inline-flex',
-              alignItems: 'center',
-              color: 'var(--text-secondary)',
-              padding: '0 var(--space-1)'
-            }}
+            className="inline-row text-secondary py-0 px-1"
             data-testid={`track-offline-badge-${track.id}`}
           >
             <CheckCircle2 size={ICON.sm} aria-hidden="true" />
@@ -1038,34 +952,24 @@ export const TrackCard: React.FC<TrackCardProps> = ({
 
       <span
         data-numeric
-        className="hide-on-mobile"
-        style={{
-          fontSize: 'var(--text-sm)',
-          color: 'var(--text-muted)',
-          width: '48px',
-          textAlign: 'right',
-          flexShrink: 0,
-        }}
+        className="hide-on-mobile text-sm text-muted text-right shrink-0"
+        style={{ width: '48px' }}
       >
         {formatDuration(track.duration)}
       </span>
 
       <div
-        style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-1)', flexShrink: 0 }}
+        className="row gap-1 shrink-0"
         onClick={(e) => e.stopPropagation()}
       >
         <button
           type="button"
-          className="press focus-ring tap-target hide-on-mobile"
+          className="press focus-ring tap-target hide-on-mobile p-2 pointer"
           onClick={handleFavoriteClick}
           title={isFavorite ? 'Убрать из избранного' : 'В избранное'}
           aria-label={isFavorite ? `Убрать «${track.title}» из избранного` : `Добавить «${track.title}» в избранное`}
           aria-pressed={isFavorite}
-          style={{
-            padding: 'var(--space-2)',
-            color: isFavorite ? 'var(--danger)' : 'var(--text-secondary)',
-            cursor: 'pointer',
-          }}
+          style={{ color: isFavorite ? 'var(--danger)' : 'var(--text-secondary)' }}
           data-testid={`track-fav-btn-${track.id}`}
         >
           <Heart size={ICON.md} fill={isFavorite ? 'currentColor' : 'none'} />
@@ -1073,11 +977,10 @@ export const TrackCard: React.FC<TrackCardProps> = ({
 
         <button
           type="button"
-          className="press focus-ring tap-target hide-on-mobile"
+          className="press focus-ring tap-target hide-on-mobile p-2 text-secondary pointer"
           onClick={handleAddToQueue}
           title="В конец очереди"
           aria-label={`Добавить «${track.title}» в очередь`}
-          style={{ padding: 'var(--space-2)', color: 'var(--text-secondary)', cursor: 'pointer' }}
           data-testid={`track-queue-btn-${track.id}`}
         >
           <Plus size={ICON.md} />

@@ -222,8 +222,8 @@ export const GroupListenModal: React.FC<GroupListenModalProps> = ({ isOpen, onCl
       onClose={onClose}
       maxWidth="540px"
       title={
-        <div className="group-listen-title" style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>
-          <Radio size={ICON.lg} style={{ color: 'var(--text-secondary)' }} />
+        <div className="group-listen-title row gap-2">
+          <Radio size={ICON.lg} className="text-secondary" />
           <span>Слушать вместе</span>
           {isConnected && (
             <span
@@ -258,23 +258,15 @@ export const GroupListenModal: React.FC<GroupListenModalProps> = ({ isOpen, onCl
       }
       data-testid="group-listen-modal"
     >
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-4)' }}>
+      <div className="stack gap-4">
         {/* Connected Active Room View */}
         {isConnected && roomId ? (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-4)' }}>
+          <div className="stack gap-4">
             {/* Room Banner */}
             <div
-              style={{
-                backgroundColor: 'var(--surface-3)',
-                border: '1px solid var(--border)',
-                borderRadius: 'var(--radius-lg)',
-                padding: 'var(--space-4)',
-                display: 'flex',
-                flexDirection: 'column',
-                gap: 'var(--space-3)'
-              }}
+              className="radius-lg p-4 stack gap-3 bg-surface-3 border-line"
             >
-              <div className="group-listen-room-row" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <div className="group-listen-room-row row justify-between">
                 <div>
                   <div className="section-label">Код комнаты</div>
                   <div
@@ -294,12 +286,12 @@ export const GroupListenModal: React.FC<GroupListenModalProps> = ({ isOpen, onCl
                   </div>
                 </div>
 
-                <div className="group-listen-room-actions" style={{ display: 'flex', gap: 'var(--space-2)' }}>
+                <div className="group-listen-room-actions row-stretch gap-2">
                   <Button
                     size="sm"
                     variant="secondary"
                     onClick={handleCopyCode}
-                    icon={copied ? <Check size={ICON.sm} style={{ color: 'var(--success)' }} /> : <Copy size={ICON.sm} />}
+                    icon={copied ? <Check size={ICON.sm} className="text-success" /> : <Copy size={ICON.sm} />}
                     data-testid="group-listen-copy-btn"
                   >
                     {copied ? 'Скопировано' : 'Копировать код'}
@@ -324,7 +316,7 @@ export const GroupListenModal: React.FC<GroupListenModalProps> = ({ isOpen, onCl
                   border: `1px solid ${connection.soft}`
                 }}
               >
-                <span style={{ color: connection.color, flexShrink: 0, marginTop: '1px' }}>
+                <span className="shrink-0" style={{ color: connection.color, marginTop: '1px' }}>
                   {connectionStatus === 'online' ? (
                     <Wifi size={ICON.sm} />
                   ) : connectionStatus === 'connecting' ? (
@@ -335,17 +327,17 @@ export const GroupListenModal: React.FC<GroupListenModalProps> = ({ isOpen, onCl
                     <WifiOff size={ICON.sm} />
                   )}
                 </span>
-                <div style={{ minWidth: 0 }}>
-                  <div style={{ fontSize: 'var(--text-xs)', fontWeight: 'var(--weight-semibold)', color: connection.color }}>
+                <div className="min-0">
+                  <div className="text-xs weight-semibold" style={{ color: connection.color }}>
                     {connection.title}
                   </div>
-                  <div style={{ fontSize: 'var(--text-xs)', color: 'var(--text-secondary)', lineHeight: 1.45 }}>
+                  <div className="text-xs text-secondary" style={{ lineHeight: 1.45 }}>
                     {connection.hint}
                   </div>
                   {connectionError && connectionStatus !== 'online' && (
                     <div
                       data-testid="group-listen-connection-error"
-                      style={{ fontSize: 'var(--text-xs)', color: 'var(--text-muted)', marginTop: '2px' }}
+                      className="text-xs text-muted mt-px"
                     >
                       Причина: {connectionError}
                     </div>
@@ -354,19 +346,9 @@ export const GroupListenModal: React.FC<GroupListenModalProps> = ({ isOpen, onCl
               </div>
 
               {/* Status and Role Badges */}
-              <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)', flexWrap: 'wrap' }}>
+              <div className="row gap-2 wrap">
                 <span
-                  style={{
-                    display: 'inline-flex',
-                    alignItems: 'center',
-                    gap: '4px',
-                    fontSize: 'var(--text-xs)',
-                    padding: '2px 8px',
-                    borderRadius: 'var(--radius-full)',
-                    backgroundColor: isHost ? 'var(--warning-soft)' : 'var(--surface-2)',
-                    color: isHost ? 'var(--warning)' : 'var(--text-secondary)',
-                    border: '1px solid var(--border-subtle)'
-                  }}
+                  className="inline-row text-xs radius-full gap-1 border-subtle" style={{ padding: '2px 8px', backgroundColor: isHost ? 'var(--warning-soft)' : 'var(--surface-2)', color: isHost ? 'var(--warning)' : 'var(--text-secondary)' }}
                 >
                   {isHost ? <Crown size={ICON.xs} /> : <Users size={ICON.xs} />}
                   {isHost ? 'Вы ведущий' : 'Вы слушаете'}
@@ -374,17 +356,7 @@ export const GroupListenModal: React.FC<GroupListenModalProps> = ({ isOpen, onCl
 
                 <span
                   data-testid="group-listen-sync-badge"
-                  style={{
-                    display: 'inline-flex',
-                    alignItems: 'center',
-                    gap: '4px',
-                    fontSize: 'var(--text-xs)',
-                    padding: '2px 8px',
-                    borderRadius: 'var(--radius-full)',
-                    backgroundColor: isSyncing ? 'var(--info-soft)' : 'var(--surface-2)',
-                    color: isSyncing ? 'var(--info)' : 'var(--text-muted)',
-                    border: '1px solid var(--border-subtle)'
-                  }}
+                  className="inline-row text-xs radius-full gap-1 border-subtle" style={{ padding: '2px 8px', backgroundColor: isSyncing ? 'var(--info-soft)' : 'var(--surface-2)', color: isSyncing ? 'var(--info)' : 'var(--text-muted)' }}
                 >
                   <Wifi size={ICON.xs} />
                   {awaitingHost ? 'Нет ведущего' : isSyncing ? 'Подстраиваемся…' : 'Совпадает'}
@@ -395,73 +367,43 @@ export const GroupListenModal: React.FC<GroupListenModalProps> = ({ isOpen, onCl
             {/* Currently Playing in Room */}
             {currentTrack && (
               <div
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: 'var(--space-3)',
-                  padding: 'var(--space-3)',
-                  backgroundColor: 'var(--surface-2)',
-                  borderRadius: 'var(--radius-md)',
-                  border: '1px solid var(--border-subtle)'
-                }}
+                className="row gap-3 p-3 radius-md bg-surface-2 border-subtle"
               >
                 <img
                   src={currentTrack.artworkUrl || ''}
                   alt=""
-                  style={{
-                    width: '40px',
-                    height: '40px',
-                    borderRadius: 'var(--radius-sm)',
-                    objectFit: 'cover',
-                    backgroundColor: 'var(--surface-4)'
-                  }}
+                  className="radius-sm bg-surface-4" style={{ width: '40px', height: '40px', objectFit: 'cover' }}
                 />
-                <div style={{ minWidth: 0, flex: 1 }}>
+                <div className="grow">
                   <div
-                    className="text-truncate"
-                    style={{ fontSize: 'var(--text-sm)', fontWeight: 'var(--weight-semibold)', color: 'var(--text-primary)' }}
+                    className="text-truncate text-sm weight-semibold text-primary"
                   >
                     {currentTrack.title}
                   </div>
-                  <div className="text-truncate" style={{ fontSize: 'var(--text-xs)', color: 'var(--text-muted)' }}>
+                  <div className="text-truncate text-xs text-muted">
                     {currentTrack.artist} • {isPlaying ? 'играет' : 'на паузе'}
                   </div>
                 </div>
-                <Music2 size={ICON.md} style={{ color: 'var(--accent)', flexShrink: 0 }} />
+                <Music2 size={ICON.md} className="text-accent shrink-0" />
               </div>
             )}
 
             {/* Participants Section */}
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' }}>
+            <div className="stack gap-2">
               {/*
                 * Капс раньше стоял на всей строке, а не на подписи, поэтому его
                 * наследовала и кнопка справа: «ЧАТ (0)». Теперь регистр — забота
                 * самой подписи.
                 */}
               <div
-                className="group-listen-participants-heading"
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'space-between'
-                }}
+                className="group-listen-participants-heading row justify-between"
               >
                 <span className="section-label">Участники ({participants.length})</span>
                 <button
                   type="button"
                   onClick={() => setShowChat(!showChat)}
                   data-testid="group-listen-chat-toggle"
-                  style={{
-                    background: 'none',
-                    border: 'none',
-                    color: showChat ? 'var(--accent)' : 'var(--text-muted)',
-                    cursor: 'pointer',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '4px',
-                    fontSize: 'var(--text-sm)',
-                    letterSpacing: 'var(--tracking-sm)'
-                  }}
+                  className="pointer row text-sm bg-none border-none gap-1 tracking-sm" style={{ color: showChat ? 'var(--accent)' : 'var(--text-muted)' }}
                 >
                   <MessageSquare size={ICON.xs} />
                   {showChat ? 'Скрыть чат' : `Чат (${chatMessages.length})`}
@@ -470,27 +412,12 @@ export const GroupListenModal: React.FC<GroupListenModalProps> = ({ isOpen, onCl
 
               <div
                 data-testid="group-listen-participant-list"
-                className="scrollbar-thin"
-                style={{
-                  maxHeight: '140px',
-                  overflowY: 'auto',
-                  display: 'flex',
-                  flexDirection: 'column',
-                  gap: 'var(--space-1)',
-                  backgroundColor: 'var(--surface-sunken)',
-                  padding: 'var(--space-2)',
-                  borderRadius: 'var(--radius-md)',
-                  border: '1px solid var(--border-subtle)'
-                }}
+                className="scrollbar-thin stack gap-1 p-2 radius-md bg-sunken border-subtle"
+                style={{ maxHeight: '140px', overflowY: 'auto' }}
               >
                 {participants.length === 0 ? (
                   <div
-                    style={{
-                      padding: 'var(--space-2)',
-                      fontSize: 'var(--text-xs)',
-                      color: 'var(--text-muted)',
-                      textAlign: 'center'
-                    }}
+                    className="p-2 text-xs text-muted text-center"
                   >
                     Пока никого нет. Отправьте код друзьям.
                   </div>
@@ -498,17 +425,9 @@ export const GroupListenModal: React.FC<GroupListenModalProps> = ({ isOpen, onCl
                   participants.map((p) => (
                     <div
                       key={p.id}
-                      style={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'space-between',
-                        padding: '4px 8px',
-                        borderRadius: 'var(--radius-sm)',
-                        backgroundColor: 'var(--surface-2)',
-                        fontSize: 'var(--text-xs)'
-                      }}
+                      className="row justify-between radius-sm text-xs bg-surface-2" style={{ padding: '4px 8px' }}
                     >
-                      <div className="group-listen-participant-identity" style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>
+                      <div className="group-listen-participant-identity row gap-2">
                         {p.avatarUrl ? (
                           <img
                             className="group-listen-participant-avatar"
@@ -518,39 +437,19 @@ export const GroupListenModal: React.FC<GroupListenModalProps> = ({ isOpen, onCl
                           />
                         ) : (
                           <div
-                            className="group-listen-participant-avatar"
-                            style={{
-                              width: '20px',
-                              height: '20px',
-                              borderRadius: '50%',
-                              backgroundColor: 'var(--surface-4)',
-                              display: 'flex',
-                              alignItems: 'center',
-                              justifyContent: 'center',
-                              fontSize: 'var(--text-xs)',
-                              fontWeight: 'var(--weight-semibold)',
-                              color: 'var(--text-primary)'
-                            }}
+                            className="group-listen-participant-avatar row justify-center text-xs weight-semibold text-primary bg-surface-4"
+                            style={{ width: '20px', height: '20px', borderRadius: '50%' }}
                           >
                             {p.username.charAt(0).toUpperCase()}
                           </div>
                         )}
-                        <span className="group-listen-participant-name" style={{ fontWeight: 'var(--weight-medium)', color: 'var(--text-primary)' }}>{p.username}</span>
+                        <span className="group-listen-participant-name weight-medium text-primary">{p.username}</span>
                       </div>
 
                       {p.isHost && (
                         <span
-                          className="group-listen-host-badge"
-                          style={{
-                            display: 'inline-flex',
-                            alignItems: 'center',
-                            gap: '2px',
-                            fontSize: 'var(--text-xs)',
-                            color: 'var(--warning)',
-                            backgroundColor: 'var(--warning-soft)',
-                            padding: '1px 5px',
-                            borderRadius: 'var(--radius-xs)'
-                          }}
+                          className="group-listen-host-badge inline-row gap-px text-xs text-warning radius-xs bg-warning-soft"
+                          style={{ padding: '1px 5px' }}
                         >
                           <Crown size={ICON.xs} /> Ведущий
                         </span>
@@ -567,51 +466,31 @@ export const GroupListenModal: React.FC<GroupListenModalProps> = ({ isOpen, onCl
                 // Чат раскрывается по нажатию и ровно под своей кнопкой —
                 // случай, для которого выпадение и заведено: панель растёт от
                 // верхнего края, продолжая нажатие, а не возникает сама собой.
-                className="animate-drop-in"
-                style={{
-                  display: 'flex',
-                  flexDirection: 'column',
-                  gap: 'var(--space-2)',
-                  backgroundColor: 'var(--surface-sunken)',
-                  padding: 'var(--space-3)',
-                  borderRadius: 'var(--radius-md)',
-                  border: '1px solid var(--border)'
-                }}
+                className="animate-drop-in stack gap-2 p-3 radius-md bg-sunken border-line"
               >
                 <div
                   ref={chatListRef}
-                  className="scrollbar-thin"
+                  className="scrollbar-thin stack gap-1"
                   data-testid="group-listen-chat-list"
-                  style={{
-                    maxHeight: '120px',
-                    overflowY: 'auto',
-                    display: 'flex',
-                    flexDirection: 'column',
-                    gap: '4px'
-                  }}
+                  style={{ maxHeight: '120px', overflowY: 'auto' }}
                 >
                   {chatMessages.length === 0 ? (
                     <div
-                      style={{
-                        fontSize: 'var(--text-xs)',
-                        color: 'var(--text-muted)',
-                        textAlign: 'center',
-                        padding: 'var(--space-2)'
-                      }}
+                      className="text-xs text-muted text-center p-2"
                     >
                       Сообщений пока нет.
                     </div>
                   ) : (
                     chatMessages.map((m) => (
-                      <div key={m.id} style={{ fontSize: 'var(--text-xs)' }}>
-                        <span style={{ fontWeight: 'var(--weight-semibold)', color: 'var(--text-secondary)' }}>{m.senderName}: </span>
-                        <span style={{ color: 'var(--text-primary)' }}>{m.text}</span>
+                      <div key={m.id} className="text-xs">
+                        <span className="weight-semibold text-secondary">{m.senderName}: </span>
+                        <span className="text-primary">{m.text}</span>
                       </div>
                     ))
                   )}
                 </div>
 
-                <form className="group-listen-chat-form" onSubmit={handleSendChat} style={{ display: 'flex', gap: 'var(--space-2)' }}>
+                <form className="group-listen-chat-form row-stretch gap-2" onSubmit={handleSendChat}>
                   <input
                     type="text"
                     value={chatInput}
@@ -619,15 +498,7 @@ export const GroupListenModal: React.FC<GroupListenModalProps> = ({ isOpen, onCl
                     placeholder="Написать сообщение…"
                     aria-label="Сообщение в чат комнаты"
                     data-testid="group-listen-chat-input"
-                    style={{
-                      flex: 1,
-                      backgroundColor: 'var(--surface-2)',
-                      border: '1px solid var(--border)',
-                      borderRadius: 'var(--radius-sm)',
-                      padding: '4px 8px',
-                      color: 'var(--text-primary)',
-                      fontSize: 'var(--text-xs)'
-                    }}
+                    className="flex-1 radius-sm text-primary text-xs bg-surface-2 border-line" style={{ padding: '4px 8px' }}
                   />
                   <Button
                     type="submit"
@@ -643,7 +514,7 @@ export const GroupListenModal: React.FC<GroupListenModalProps> = ({ isOpen, onCl
             )}
 
             {/* Leave Room Action */}
-            <div style={{ display: 'flex', justifyContent: 'flex-end', paddingTop: 'var(--space-2)' }}>
+            <div className="row-stretch justify-end pt-2">
               <Button
                 variant="danger"
                 size="sm"
@@ -657,7 +528,7 @@ export const GroupListenModal: React.FC<GroupListenModalProps> = ({ isOpen, onCl
           </div>
         ) : (
           /* Not Connected: Host / Join Tabs */
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-4)' }}>
+          <div className="stack gap-4">
             {/* Tabs Header */}
             <div
               role="tablist"
@@ -704,15 +575,8 @@ export const GroupListenModal: React.FC<GroupListenModalProps> = ({ isOpen, onCl
                 // Отказ приходит в ответ на нажатие, и его надо заметить:
                 // строка, появившаяся между кадрами, теряется среди того, что
                 // уже было на месте.
-                className="animate-drop-in"
-                style={{
-                  padding: 'var(--space-2) var(--space-3)',
-                  backgroundColor: 'var(--danger-soft)',
-                  color: 'var(--danger)',
-                  borderRadius: 'var(--radius-sm)',
-                  fontSize: 'var(--text-xs)',
-                  border: '1px solid var(--danger)'
-                }}
+                className="animate-drop-in text-danger radius-sm text-xs py-2 px-3 bg-danger-soft"
+                style={{ border: '1px solid var(--danger)' }}
               >
                 {error}
               </div>
@@ -720,47 +584,24 @@ export const GroupListenModal: React.FC<GroupListenModalProps> = ({ isOpen, onCl
 
             {/* Tab: Host */}
             {tab === 'host' ? (
-              <div key="host" className="animate-fade-in" style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-4)' }}>
-                <div style={{ fontSize: 'var(--text-sm)', color: 'var(--text-secondary)', lineHeight: 1.5 }}>
+              <div key="host" className="animate-fade-in stack gap-4">
+                <div className="text-sm text-secondary" style={{ lineHeight: 1.5 }}>
                   Включайте музыку — остальные услышат то же самое и в тот же момент. Пауза, перемотка и смена
                   трека повторяются у всех, задержка сети учитывается автоматически.
                 </div>
 
                 <div
-                  style={{
-                    backgroundColor: 'var(--surface-2)',
-                    border: '1px solid var(--border-subtle)',
-                    borderRadius: 'var(--radius-md)',
-                    padding: 'var(--space-3)',
-                    display: 'flex',
-                    flexDirection: 'column',
-                    gap: 'var(--space-2)'
-                  }}
+                  className="radius-md p-3 stack gap-2 bg-surface-2 border-subtle"
                 >
                   <div
-                    style={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: 'var(--space-2)',
-                      fontSize: 'var(--text-xs)',
-                      color: 'var(--text-primary)',
-                      fontWeight: 'var(--weight-semibold)'
-                    }}
+                    className="row gap-2 text-xs text-primary weight-semibold"
                   >
                     {/* Пояснение, а не сюрприз: значок справки. */}
-                    <HelpCircle size={ICON.sm} style={{ color: 'var(--text-secondary)' }} />
+                    <HelpCircle size={ICON.sm} className="text-secondary" />
                     <span>Как это работает</span>
                   </div>
                   <ul
-                    style={{
-                      margin: 0,
-                      paddingLeft: '20px',
-                      fontSize: 'var(--text-xs)',
-                      color: 'var(--text-muted)',
-                      display: 'flex',
-                      flexDirection: 'column',
-                      gap: '4px'
-                    }}
+                    className="m-0 text-xs text-muted stack gap-1" style={{ paddingLeft: '20px' }}
                   >
                     <li>Код из 6 символов — им и делятся с друзьями</li>
                     <li>Расхождение больше 0,35 с выправляется само</li>
@@ -785,15 +626,14 @@ export const GroupListenModal: React.FC<GroupListenModalProps> = ({ isOpen, onCl
               /* Tab: Join */
               <form
                 key="join"
-                className="animate-fade-in"
+                className="animate-fade-in stack gap-4"
                 onSubmit={handleJoinRoom}
-                style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-4)' }}
               >
-                <div style={{ fontSize: 'var(--text-sm)', color: 'var(--text-secondary)', lineHeight: 1.5 }}>
+                <div className="text-sm text-secondary" style={{ lineHeight: 1.5 }}>
                   Введите код из 6 символов, который дал ведущий, — и вы подключитесь к его прослушиванию.
                 </div>
 
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' }}>
+                <div className="stack gap-2">
                   <label htmlFor="group-listen-code-input" className="section-label">
                     Код комнаты
                   </label>
@@ -806,17 +646,7 @@ export const GroupListenModal: React.FC<GroupListenModalProps> = ({ isOpen, onCl
                     placeholder="например VR7K9X"
                     autoComplete="off"
                     data-testid="group-listen-code-input"
-                    style={{
-                      padding: 'var(--space-3)',
-                      borderRadius: 'var(--radius-md)',
-                      fontSize: 'var(--text-xl)',
-                      fontFamily: 'var(--font-mono)',
-                      fontWeight: 'var(--weight-bold)',
-                      letterSpacing: '0.2em',
-                      textAlign: 'center',
-                      color: 'var(--text-primary)',
-                      textTransform: 'uppercase'
-                    }}
+                    className="p-3 radius-md text-xl weight-bold text-center text-primary" style={{ fontFamily: 'var(--font-mono)', letterSpacing: '0.2em', textTransform: 'uppercase' }}
                   />
                 </div>
 

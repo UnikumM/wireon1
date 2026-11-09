@@ -116,12 +116,7 @@ export const MobileNavBar: React.FC = () => {
           >
             {tab.icon}
             <span
-              style={{
-              fontSize: 'min(var(--text-xs), var(--mobile-nav-text-size, var(--text-xs)))',
-                lineHeight: 'var(--leading-xs)',
-                letterSpacing: 'var(--tracking-xs)',
-                fontWeight: isActive ? 'var(--weight-semibold)' : 'var(--weight-normal)'
-              }}
+              className="leading-xs tracking-xs" style={{ fontSize: 'min(var(--text-xs), var(--mobile-nav-text-size, var(--text-xs)))', fontWeight: isActive ? 'var(--weight-semibold)' : 'var(--weight-normal)' }}
             >
               {tab.label}
             </span>

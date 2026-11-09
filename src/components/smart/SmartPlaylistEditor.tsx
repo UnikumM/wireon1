@@ -195,9 +195,9 @@ export const SmartPlaylistEditor: React.FC<SmartPlaylistEditorProps> = ({
       maxWidth="640px"
       data-testid="smart-editor"
     >
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-4)' }}>
+      <div className="stack gap-4">
         {!playlist && (
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 'var(--space-2)' }} aria-label="Заготовки">
+          <div className="row-stretch wrap gap-2" aria-label="Заготовки">
             {SMART_PRESETS.map((preset, i) => (
               <button
                 key={preset.title}
@@ -221,7 +221,7 @@ export const SmartPlaylistEditor: React.FC<SmartPlaylistEditorProps> = ({
           data-testid="smart-title-input"
         />
 
-        <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)', flexWrap: 'wrap', fontSize: 'var(--text-sm)', color: 'var(--text-secondary)' }}>
+        <div className="row gap-2 wrap text-sm text-secondary">
           Подходят треки, где выполнены
           <select
             value={draft.match}
@@ -235,7 +235,7 @@ export const SmartPlaylistEditor: React.FC<SmartPlaylistEditorProps> = ({
           </select>
         </div>
 
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' }} data-testid="smart-rules">
+        <div className="stack gap-2" data-testid="smart-rules">
           {draft.rules.map((rule, index) => (
             <div key={index} style={rowStyle} data-testid={`smart-rule-${index}`}>
               <select
@@ -290,7 +290,7 @@ export const SmartPlaylistEditor: React.FC<SmartPlaylistEditorProps> = ({
           </div>
         </div>
 
-        <div style={{ display: 'flex', gap: 'var(--space-3)', flexWrap: 'wrap', alignItems: 'center' }}>
+        <div className="row gap-3 wrap">
           <label style={INLINE_LABEL}>
             Порядок
             <select
@@ -324,12 +324,12 @@ export const SmartPlaylistEditor: React.FC<SmartPlaylistEditorProps> = ({
         </div>
 
         <div
-          style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 'var(--space-3)', flexWrap: 'wrap' }}
+          className="row justify-between gap-3 wrap"
         >
-          <span style={{ fontSize: 'var(--text-sm)', color: 'var(--text-muted)' }} data-testid="smart-preview-count">
+          <span className="text-sm text-muted" data-testid="smart-preview-count">
             {preview === null ? 'Считаем…' : `Сейчас подходит: ${pluralize(preview.length, 'трек', 'трека', 'треков')}`}
           </span>
-          <div style={{ display: 'flex', gap: 'var(--space-2)' }}>
+          <div className="row-stretch gap-2">
             <Button variant="ghost" size="sm" onClick={onClose}>
               Отмена
             </Button>

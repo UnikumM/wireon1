@@ -33,20 +33,12 @@ export const SmartPlaylistsShelf: React.FC<{ compact?: boolean }> = ({ compact =
   );
 
   return (
-    <section style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }} data-testid="smart-shelf">
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 'var(--space-3)', flexWrap: 'wrap' }}>
+    <section className="stack gap-3" data-testid="smart-shelf">
+      <div className="row justify-between gap-3 wrap">
         <h2
-          style={{
-            margin: 0,
-            display: 'flex',
-            alignItems: 'center',
-            gap: 'var(--space-2)',
-            fontSize: compact ? 'var(--text-base)' : 'var(--text-xl)',
-            lineHeight: compact ? 'var(--leading-base)' : 'var(--leading-xl)',
-            color: 'var(--text-primary)'
-          }}
+          className="m-0 row gap-2 text-primary" style={{ fontSize: compact ? 'var(--text-base)' : 'var(--text-xl)', lineHeight: compact ? 'var(--leading-base)' : 'var(--leading-xl)' }}
         >
-          <Wand2 size={compact ? ICON.md : ICON.lg} aria-hidden="true" style={{ color: 'var(--accent)' }} />
+          <Wand2 size={compact ? ICON.md : ICON.lg} aria-hidden="true" className="text-accent" />
           Умные плейлисты
         </h2>
         <Button
@@ -61,41 +53,28 @@ export const SmartPlaylistsShelf: React.FC<{ compact?: boolean }> = ({ compact =
       </div>
 
       {playlists.length === 0 ? (
-        <p style={{ margin: 0, fontSize: 'var(--text-sm)', color: 'var(--text-muted)' }} data-testid="smart-shelf-empty">
+        <p className="m-0 text-sm text-muted" data-testid="smart-shelf-empty">
           Опишите, какие треки нужны — «из избранного и не звучало месяц», «топ-50», «до трёх минут», — и
           список будет собираться сам.
         </p>
       ) : (
         <div
-          style={{
-            display: 'grid',
-            gridTemplateColumns: compact ? 'repeat(auto-fill, minmax(140px, 1fr))' : 'repeat(auto-fill, minmax(200px, 1fr))',
-            gap: 'var(--space-3)'
-          }}
+          className="grid gap-3" style={{ gridTemplateColumns: compact ? 'repeat(auto-fill, minmax(140px, 1fr))' : 'repeat(auto-fill, minmax(200px, 1fr))' }}
         >
           {computed.map(({ playlist, tracks }) => (
             <button
               key={playlist.id}
               type="button"
-              className="card hover-sheen focus-ring"
+              className="card hover-sheen focus-ring stack gap-2 p-3 text-left pointer"
               onClick={() => openSmartPlaylist(playlist.id)}
-              style={{
-                display: 'flex',
-                flexDirection: 'column',
-                gap: 'var(--space-2)',
-                padding: 'var(--space-3)',
-                textAlign: 'left',
-                cursor: 'pointer'
-              }}
               data-testid={`smart-card-${playlist.id}`}
             >
               <PlaylistCover tracks={tracks} size="100%" radius="var(--radius-md)" />
-              <span className="text-truncate" style={{ fontWeight: 'var(--weight-semibold)', color: 'var(--text-primary)' }}>
+              <span className="text-truncate weight-semibold text-primary">
                 {playlist.title}
               </span>
               <span
-                className="text-truncate"
-                style={{ fontSize: 'var(--text-xs)', color: 'var(--text-muted)' }}
+                className="text-truncate text-xs text-muted"
                 title={describeRules(playlist)}
               >
                 {facts ? pluralize(tracks.length, 'трек', 'трека', 'треков') : '…'} · {describeRules(playlist)}

@@ -1149,6 +1149,209 @@ svg.lucide[width='48'] {
   -webkit-line-clamp: 2;
 }
 
+/* --- Раскладка и текст: утилиты вместо инлайн-стилей -------------------------
+ *
+ * До 4.0 полторы тысячи элементов были набраны `style={{ display: 'flex', … }}`.
+ * Инлайн-стиль побеждает любое правило таблицы: тему, медиа-запрос, `:hover`
+ * и «меньше движения». Эти классы покрывают девять десятых того, что писалось
+ * инлайном, и остаются единственным способом задать раскладку из разметки.
+ * Значения из данных (цвет обложки, ширина прогресса) по-прежнему идут
+ * инлайном — им нет места в таблице.
+ */
+.row { display: flex; align-items: center; }
+.row-start { display: flex; align-items: flex-start; }
+.row-end { display: flex; align-items: flex-end; }
+.row-stretch { display: flex; }
+.stack { display: flex; flex-direction: column; }
+.stack-center { display: flex; flex-direction: column; align-items: center; }
+.stack-stretch { display: flex; flex-direction: column; align-items: stretch; }
+.inline-row { display: inline-flex; align-items: center; }
+.grid { display: grid; }
+.block { display: block; }
+.wrap { flex-wrap: wrap; }
+.nowrap { white-space: nowrap; }
+.justify-between { justify-content: space-between; }
+.justify-center { justify-content: center; }
+.justify-end { justify-content: flex-end; }
+.justify-start { justify-content: flex-start; }
+.justify-around { justify-content: space-around; }
+.items-center { align-items: center; }
+.items-start { align-items: flex-start; }
+.items-end { align-items: flex-end; }
+.items-baseline { align-items: baseline; }
+.items-stretch { align-items: stretch; }
+.self-start { align-self: flex-start; }
+.self-center { align-self: center; }
+.self-end { align-self: flex-end; }
+.self-stretch { align-self: stretch; }
+.gap-0 { gap: 0; }
+.gap-px { gap: 2px; }
+.gap-1 { gap: var(--space-1); }
+.gap-2 { gap: var(--space-2); }
+.gap-3 { gap: var(--space-3); }
+.gap-4 { gap: var(--space-4); }
+.gap-5 { gap: var(--space-5); }
+.gap-6 { gap: var(--space-6); }
+.gap-7 { gap: var(--space-7); }
+.gap-8 { gap: var(--space-8); }
+.flex-1 { flex: 1 1 0%; }
+.flex-auto { flex: 1 1 auto; }
+.grow { flex: 1 1 0%; min-width: 0; }
+.grow-auto { flex: 1 1 auto; min-width: 0; }
+.shrink-0 { flex-shrink: 0; }
+.min-0 { min-width: 0; }
+.w-full { width: 100%; }
+.h-full { height: 100%; }
+.fill-cover { width: 100%; height: 100%; object-fit: cover; }
+.relative { position: relative; }
+.overflow-hidden { overflow: hidden; }
+.m-0 { margin: 0; }
+.mt-px { margin-top: 2px; }
+.mt-1 { margin-top: var(--space-1); }
+.mt-2 { margin-top: var(--space-2); }
+.mt-3 { margin-top: var(--space-3); }
+.mt-4 { margin-top: var(--space-4); }
+.mb-1 { margin-bottom: var(--space-1); }
+.mb-2 { margin-bottom: var(--space-2); }
+.mb-3 { margin-bottom: var(--space-3); }
+.mb-4 { margin-bottom: var(--space-4); }
+.ml-px { margin-left: 2px; }
+.ml-1 { margin-left: var(--space-1); }
+.ml-2 { margin-left: var(--space-2); }
+.ml-auto { margin-left: auto; }
+.mr-1 { margin-right: var(--space-1); }
+.mr-2 { margin-right: var(--space-2); }
+.p-0 { padding: 0; }
+.p-1 { padding: var(--space-1); }
+.p-2 { padding: var(--space-2); }
+.p-3 { padding: var(--space-3); }
+.p-4 { padding: var(--space-4); }
+.p-5 { padding: var(--space-5); }
+.text-center { text-align: center; }
+.text-left { text-align: left; }
+.text-right { text-align: right; }
+.text-xs { font-size: var(--text-xs); }
+.text-sm { font-size: var(--text-sm); }
+.text-base { font-size: var(--text-base); }
+.text-lg { font-size: var(--text-lg); }
+.text-xl { font-size: var(--text-xl); }
+.weight-normal { font-weight: var(--weight-normal); }
+.weight-medium { font-weight: var(--weight-medium); }
+.weight-semibold { font-weight: var(--weight-semibold); }
+.weight-bold { font-weight: var(--weight-bold); }
+.text-primary { color: var(--text-primary); }
+.text-secondary { color: var(--text-secondary); }
+.text-muted { color: var(--text-muted); }
+.text-faint { color: var(--text-faint); }
+.text-accent { color: var(--accent); }
+.text-success { color: var(--success); }
+.text-danger { color: var(--danger); }
+.text-warning { color: var(--warning); }
+.text-inherit { color: inherit; }
+.tabular { font-variant-numeric: tabular-nums; }
+.control-xs { width: var(--control-xs); height: var(--control-xs); }
+.control-sm { width: var(--control-sm); height: var(--control-sm); }
+.control-md { width: var(--control-md); height: var(--control-md); }
+.control-lg { width: var(--control-lg); height: var(--control-lg); }
+.control-xl { width: var(--control-xl); height: var(--control-xl); }
+.radius-xs { border-radius: var(--radius-xs); }
+.radius-sm { border-radius: var(--radius-sm); }
+.radius-md { border-radius: var(--radius-md); }
+.radius-lg { border-radius: var(--radius-lg); }
+.radius-full { border-radius: var(--radius-full); }
+.pointer { cursor: pointer; }
+.no-events { pointer-events: none; }
+.list-none { list-style: none; }
+.min-h-0 { min-height: 0; }
+.max-w-full { max-width: 100%; }
+.p-6 { padding: var(--space-6); }
+.p-7 { padding: var(--space-7); }
+.p-8 { padding: var(--space-8); }
+.px-0 { padding-left: 0; padding-right: 0; }
+.px-1 { padding-left: var(--space-1); padding-right: var(--space-1); }
+.px-2 { padding-left: var(--space-2); padding-right: var(--space-2); }
+.px-3 { padding-left: var(--space-3); padding-right: var(--space-3); }
+.px-4 { padding-left: var(--space-4); padding-right: var(--space-4); }
+.px-5 { padding-left: var(--space-5); padding-right: var(--space-5); }
+.px-6 { padding-left: var(--space-6); padding-right: var(--space-6); }
+.py-0 { padding-top: 0; padding-bottom: 0; }
+.py-1 { padding-top: var(--space-1); padding-bottom: var(--space-1); }
+.py-2 { padding-top: var(--space-2); padding-bottom: var(--space-2); }
+.py-3 { padding-top: var(--space-3); padding-bottom: var(--space-3); }
+.py-4 { padding-top: var(--space-4); padding-bottom: var(--space-4); }
+.py-5 { padding-top: var(--space-5); padding-bottom: var(--space-5); }
+.py-6 { padding-top: var(--space-6); padding-bottom: var(--space-6); }
+.pt-px { padding-top: 2px; }
+.pt-1 { padding-top: var(--space-1); }
+.pt-2 { padding-top: var(--space-2); }
+.pt-3 { padding-top: var(--space-3); }
+.pt-4 { padding-top: var(--space-4); }
+.pt-5 { padding-top: var(--space-5); }
+.pb-1 { padding-bottom: var(--space-1); }
+.pb-2 { padding-bottom: var(--space-2); }
+.pb-3 { padding-bottom: var(--space-3); }
+.pb-4 { padding-bottom: var(--space-4); }
+.pb-5 { padding-bottom: var(--space-5); }
+.pl-1 { padding-left: var(--space-1); }
+.pl-2 { padding-left: var(--space-2); }
+.pl-3 { padding-left: var(--space-3); }
+.pl-4 { padding-left: var(--space-4); }
+.pr-1 { padding-right: var(--space-1); }
+.pr-2 { padding-right: var(--space-2); }
+.pr-3 { padding-right: var(--space-3); }
+.pr-4 { padding-right: var(--space-4); }
+.mt-5 { margin-top: var(--space-5); }
+.mt-6 { margin-top: var(--space-6); }
+.mb-5 { margin-bottom: var(--space-5); }
+.mb-6 { margin-bottom: var(--space-6); }
+.mx-auto { margin-left: auto; margin-right: auto; }
+.border-subtle { border: 1px solid var(--border-subtle); }
+.border-line { border: 1px solid var(--border); }
+.border-strong { border: 1px solid var(--border-strong); }
+.border-none { border: none; }
+.border-t-subtle { border-top: 1px solid var(--border-subtle); }
+.border-b-subtle { border-bottom: 1px solid var(--border-subtle); }
+.bg-none { background: none; }
+.bg-transparent { background: transparent; }
+.bg-base { background: var(--bg-base); }
+.bg-sunken { background: var(--surface-sunken); }
+.bg-surface-1 { background: var(--surface-1); }
+.bg-surface-2 { background: var(--surface-2); }
+.bg-surface-3 { background: var(--surface-3); }
+.bg-surface-4 { background: var(--surface-4); }
+.bg-accent { background: var(--accent); }
+.bg-accent-soft { background: var(--accent-soft); }
+.bg-danger-soft { background: var(--danger-soft); }
+.bg-success-soft { background: var(--success-soft); }
+.bg-warning-soft { background: var(--warning-soft); }
+.text-2xl { font-size: var(--text-2xl); }
+.text-3xl { font-size: var(--text-3xl); }
+.text-on-accent { color: var(--text-on-accent); }
+/* Тройки «кегль + межстрочье + трекинг» из §9 дизайн-системы. Предпочитать их
+ * отдельным .text-*: размер без своего межстрочья даёт дробную высоту строки. */
+.type-xs { font-size: var(--text-xs); line-height: var(--leading-xs); letter-spacing: var(--tracking-xs); }
+.type-sm { font-size: var(--text-sm); line-height: var(--leading-sm); letter-spacing: var(--tracking-sm); }
+.type-base { font-size: var(--text-base); line-height: var(--leading-base); letter-spacing: var(--tracking-base); }
+.type-lg { font-size: var(--text-lg); line-height: var(--leading-lg); letter-spacing: var(--tracking-lg); }
+.type-xl { font-size: var(--text-xl); line-height: var(--leading-xl); letter-spacing: var(--tracking-xl); }
+.type-2xl { font-size: var(--text-2xl); line-height: var(--leading-2xl); letter-spacing: var(--tracking-2xl); }
+.type-3xl { font-size: var(--text-3xl); line-height: var(--leading-3xl); letter-spacing: var(--tracking-3xl); }
+.leading-xs { line-height: var(--leading-xs); }
+.leading-sm { line-height: var(--leading-sm); }
+.leading-base { line-height: var(--leading-base); }
+.leading-lg { line-height: var(--leading-lg); }
+.leading-xl { line-height: var(--leading-xl); }
+.leading-2xl { line-height: var(--leading-2xl); }
+.leading-3xl { line-height: var(--leading-3xl); }
+.leading-relaxed { line-height: var(--leading-relaxed); }
+.tracking-xs { letter-spacing: var(--tracking-xs); }
+.tracking-sm { letter-spacing: var(--tracking-sm); }
+.tracking-base { letter-spacing: var(--tracking-base); }
+.tracking-lg { letter-spacing: var(--tracking-lg); }
+.tracking-xl { letter-spacing: var(--tracking-xl); }
+.tracking-2xl { letter-spacing: var(--tracking-2xl); }
+.tracking-3xl { letter-spacing: var(--tracking-3xl); }
+
 /* ==========================================================================
    12. Зерно и заглушки загрузки
    ========================================================================== */

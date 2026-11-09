@@ -135,20 +135,20 @@ export const AboutSettings: React.FC = () => {
   return (
     <SettingsSection id="about" title="О программе" description="Версия сборки и источники звука.">
       <InfoRow label="Версия">
-        <span data-numeric style={{ fontSize: 'var(--text-sm)', color: 'var(--text-secondary)' }}>
+        <span data-numeric className="text-sm text-secondary">
           {hasBridge && currentVersion ? currentVersion : APP_VERSION}
         </span>
       </InfoRow>
 
       <InfoRow label="Среда">
-        <span style={{ fontSize: 'var(--text-sm)', color: 'var(--text-secondary)' }}>{runtimeLabel()}</span>
+        <span className="text-sm text-secondary">{runtimeLabel()}</span>
       </InfoRow>
 
       <InfoRow
         label="Источники звука"
         description="Потоки берутся напрямую у сервисов. Wireon Sounds ничего не хранит у себя и не проксирует."
       >
-        <span style={{ fontSize: 'var(--text-sm)', color: 'var(--text-secondary)' }}>YouTube Music · SoundCloud</span>
+        <span className="text-sm text-secondary">YouTube Music · SoundCloud</span>
       </InfoRow>
 
       <div className="divider" />

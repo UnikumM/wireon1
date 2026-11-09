@@ -219,13 +219,7 @@ export const WaveView: React.FC<WaveViewProps> = ({ className = '' }) => {
           */}
         {!isNarrow && (
           <h1
-            style={{
-              margin: 0,
-              fontSize: 'var(--text-3xl)',
-              fontWeight: 'var(--weight-bold)',
-              letterSpacing: 'var(--tracking-3xl)',
-              color: 'var(--text-primary)'
-            }}
+            className="m-0 weight-bold text-primary text-3xl tracking-3xl"
           >
             Поток
           </h1>
@@ -306,61 +300,37 @@ export const WaveView: React.FC<WaveViewProps> = ({ className = '' }) => {
         {currentTrack ? (
           <>
             <div
-              style={{
-                width: '56px',
-                height: '56px',
-                borderRadius: 'var(--radius-md)',
-                overflow: 'hidden',
-                backgroundColor: 'var(--surface-sunken)',
-                border: '1px solid var(--border-subtle)',
-                flexShrink: 0,
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center'
-              }}
+              className="radius-md overflow-hidden shrink-0 row justify-center bg-sunken border-subtle" style={{ width: '56px', height: '56px' }}
             >
               {artworkFailed || !currentTrack.artworkUrl ? (
-                <Music2 size={ICON.xl} style={{ color: 'var(--text-faint)' }} />
+                <Music2 size={ICON.xl} className="text-faint" />
               ) : (
                 <img
                   src={currentTrack.artworkUrl}
                   alt=""
-                  style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                  className="fill-cover"
                   onError={() => setArtworkFailed(true)}
                 />
               )}
             </div>
 
-            <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: '2px' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>
+            <div className="grow stack gap-px">
+              <div className="row gap-2">
                 <span
-                  className="text-truncate"
-                  style={{
-                    fontSize: 'var(--text-base)',
-                    fontWeight: 'var(--weight-semibold)',
-                    color: 'var(--text-primary)'
-                  }}
+                  className="text-truncate text-base weight-semibold text-primary"
                 >
                   {currentTrack.title}
                 </span>
                 <SourceBadge source={currentTrack.source} size="xs" />
               </div>
               <span
-                className="text-truncate"
-                style={{
-                  fontSize: 'var(--text-sm)',
-                  color: 'var(--text-secondary)'
-                }}
+                className="text-truncate text-sm text-secondary"
               >
                 {currentTrack.artist}
               </span>
               {isWaveMode && reasonFor(currentTrack) && (
                 <span
-                  style={{
-                    marginTop: '2px',
-                    fontSize: 'var(--text-xs)',
-                    color: 'var(--text-secondary)'
-                  }}
+                  className="mt-px text-xs text-secondary"
                   data-testid="wave-current-reason"
                 >
                   {reasonFor(currentTrack)}
@@ -370,28 +340,14 @@ export const WaveView: React.FC<WaveViewProps> = ({ className = '' }) => {
 
             <span
               data-numeric
-              style={{
-                fontSize: 'var(--text-sm)',
-                color: 'var(--text-muted)',
-                flexShrink: 0
-              }}
+              className="text-sm text-muted shrink-0"
             >
               {formatDuration(currentTrack.duration)}
             </span>
           </>
         ) : (
           <div
-            style={{
-              flex: 1,
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              gap: 'var(--space-3)',
-              padding: 'var(--space-2)',
-              color: 'var(--text-muted)',
-              fontSize: 'var(--text-sm)',
-              textAlign: 'center'
-            }}
+            className="flex-1 row justify-center gap-3 p-2 text-muted text-sm text-center"
           >
             <Radio size={ICON.lg} />
             <span>Настройте параметры ниже и нажмите «Запустить Поток»</span>
@@ -400,29 +356,16 @@ export const WaveView: React.FC<WaveViewProps> = ({ className = '' }) => {
       </div>
 
       {/* Управление */}
-      <div style={{ width: '100%', maxWidth: '680px', zIndex: 1 }}>
+      <div className="w-full" style={{ maxWidth: '680px', zIndex: 1 }}>
         <WaveControls onTuneToggle={() => setIsTuneOpen((v) => !v)} isTuneOpen={isTuneOpen} />
       </div>
 
       {isColdStart && (
         <div
-          style={{
-            width: '100%',
-            maxWidth: '680px',
-            display: 'flex',
-            alignItems: 'flex-start',
-            gap: 'var(--space-3)',
-            padding: 'var(--space-4)',
-            borderRadius: 'var(--radius-lg)',
-            backgroundColor: 'var(--surface-2)',
-            border: '1px solid var(--border-subtle)',
-            fontSize: 'var(--text-sm)',
-            color: 'var(--text-secondary)',
-            zIndex: 1
-          }}
+          className="w-full row-start gap-3 p-4 radius-lg text-sm text-secondary bg-surface-2 border-subtle" style={{ maxWidth: '680px', zIndex: 1 }}
           data-testid="wave-cold-start"
         >
-          <Info size={ICON.lg} style={{ color: 'var(--text-secondary)', flexShrink: 0, marginTop: '2px' }} />
+          <Info size={ICON.lg} className="text-secondary shrink-0 mt-px" />
           <span>
             Пока нечего анализировать: в библиотеке и истории нет треков, поэтому Поток будет
             обычным, а не вашим. Послушайте несколько песен или переключите источник на
@@ -436,20 +379,8 @@ export const WaveView: React.FC<WaveViewProps> = ({ className = '' }) => {
         <div
           // Панель раскрывается сразу под кнопкой «Настроить», поэтому и падение
           // сверху, а не подъём снизу: подъём отвязывал её от того, что нажали.
-          className="animate-drop-in"
-          style={{
-            width: '100%',
-            maxWidth: '680px',
-            padding: 'var(--space-5)',
-            borderRadius: 'var(--radius-xl)',
-            backgroundColor: 'var(--surface-1)',
-            border: '1px solid var(--border-subtle)',
-            boxShadow: 'var(--shadow-md)',
-            display: 'flex',
-            flexDirection: 'column',
-            gap: 'var(--space-5)',
-            zIndex: 1
-          }}
+          className="animate-drop-in w-full p-5 stack gap-5 bg-surface-1 border-subtle"
+          style={{ maxWidth: '680px', borderRadius: 'var(--radius-xl)', boxShadow: 'var(--shadow-md)', zIndex: 1 }}
           data-testid="wave-tuner-panel"
         >
           <WaveSourcePicker />
@@ -461,18 +392,7 @@ export const WaveView: React.FC<WaveViewProps> = ({ className = '' }) => {
       {/* Поток дальше */}
       {isWaveMode && (upcomingTracks.length > 0 || isReplenishingQueue) && (
         <div
-          style={{
-            width: '100%',
-            maxWidth: '680px',
-            padding: 'var(--space-4) var(--space-5)',
-            borderRadius: 'var(--radius-xl)',
-            backgroundColor: 'var(--surface-1)',
-            border: '1px solid var(--border-subtle)',
-            display: 'flex',
-            flexDirection: 'column',
-            gap: 'var(--space-3)',
-            zIndex: 1
-          }}
+          className="w-full stack gap-3 py-4 px-5 bg-surface-1 border-subtle" style={{ maxWidth: '680px', borderRadius: 'var(--radius-xl)', zIndex: 1 }}
           data-testid="wave-upcoming-flow"
         >
           {/*
@@ -481,24 +401,13 @@ export const WaveView: React.FC<WaveViewProps> = ({ className = '' }) => {
             * подписи — и отменять его больше не нужно.
             */}
           <div
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: 'var(--space-2)',
-              fontSize: 'var(--text-sm)',
-              color: 'var(--text-muted)'
-            }}
+            className="row gap-2 text-sm text-muted"
           >
             <ListMusic size={ICON.sm} />
             <span className="section-label">Далее в Потоке</span>
             {isReplenishingQueue && (
               <span
-                style={{
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  gap: 'var(--space-1)',
-                  marginLeft: 'auto'
-                }}
+                className="inline-row gap-1 ml-auto"
                 data-testid="wave-flow-loading"
               >
                 <Loader2 size={ICON.xs} className="animate-spin" />
@@ -507,20 +416,13 @@ export const WaveView: React.FC<WaveViewProps> = ({ className = '' }) => {
             )}
           </div>
 
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-1)' }}>
+          <div className="stack gap-1">
             {upcomingTracks.map((track, i) => {
               const reason = reasonFor(track);
               return (
                 <div
                   key={`${track.id}-${i}`}
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: 'var(--space-3)',
-                    padding: 'var(--space-2) var(--space-3)',
-                    borderRadius: 'var(--radius-sm)',
-                    backgroundColor: 'var(--surface-2)'
-                  }}
+                  className="row gap-3 radius-sm py-2 px-3 bg-surface-2"
                   data-testid={`wave-upcoming-item-${track.id}`}
                 >
                   <div
@@ -533,49 +435,32 @@ export const WaveView: React.FC<WaveViewProps> = ({ className = '' }) => {
                         void playTrack(track, sourceQueue, currentIndex + 1 + i);
                       }
                     }}
-                    className="press"
-                    style={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: 'var(--space-3)',
-                      flex: 1,
-                      minWidth: 0,
-                      cursor: 'pointer'
-                    }}
+                    className="press row gap-3 grow pointer"
                     aria-label={`Включить «${track.title}»`}
                   >
                     <div
-                      style={{
-                        width: '32px',
-                        height: '32px',
-                        borderRadius: 'var(--radius-xs)',
-                        overflow: 'hidden',
-                        backgroundColor: 'var(--surface-sunken)',
-                        flexShrink: 0
-                      }}
+                      className="radius-xs overflow-hidden shrink-0 bg-sunken" style={{ width: '32px', height: '32px' }}
                     >
                       {track.artworkUrl ? (
                         <img
                           src={track.artworkUrl}
                           alt=""
-                          style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                          className="fill-cover"
                         />
                       ) : (
-                        <Music2 size={ICON.md} style={{ color: 'var(--text-faint)', margin: '8px' }} />
+                        <Music2 size={ICON.md} className="text-faint" style={{ margin: '8px' }} />
                       )}
                     </div>
 
-                    <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column' }}>
+                    <div className="grow stack">
                       <span
-                        className="text-truncate"
-                        style={{ fontSize: 'var(--text-sm)', fontWeight: 'var(--weight-medium)', color: 'var(--text-primary)' }}
+                        className="text-truncate text-sm weight-medium text-primary"
                         title={track.title}
                       >
                         {track.title}
                       </span>
                       <span
-                        className="text-truncate"
-                        style={{ fontSize: 'var(--text-xs)', color: 'var(--text-muted)' }}
+                        className="text-truncate text-xs text-muted"
                         title={track.artist}
                       >
                         {track.artist}
@@ -586,7 +471,7 @@ export const WaveView: React.FC<WaveViewProps> = ({ className = '' }) => {
 
                   <SourceBadge source={track.source} size="xs" />
 
-                  <span data-numeric style={{ fontSize: 'var(--text-xs)', color: 'var(--text-muted)' }}>
+                  <span data-numeric className="text-xs text-muted">
                     {formatDuration(track.duration)}
                   </span>
 
@@ -618,15 +503,7 @@ export const WaveView: React.FC<WaveViewProps> = ({ className = '' }) => {
                     onClick={() => void handleRemoveFromFlow(track)}
                     title="Убрать из Потока и больше не предлагать"
                     aria-label={`Убрать «${track.title}» из Потока`}
-                    className="press"
-                    style={{
-                      display: 'inline-flex',
-                      padding: 'var(--space-1)',
-                      borderRadius: 'var(--radius-xs)',
-                      border: 'none',
-                      color: 'var(--text-muted)',
-                      cursor: 'pointer'
-                    }}
+                    className="press inline-row p-1 radius-xs text-muted pointer border-none"
                     data-testid={`wave-item-remove-${track.id}`}
                   >
                     <ThumbsDown size={ICON.sm} />
@@ -637,7 +514,7 @@ export const WaveView: React.FC<WaveViewProps> = ({ className = '' }) => {
           </div>
 
           {reasonProfile && upcomingTracks.length > 0 && (
-            <span style={{ fontSize: 'var(--text-xs)', color: 'var(--text-faint)' }}>
+            <span className="text-xs text-faint">
               Подписи показывают, почему трек попал в Поток.
             </span>
           )}
@@ -647,18 +524,7 @@ export const WaveView: React.FC<WaveViewProps> = ({ className = '' }) => {
       {/* Поток включён, а очередь пуста — это состояние тоже надо объяснить. */}
       {isWaveMode && !isReplenishingQueue && upcomingTracks.length === 0 && currentTrack && (
         <div
-          style={{
-            width: '100%',
-            maxWidth: '680px',
-            padding: 'var(--space-4)',
-            borderRadius: 'var(--radius-lg)',
-            backgroundColor: 'var(--surface-2)',
-            border: '1px solid var(--border-subtle)',
-            fontSize: 'var(--text-sm)',
-            color: 'var(--text-secondary)',
-            textAlign: 'center',
-            zIndex: 1
-          }}
+          className="w-full p-4 radius-lg text-sm text-secondary text-center bg-surface-2 border-subtle" style={{ maxWidth: '680px', zIndex: 1 }}
           data-testid="wave-empty-stream"
         >
           Поток закончился — по этим настройкам ничего больше не нашлось. Сдвиньте «Знакомое или

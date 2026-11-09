@@ -69,19 +69,11 @@ export const MiniPlayerExpanded: React.FC = () => {
 
   return (
     <div
-      style={{
-        display: 'flex',
-        flexDirection: 'column',
-        height: '100%',
-        justifyContent: 'space-between',
-        padding: '12px 14px',
-        overflowY: 'auto',
-        gap: '10px'
-      }}
+      className="stack h-full justify-between" style={{ padding: '12px 14px', overflowY: 'auto', gap: '10px' }}
       data-testid="mini-player-expanded"
     >
       {/* Top Track Header */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+      <div className="row gap-3">
         <div
           style={{
             width: '56px',
@@ -100,26 +92,25 @@ export const MiniPlayerExpanded: React.FC = () => {
             <img
               src={currentTrack.artworkUrl}
               alt={currentTrack.title}
-              style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+              className="fill-cover"
             />
           ) : (
-            <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-faint)' }}>
+            <div className="w-full h-full row justify-center text-faint">
               <Music2 size={ICON.xl} />
             </div>
           )}
         </div>
 
-        <div style={{ flex: 1, minWidth: 0 }}>
+        <div className="grow">
           <div
-            className="text-truncate"
-            style={{ fontSize: 'var(--text-sm)', fontWeight: 'var(--weight-bold)', color: 'var(--text-primary)', lineHeight: 1.2 }}
+            className="text-truncate text-sm weight-bold text-primary"
+            style={{ lineHeight: 1.2 }}
             title={currentTrack?.title || 'Ничего не играет'}
           >
             {currentTrack?.title || 'Ничего не играет'}
           </div>
           <div
-            className="text-truncate"
-            style={{ fontSize: 'var(--text-xs)', color: 'var(--text-secondary)', marginTop: '2px' }}
+            className="text-truncate text-xs text-secondary mt-px"
             title={currentTrack?.artist || 'Выберите трек'}
           >
             {currentTrack?.artist || 'Выберите трек'}
@@ -129,15 +120,7 @@ export const MiniPlayerExpanded: React.FC = () => {
         <button
           type="button"
           onClick={() => currentTrack && toggleFavorite(currentTrack)}
-          style={{
-            background: 'none',
-            border: 'none',
-            color: isFav ? 'var(--accent)' : 'var(--text-muted)',
-            cursor: 'pointer',
-            padding: '6px',
-            display: 'flex',
-            alignItems: 'center'
-          }}
+          className="pointer row bg-none border-none" style={{ color: isFav ? 'var(--accent)' : 'var(--text-muted)', padding: '6px' }}
           title={isFav ? 'В любимом' : 'Добавить в любимое'}
           data-testid="mini-expanded-fav-btn"
         >
@@ -205,24 +188,18 @@ export const MiniPlayerExpanded: React.FC = () => {
             }}
           />
         </div>
-        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 'var(--text-xs)', color: 'var(--text-muted)', marginTop: '4px' }}>
+        <div className="row-stretch justify-between text-xs text-muted mt-1">
           <span data-numeric>{formatDuration(currentTime)}</span>
           <span data-numeric>{formatDuration(duration)}</span>
         </div>
       </div>
 
       {/* Transport Controls */}
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 4px' }}>
+      <div className="row justify-between" style={{ padding: '0 4px' }}>
         <button
           type="button"
           onClick={toggleShuffle}
-          style={{
-            background: 'none',
-            border: 'none',
-            color: isShuffled ? 'var(--accent)' : 'var(--text-muted)',
-            cursor: 'pointer',
-            padding: '4px'
-          }}
+          className="pointer bg-none border-none p-1" style={{ color: isShuffled ? 'var(--accent)' : 'var(--text-muted)' }}
           title={isShuffled ? 'Перемешивание: вкл' : 'Перемешивание: выкл'}
           data-testid="mini-expanded-shuffle-btn"
         >
@@ -232,13 +209,7 @@ export const MiniPlayerExpanded: React.FC = () => {
         <button
           type="button"
           onClick={() => prevTrack()}
-          style={{
-            background: 'none',
-            border: 'none',
-            color: 'var(--text-primary)',
-            cursor: 'pointer',
-            padding: '4px'
-          }}
+          className="text-primary pointer bg-none border-none p-1"
           title="Предыдущий трек"
           data-testid="mini-expanded-prev-btn"
         >
@@ -248,19 +219,7 @@ export const MiniPlayerExpanded: React.FC = () => {
         <button
           type="button"
           onClick={() => togglePlayPause()}
-          style={{
-            width: 'var(--control-lg)',
-            height: 'var(--control-lg)',
-            borderRadius: 'var(--radius-full)',
-            backgroundColor: 'var(--accent)',
-            border: 'none',
-            color: 'var(--text-on-accent)',
-            cursor: 'pointer',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            boxShadow: 'var(--shadow-md)'
-          }}
+          className="control-lg radius-full pointer row justify-center bg-accent border-none" style={{ color: 'var(--text-on-accent)', boxShadow: 'var(--shadow-md)' }}
           title={showPause ? 'Пауза' : 'Играть'}
           data-testid="mini-expanded-play-btn"
         >
@@ -269,20 +228,14 @@ export const MiniPlayerExpanded: React.FC = () => {
           ) : showPause ? (
             <Pause size={ICON.lg} />
           ) : (
-            <Play size={ICON.lg} style={{ marginLeft: '2px' }} />
+            <Play size={ICON.lg} className="ml-px" />
           )}
         </button>
 
         <button
           type="button"
           onClick={() => nextTrack(true)}
-          style={{
-            background: 'none',
-            border: 'none',
-            color: 'var(--text-primary)',
-            cursor: 'pointer',
-            padding: '4px'
-          }}
+          className="text-primary pointer bg-none border-none p-1"
           title="Следующий трек"
           data-testid="mini-expanded-next-btn"
         >
@@ -292,13 +245,7 @@ export const MiniPlayerExpanded: React.FC = () => {
         <button
           type="button"
           onClick={cycleRepeatMode}
-          style={{
-            background: 'none',
-            border: 'none',
-            color: repeatMode === 'off' ? 'var(--text-muted)' : 'var(--accent)',
-            cursor: 'pointer',
-            padding: '4px'
-          }}
+          className="pointer bg-none border-none p-1" style={{ color: repeatMode === 'off' ? 'var(--text-muted)' : 'var(--accent)' }}
           title={`Повтор: ${REPEAT_LABEL[repeatMode]}`}
           data-testid="mini-expanded-repeat-btn"
         >
@@ -308,13 +255,7 @@ export const MiniPlayerExpanded: React.FC = () => {
         <button
           type="button"
           onClick={() => setAutoplayRadio(!autoplayRadio)}
-          style={{
-            background: 'none',
-            border: 'none',
-            color: autoplayRadio ? 'var(--accent)' : 'var(--text-muted)',
-            cursor: 'pointer',
-            padding: '4px'
-          }}
+          className="pointer bg-none border-none p-1" style={{ color: autoplayRadio ? 'var(--accent)' : 'var(--text-muted)' }}
           title={autoplayRadio ? 'Автопоток включён' : 'Автопоток выключен'}
           data-testid="mini-expanded-radio-btn"
         >
@@ -323,38 +264,22 @@ export const MiniPlayerExpanded: React.FC = () => {
       </div>
 
       {/* Volume Bar & Dislike */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '0 4px' }}>
+      <div className="row gap-2" style={{ padding: '0 4px' }}>
         <button
           type="button"
           onClick={() => void dislikeAndSkipCurrentTrack()}
-          style={{
-            background: 'none',
-            border: 'none',
-            color: 'var(--text-muted)',
-            cursor: 'pointer',
-            padding: '4px',
-            display: 'flex',
-            alignItems: 'center'
-          }}
+          className="text-muted pointer row bg-none border-none p-1"
           title="Не рекомендовать (Дизлайк и пропуск)"
           data-testid="mini-expanded-dislike-btn"
         >
           <ThumbsDown size={ICON.sm} />
         </button>
 
-        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flex: 1 }}>
+        <div className="row flex-1" style={{ gap: '6px' }}>
           <button
             type="button"
             onClick={toggleMute}
-            style={{
-              background: 'none',
-              border: 'none',
-              color: 'var(--text-muted)',
-              cursor: 'pointer',
-              padding: '2px',
-              display: 'flex',
-              alignItems: 'center'
-            }}
+            className="text-muted pointer row bg-none border-none" style={{ padding: '2px' }}
             title={isMuted ? 'Включить звук' : 'Выключить звук'}
           >
             {isMuted || volume === 0 ? <VolumeX size={ICON.sm} /> : <Volume2 size={ICON.sm} />}
@@ -402,9 +327,9 @@ export const MiniPlayerExpanded: React.FC = () => {
             color: 'var(--text-secondary)'
           }}
         >
-          <ListMusic size={ICON.xs} style={{ color: 'var(--text-secondary)', flexShrink: 0 }} />
-          <span style={{ color: 'var(--text-muted)', flexShrink: 0 }}>Далее:</span>
-          <span className="text-truncate" style={{ flex: 1, color: 'var(--text-primary)', fontWeight: 'var(--weight-medium)' }}>
+          <ListMusic size={ICON.xs} className="text-secondary shrink-0" />
+          <span className="text-muted shrink-0">Далее:</span>
+          <span className="text-truncate flex-1 text-primary weight-medium">
             {upcomingTrack.title} — {upcomingTrack.artist}
           </span>
         </div>

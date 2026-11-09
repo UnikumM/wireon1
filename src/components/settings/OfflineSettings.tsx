@@ -182,7 +182,7 @@ export const OfflineSettings: React.FC = () => {
         <span
           data-numeric
           data-testid="offline-usage"
-          style={{ fontSize: 'var(--text-sm)', color: 'var(--text-secondary)' }}
+          className="text-sm text-secondary"
         >
           {usage.formattedSize} · {pluralize(usage.trackCount, 'трек', 'трека', 'треков')}
         </span>
@@ -202,13 +202,7 @@ export const OfflineSettings: React.FC = () => {
           <span
             data-numeric
             data-testid="offline-progress"
-            style={{
-              fontSize: 'var(--text-sm)',
-              color: 'var(--accent)',
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: 'var(--space-2)'
-            }}
+            className="text-sm text-accent inline-row gap-2"
           >
             <HardDriveDownload size={ICON.sm} aria-hidden="true" />
             {state.cachingProgress}%
@@ -220,19 +214,9 @@ export const OfflineSettings: React.FC = () => {
         <div
           role="status"
           data-testid="offline-error"
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: 'var(--space-2)',
-            padding: 'var(--space-2) var(--space-3)',
-            borderRadius: 'var(--radius-sm)',
-            backgroundColor: 'var(--surface-2)',
-            border: '1px solid var(--border-subtle)',
-            fontSize: 'var(--text-xs)',
-            color: 'var(--text-secondary)'
-          }}
+          className="row gap-2 radius-sm text-xs text-secondary py-2 px-3 bg-surface-2 border-subtle"
         >
-          <WifiOff size={ICON.sm} aria-hidden="true" style={{ flexShrink: 0 }} />
+          <WifiOff size={ICON.sm} aria-hidden="true" className="shrink-0" />
           <span>Последняя проблема: {state.lastError}</span>
         </div>
       )}

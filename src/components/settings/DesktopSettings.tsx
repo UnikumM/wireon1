@@ -177,10 +177,7 @@ export const DesktopSettings: React.FC = () => {
         >
           <span
             id="setting-discord-rpc-status"
-            style={{
-              fontSize: 'var(--text-sm)',
-              color: rpcStatus.ready ? 'var(--success)' : 'var(--text-muted)'
-            }}
+            className="text-sm" style={{ color: rpcStatus.ready ? 'var(--success)' : 'var(--text-muted)' }}
             data-testid="settings-discord-rpc-status"
           >
             {describeRpcStatus(rpcStatus)}
@@ -191,7 +188,7 @@ export const DesktopSettings: React.FC = () => {
       <SettingRow label="Система" controlId="setting-platform">
         <span
           id="setting-platform"
-          style={{ fontSize: 'var(--text-sm)', color: 'var(--text-secondary)' }}
+          className="text-sm text-secondary"
           data-testid="settings-platform"
         >
           {platform ? PLATFORM_LABELS[platform] ?? platform : 'Неизвестно'}
