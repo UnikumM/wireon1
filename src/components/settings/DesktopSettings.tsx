@@ -8,6 +8,7 @@ import {
   type DiscordStatusDisplay
 } from '../../services/discordRpcService';
 import * as dbService from '../../services/db';
+import { usePreviewStore } from '../../store/usePreviewStore';
 import type { DiscordRpcStatusView } from '../../types/electron';
 
 function readPlatform(): string | null {
@@ -96,10 +97,26 @@ export const DesktopSettings: React.FC = () => {
     await discordRpcService.setEnabled(enabled);
   };
 
+  // Превью при наведении — только с мышью: на телефоне наводить нечем.
+  const previewOnHover = usePreviewStore((state) => state.previewOnHover);
+  const setPreviewOnHover = usePreviewStore((state) => state.setPreviewOnHover);
+  const hydratePreview = usePreviewStore((state) => state.hydrate);
+  useEffect(() => {
+    void hydratePreview();
+  }, [hydratePreview]);
+
   if (!isDesktop) return null;
 
   return (
     <SettingsSection id="desktop" title="Приложение" description="Работает только в настольной версии Wireon Sounds.">
+      <ToggleSetting
+        id="setting-preview-on-hover"
+        label="Превью при наведении"
+        description="Задержите мышь на обложке в выдаче — и трек тихо заиграет с середины, не прерывая то, что уже играет."
+        checked={previewOnHover}
+        onChange={setPreviewOnHover}
+      />
+
       <ToggleSetting
         id="setting-media-keys"
         label="Медиаклавиши"
