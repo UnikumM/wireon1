@@ -45,6 +45,7 @@ from aiohttp import web
 from . import innertube
 from . import proxy
 from .soundcloud import SoundCloudKeyKeeper
+from .share import render_share_page
 from .broker import Broker, ConnectionHandler
 from .identity import DiscordIdentity, IdentityError
 from .sync import KIND_FAVORITE, KIND_PLAYLIST, SyncError, SyncStore, sanitize_records
@@ -195,6 +196,14 @@ async def cors_middleware(request: web.Request, handler: Any) -> web.StreamRespo
 @web.middleware
 async def auth_middleware(request: web.Request, handler: Any) -> web.StreamResponse:
     if request.path == "/health":
+        return await handler(request)
+
+    # Страница «поделиться треком» — для чужих людей, токена у них нет. Частоту
+    # всё равно считаем: это единственная публичная ручка, отдающая разметку.
+    if request.path.startswith("/t/"):
+        limiter: RateLimiter = request.app["limiter"]
+        if not limiter.allow(_client_ip(request)):
+            return web.json_response({"error": "rate limited"}, status=429)
         return await handler(request)
 
     expected: str = request.app["token"]
@@ -389,6 +398,18 @@ async def handle_soundcloud_key_dead(request: web.Request) -> web.Response:
     keeper: SoundCloudKeyKeeper = request.app["soundcloud"]
     key = await keeper.report_dead(request.app["session"], client_id)
     return web.json_response({"replaced": key is not None and key.client_id != client_id, "key": key.as_json() if key else None})
+
+
+async def handle_share_page(request: web.Request) -> web.Response:
+    """Карточка трека для мессенджеров и кнопка «Открыть в Wireon». См. share.py."""
+    page = render_share_page(
+        request.match_info.get("source", ""),
+        request.match_info.get("id", ""),
+        {key: request.query.get(key, "") for key in ("n", "a", "img")},
+    )
+    if page is None:
+        return web.Response(status=404, text="Такой ссылки нет", content_type="text/plain", charset="utf-8")
+    return web.Response(text=page, content_type="text/html", charset="utf-8", headers={"Cache-Control": "public, max-age=3600"})
 
 
 async def handle_sync_pull(request: web.Request) -> web.Response:
@@ -708,6 +729,7 @@ def create_app(token: Optional[str] = None, *, resolver: Optional[StreamResolver
     app.router.add_delete("/v1/sync/{kind:playlists|favorites}/{id}", handle_sync_delete)
     app.router.add_get("/mqtt", handle_mqtt)
     app.router.add_post("/v1/telemetry", handle_telemetry)
+    app.router.add_get("/t/{source}/{id}", handle_share_page)
     app.router.add_get("/v1/soundcloud/key", handle_soundcloud_key)
     app.router.add_post("/v1/soundcloud/key/dead", handle_soundcloud_key_dead)
     # Предзапрос приходит на тот же адрес, что и настоящий запрос, а маршрута
