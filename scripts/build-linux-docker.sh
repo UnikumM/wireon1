@@ -6,8 +6,8 @@
 #
 #   MSYS_NO_PATHCONV=1 docker run --rm \
 #     -e WIREON_GH_OWNER=UnikumM -e WIREON_GH_REPO=wireon1 \
-#     -v "C:/Users/rober/Desktop/VireonMusic:/src:ro" \
-#     -v "C:/Users/rober/Desktop/VireonMusic/release:/out" \
+#     -v "C:/путь/к/wireon1:/src:ro" \
+#     -v "C:/путь/к/wireon1/release:/out" \
 #     electronuserland/builder:latest bash /src/scripts/build-linux-docker.sh
 #
 # Две детали, каждая из которых уже стоила сборки:

@@ -19,3 +19,10 @@ __pycache__/
 *.pyc
 server/wireon_telemetry.db*
 tests/visual/out/
+
+# Ключи подписи и сертификаты — никогда в репозиторий
+*.jks
+*.keystore
+*.p12
+*.pem
+*.key

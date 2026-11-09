@@ -169,7 +169,7 @@ node scripts/check-platform-binaries.mjs --platform=linux
 получит зеркальную поломку.
 
 ```bash
-docker run --rm -v "C:/Users/rober/Desktop/VireonMusic:/src:ro" -v "C:/wireon-build:/out" -v wireon-linux-cache:/root/.cache -e WIREON_GH_OWNER=UnikumM -e WIREON_GH_REPO=wireon1 electronuserland/builder:latest bash -lc "mkdir -p /project && tar -C /src --exclude=node_modules --exclude=release --exclude=coverage --exclude=android --exclude=dist --exclude=dist-electron --exclude=.git -cf - . | tar -C /project -xf - && cd /project && npm ci --no-audit --no-fund && npm run build:linux -- --config.directories.output=/out/linux"
+docker run --rm -v "C:/путь/к/wireon1:/src:ro" -v "C:/wireon-build:/out" -v wireon-linux-cache:/root/.cache -e WIREON_GH_OWNER=UnikumM -e WIREON_GH_REPO=wireon1 electronuserland/builder:latest bash -lc "mkdir -p /project && tar -C /src --exclude=node_modules --exclude=release --exclude=coverage --exclude=android --exclude=dist --exclude=dist-electron --exclude=.git -cf - . | tar -C /project -xf - && cd /project && npm ci --no-audit --no-fund && npm run build:linux -- --config.directories.output=/out/linux"
 ```
 
 `.git` в копию не едет, поэтому канал обновлений задаётся переменными

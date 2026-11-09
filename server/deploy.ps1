@@ -15,7 +15,7 @@
 [CmdletBinding()]
 param(
     [string]$ServerId = $env:PTERODACTYL_SERVER_ID,
-    [string]$Panel = ($env:PTERODACTYL_PANEL ? $env:PTERODACTYL_PANEL : 'https://panel.wireon.pro'),
+    [string]$Panel = $env:PTERODACTYL_PANEL,
     [switch]$SkipEnv
 )
 
@@ -23,6 +23,7 @@ $ErrorActionPreference = 'Stop'
 
 $key = $env:PTERODACTYL_KEY
 if (-not $key) { throw 'PTERODACTYL_KEY не задан в окружении.' }
+if (-not $Panel) { throw 'PTERODACTYL_PANEL не задан в окружении (адрес панели, например https://panel.example.com).' }
 
 $token = $env:WIREON_API_TOKEN
 if (-not $token -and -not $SkipEnv) {

@@ -89,6 +89,7 @@ export function scrubDetail(detail: string): string {
     .replace(/\b\d{1,3}(?:\.\d{1,3}){3}\b/g, '<адрес>')
     .replace(/\b(?:[0-9a-f]{1,4}:){3,7}[0-9a-f]{1,4}\b/gi, '<адрес>')
     .replace(/[A-Za-z]:\\Users\\[^\\\s]+/g, '<папка>')
+    .replace(/\/(?:home|Users)\/[^/\s]+/g, '<папка>')
     .slice(0, 300);
 }
 

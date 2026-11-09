@@ -192,7 +192,7 @@ export const GroupListenModal: React.FC<GroupListenModalProps> = ({ isOpen, onCl
     const shareUrl =
       typeof window !== 'undefined'
         ? `${window.location.origin}/#room=${roomId}`
-        : `https://wireon.app/#room=${roomId}`;
+        : `wireon://room/${roomId}`;
     try {
       if (typeof navigator !== 'undefined' && navigator.clipboard?.writeText) {
         navigator.clipboard.writeText(shareUrl);

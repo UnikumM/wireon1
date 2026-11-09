@@ -26,9 +26,9 @@ beforeEach(() => {
 describe('telemetry', () => {
   it('из текста вырезаются ссылки и адреса', () => {
     const clean = scrubDetail(
-      'default: URL rejected https://rr1.googlevideo.com/videoplayback?ip=41.66.99.238 via 10.1.2.3 C:\\Users\\vvedi\\AppData'
+      'default: URL rejected https://rr1.googlevideo.com/videoplayback?ip=41.66.99.238 via 10.1.2.3 C:\\Users\\someone\\AppData'
     );
-    expect(clean).not.toMatch(/41\.66|10\.1\.2\.3|googlevideo|vvedi/);
+    expect(clean).not.toMatch(/41\.66|10\.1\.2\.3|googlevideo|someone/);
   });
 
   it('удачная загрузка — без трека и без текста', () => {
