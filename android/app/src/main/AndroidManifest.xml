@@ -51,6 +51,56 @@
                 <data android:scheme="discord-1539037027633332234" />
             </intent-filter>
 
+            <!--
+              Ссылки на музыку из других приложений.
+
+              Нажал ссылку YouTube, YouTube Music или SoundCloud в мессенджере —
+              система предлагает Wireon наряду с браузером и родным приложением.
+              Выбрал — ссылка уезжает в поиск Wireon (`incomingLinks.ts`), и
+              трек или плейлист открывается уже здесь.
+
+              `android:autoVerify` намеренно нет: заверить чужие домены мы не
+              можем, а без заверения система честно спрашивает человека, чем
+              открыть, вместо того чтобы молча перехватывать ссылки.
+
+              Фильтра два, потому что путь и хост в одном фильтре сочетаются
+              «любой с любым». У youtube.com открываются только страницы
+              видео и плейлистов — канал или настройки аккаунта в плеере
+              бессмысленны. У youtu.be и SoundCloud путь ничего не говорит о
+              типе страницы, там берутся все.
+
+              Приходит всё это в тот же `appUrlOpen`, что и возврат из Discord
+              выше; разводятся они по схеме — `http(s)` против своих.
+            -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="http" />
+                <data android:scheme="https" />
+                <data android:host="youtube.com" />
+                <data android:host="www.youtube.com" />
+                <data android:host="m.youtube.com" />
+                <data android:host="music.youtube.com" />
+                <data android:pathPrefix="/watch" />
+                <data android:pathPrefix="/playlist" />
+                <data android:pathPrefix="/shorts/" />
+                <data android:pathPrefix="/live/" />
+                <data android:pathPrefix="/browse/" />
+            </intent-filter>
+
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="http" />
+                <data android:scheme="https" />
+                <data android:host="youtu.be" />
+                <data android:host="soundcloud.com" />
+                <data android:host="m.soundcloud.com" />
+                <data android:host="on.soundcloud.com" />
+            </intent-filter>
+
         </activity>
 
         <!--

@@ -100,6 +100,8 @@ export const App: React.FC = () => {
     void import('./services/telemetry').then(({ startTelemetry }) => startTelemetry());
     // «Продолжить на другом устройстве»: публикуем, что играет здесь (фича 27).
     void import('./services/handoff').then(({ startHandoffPublisher }) => startHandoffPublisher());
+    // Ссылки YouTube/SoundCloud, открытые в Wireon с телефона (фильтры — в AndroidManifest.xml).
+    void import('./services/incomingLinks').then(({ startIncomingLinks }) => startIncomingLinks());
 
     /*
      * Просим систему не вычищать хранилище страницы — на запуске, а не только
