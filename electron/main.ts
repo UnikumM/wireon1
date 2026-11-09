@@ -1,4 +1,4 @@
-import { app, BrowserWindow, ipcMain, globalShortcut, Menu, nativeImage, protocol, screen, session, shell, Tray } from 'electron';
+import { app, BrowserWindow, ipcMain, globalShortcut, Menu, nativeImage, nativeTheme, protocol, screen, session, shell, Tray } from 'electron';
 import type { Session } from 'electron';
 import { cpSync, existsSync, mkdirSync, readFileSync, writeFileSync } from 'fs';
 import { tmpdir } from 'os';
@@ -218,6 +218,88 @@ export function updateTrayState(
     isPlaying: state?.isPlaying === true
   };
   refreshTray(getWin);
+  // Кнопки в миниатюре на панели задач живут тем же снимком.
+  refreshThumbarButtons(getWin);
+}
+
+/**
+ * Кнопки в миниатюре окна на панели задач Windows: предыдущий, пауза/играть,
+ * следующий. Наведи на значок в панели — и управляй, не разворачивая окно.
+ *
+ * Только Windows: на Linux и macOS такого элемента нет, и Electron вызов
+ * просто игнорирует — но и грузить ради него картинки незачем.
+ *
+ * Значки — готовые PNG из `public/thumbar/` (см. scripts/gen-thumbar-icons.mjs):
+ * `nativeImage` на Windows SVG не растрирует. Два набора под тему панели задач:
+ * белый на тёмной, тёмный на светлой — иначе значки сливаются с фоном.
+ */
+export function isWindows(platform: string = process.platform): boolean {
+  return platform === 'win32';
+}
+
+type ThumbarIcon = 'prev' | 'play' | 'pause' | 'next';
+
+/** Картинки читаются с диска один раз: состояние меняется на каждом тике плеера. */
+const thumbarIconCache = new Map<string, Electron.NativeImage>();
+
+function getThumbarIcon(name: ThumbarIcon): Electron.NativeImage {
+  // `nativeTheme` может отсутствовать в урезанных окружениях (тесты): тогда белый,
+  // как на панели задач по умолчанию.
+  const dark = nativeTheme?.shouldUseDarkColors ?? true;
+  const key = `${dark ? 'light' : 'dark'}/${name}`;
+  let icon = thumbarIconCache.get(key);
+  if (!icon) {
+    icon = nativeImage.createFromPath(path.join(getAppRoot(), 'public', 'thumbar', `${key}.png`));
+    thumbarIconCache.set(key, icon);
+  }
+  return icon;
+}
+
+let thumbarThemeHooked = false;
+
+/** Пересобирает три кнопки по текущему снимку (`trayTrack`). */
+export function refreshThumbarButtons(
+  getWin: () => BrowserWindow | null,
+  platform: string = process.platform
+): void {
+  if (!isWindows(platform)) return;
+  const win = getWin();
+  if (!win || win.isDestroyed()) return;
+
+  // Сменили тему Windows — перекрашиваем значки, иначе они пропадут на новом фоне.
+  if (!thumbarThemeHooked && typeof nativeTheme?.on === 'function') {
+    thumbarThemeHooked = true;
+    // Именно главное окно, а не `getWin` первого вызова: его могли пересоздать.
+    nativeTheme.on('updated', () => refreshThumbarButtons(getMainWindow));
+  }
+
+  const send = (action: MediaKeyAction) => () => {
+    const target = getWin();
+    if (target && !target.isDestroyed()) {
+      // Тот же канал, что у медиа-клавиш и трея: рендерер уже умеет его слушать.
+      target.webContents.send('media-key-event', action);
+    }
+  };
+
+  // Нечего играть — кнопки видны, но серые: пустая панель выглядит сломанной,
+  // а нажатие в никуда сбивает с толку.
+  const flags: Array<'disabled'> | undefined = trayTrack.title ? undefined : ['disabled'];
+
+  try {
+    win.setThumbarButtons([
+      { tooltip: 'Предыдущий', icon: getThumbarIcon('prev'), click: send('prev'), flags },
+      {
+        tooltip: trayTrack.isPlaying ? 'Пауза' : 'Играть',
+        icon: getThumbarIcon(trayTrack.isPlaying ? 'pause' : 'play'),
+        click: send('play-pause'),
+        flags
+      },
+      { tooltip: 'Следующий', icon: getThumbarIcon('next'), click: send('next'), flags }
+    ]);
+  } catch (error) {
+    // Панель задач могла ещё не создать кнопку окна — обновимся на следующем снимке.
+    console.warn('[Electron] Не удалось обновить кнопки в миниатюре окна', error);
+  }
 }
 
 /**
@@ -1805,6 +1887,9 @@ export function createWindow(): BrowserWindow {
     shown = true;
     clearTimeout(showTimer);
     win.show();
+    // Панель задач принимает кнопки только у показанного окна — раньше звать
+    // бессмысленно. До первого снимка от рендерера они серые.
+    refreshThumbarButtons(() => win);
   }
 
   // Gracefully show window when content is rendered

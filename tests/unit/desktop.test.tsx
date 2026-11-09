@@ -52,6 +52,8 @@ const {
       getBounds: vi.fn().mockReturnValue({ x: 0, y: 0, width: 372, height: 188 }),
       setBounds: vi.fn(),
       setPosition: vi.fn(),
+      // Кнопки в миниатюре на панели задач Windows (refreshThumbarButtons).
+      setThumbarButtons: vi.fn().mockReturnValue(true),
       once: vi.fn((event: string, cb: Function) => {
         windowListeners[event] = cb;
       }),
@@ -155,7 +157,12 @@ vi.mock('electron', () => ({
     },
   },
   nativeImage: {
-    createFromPath: () => ({ isEmpty: () => false, resize: () => ({ resized: true }) }),
+    createFromPath: (file: string) => ({ file, isEmpty: () => false, resize: () => ({ resized: true }) }),
+  },
+  // Тема панели задач: по ней выбирается набор значков для кнопок в миниатюре.
+  nativeTheme: {
+    shouldUseDarkColors: true,
+    on: vi.fn(),
   },
   contextBridge: {
     exposeInMainWorld: vi.fn(),
@@ -217,6 +224,7 @@ import {
   createTray,
   destroyTray,
   getMediaKeyRegistration,
+  refreshThumbarButtons,
   updateTrayState,
   registerMediaKeys,
   resetDeepLinkState,
@@ -269,6 +277,7 @@ function makeMockWindow() {
     close: vi.fn(),
     webContents: { send: vi.fn() },
     on: vi.fn(),
+    setThumbarButtons: vi.fn().mockReturnValue(true),
   };
 }
 
@@ -790,6 +799,78 @@ describe('Milestone 5: Desktop Packaging & Electron Integration Test Suite', () 
       expect(template.find((item: any) => item.label === 'Играть').enabled).toBe(false);
 
       destroyTray();
+    });
+
+    describe('кнопки в миниатюре окна на панели задач Windows', () => {
+      const withPlatform = (value: string, run: () => void) => {
+        const platform = Object.getOwnPropertyDescriptor(process, 'platform')!;
+        Object.defineProperty(process, 'platform', { value, configurable: true });
+        try {
+          run();
+        } finally {
+          Object.defineProperty(process, 'platform', platform);
+        }
+      };
+
+      it('на Windows снимок состояния ставит три кнопки, средняя — «Играть» или «Пауза»', () => {
+        withPlatform('win32', () => {
+          updateTrayState({ title: 'Get Lucky', artist: 'Daft Punk', isPlaying: false }, () => mockWin as any);
+
+          expect(mockWin.setThumbarButtons).toHaveBeenCalledTimes(1);
+          const paused = mockWin.setThumbarButtons.mock.calls[0][0];
+          expect(paused).toHaveLength(3);
+          expect(paused.map((button: any) => button.tooltip)).toEqual(['Предыдущий', 'Играть', 'Следующий']);
+          // Есть что играть — кнопки активны.
+          expect(paused[1].flags).toBeUndefined();
+          // Значки — PNG из public/thumbar, белые на тёмной панели задач.
+          expect(paused[1].icon.file).toMatch(/public[\\/]thumbar[\\/]light[\\/]play\.png$/);
+
+          updateTrayState({ title: 'Get Lucky', artist: 'Daft Punk', isPlaying: true }, () => mockWin as any);
+
+          const playing = mockWin.setThumbarButtons.mock.calls[1][0];
+          expect(playing[1].tooltip).toBe('Пауза');
+          expect(playing[1].icon.file).toMatch(/pause\.png$/);
+
+          // Нажатие уходит тем же каналом, что медиа-клавиши и трей.
+          playing[2].click();
+          expect(mockWin.webContents.send).toHaveBeenCalledWith('media-key-event', 'next');
+          playing[1].click();
+          expect(mockWin.webContents.send).toHaveBeenCalledWith('media-key-event', 'play-pause');
+        });
+      });
+
+      it('когда ничего не играет, кнопки серые', () => {
+        withPlatform('win32', () => {
+          updateTrayState(null, () => mockWin as any);
+
+          const buttons = mockWin.setThumbarButtons.mock.calls[0][0];
+          expect(buttons.map((button: any) => button.flags)).toEqual([['disabled'], ['disabled'], ['disabled']]);
+        });
+      });
+
+      it('на Linux кнопки не ставятся', () => {
+        withPlatform('linux', () => {
+          updateTrayState({ title: 'Get Lucky', artist: 'Daft Punk', isPlaying: true }, () => mockWin as any);
+          refreshThumbarButtons(() => mockWin as any);
+
+          expect(mockWin.setThumbarButtons).not.toHaveBeenCalled();
+        });
+      });
+
+      it('кнопки появляются сразу после показа окна', () => {
+        withPlatform('win32', () => {
+          const win = createWindow() as unknown as {
+            setThumbarButtons: ReturnType<typeof vi.fn>;
+            windowListeners: Record<string, Function>;
+          };
+          expect(win.setThumbarButtons).not.toHaveBeenCalled();
+
+          win.windowListeners['ready-to-show']();
+
+          expect(win.setThumbarButtons).toHaveBeenCalledTimes(1);
+          expect(win.setThumbarButtons.mock.calls[0][0]).toHaveLength(3);
+        });
+      });
     });
 
     it('unregisterMediaKeys releases every media key', () => {

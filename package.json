@@ -16,6 +16,7 @@
     "typecheck:preload": "tsc -p tsconfig.preload.json --noEmit",
     "typecheck:all": "npm run typecheck && npm run typecheck:electron && npm run typecheck:preload",
     "gen:icon": "node scripts/gen-icon.mjs",
+    "gen:thumbar": "node scripts/gen-thumbar-icons.mjs",
     "refresh:ytdlp": "node scripts/refresh-ytdlp.mjs",
     "electron:dev": "node scripts/dev.js",
     "start": "node scripts/dev.js",
