@@ -14,7 +14,8 @@ import {
   Clock,
   Disc,
   HardDrive,
-  Import
+  Import,
+  FolderPlus
 } from 'lucide-react';
 import { useLibraryStore } from '../../store/useLibraryStore';
 import { useUIStore } from '../../store/useUIStore';
@@ -26,6 +27,10 @@ import { Skeleton } from '../common/Skeleton';
 import { TrackCard } from '../search/TrackCard';
 import { FavoritesView } from './FavoritesView';
 import { PlaylistCover } from './PlaylistCover';
+import { FolderShelf } from './FolderShelf';
+import { FolderNameModal } from './FolderNameModal';
+import { PlaylistFolderMenu } from './PlaylistFolderMenu';
+import { useFolderStore, groupByFolders, folderOfPlaylist, PlaylistFolder } from '../../store/useFolderStore';
 import { OfflineSection } from './OfflineSection';
 import { offlineStorage } from '../../services/offlineStorage';
 import { UnifiedTrack } from '../../types/music';
@@ -240,6 +245,49 @@ export const LibraryView: React.FC<LibraryViewProps> = ({
       ),
     [playlists, needle, pinnedIds]
   );
+
+  /*
+   * Папки — локальная раскладка, как и закреплённые (см. useFolderStore).
+   * Открытая папка — состояние экрана, а не стора: на другой закладке и на
+   * другом устройстве она никому не нужна.
+   */
+  const folders = useFolderStore((s) => s.folders);
+  useEffect(() => {
+    void useFolderStore.getState().hydrate();
+  }, []);
+  const [openFolderId, setOpenFolderId] = useState<string | null>(null);
+  const [folderDialog, setFolderDialog] = useState<{ mode: 'create' } | { mode: 'rename'; folder: PlaylistFolder } | null>(null);
+  const [pendingFolderDelete, setPendingFolderDelete] = useState<PlaylistFolder | null>(null);
+  // Папку удалили или она пришла из базы под другим id — закрываем, чтобы не
+  // показывать пустую сетку под шапкой несуществующей папки.
+  useEffect(() => {
+    if (openFolderId && !folders.some((f) => f.id === openFolderId)) setOpenFolderId(null);
+  }, [folders, openFolderId]);
+  const grouped = useMemo(() => groupByFolders(visiblePlaylists, folders), [visiblePlaylists, folders]);
+  /*
+   * Поиск идёт по всей медиатеке и показывает плоский список: человек ищет
+   * плейлист, а не вспоминает, в какую папку его положил.
+   */
+  const showFolders = !needle && folders.length > 0;
+  const openGroup = showFolders && openFolderId ? grouped.groups.find((g) => g.folder.id === openFolderId) ?? null : null;
+  const gridPlaylists = !showFolders ? visiblePlaylists : openGroup ? openGroup.playlists : grouped.loose;
+
+  const handleFolderSubmit = (title: string) => {
+    if (!folderDialog) return;
+    if (folderDialog.mode === 'create') {
+      const id = useFolderStore.getState().createFolder(title);
+      if (id) showToast(`Папка «${title}» создана`, 'success');
+    } else {
+      useFolderStore.getState().renameFolder(folderDialog.folder.id, title);
+    }
+  };
+
+  const handleConfirmFolderDelete = () => {
+    if (!pendingFolderDelete) return;
+    useFolderStore.getState().deleteFolder(pendingFolderDelete.id);
+    showToast(`Папка «${pendingFolderDelete.title}» удалена, плейлисты остались`, 'info');
+    setPendingFolderDelete(null);
+  };
 
   const selectTab = useCallback(
     (tab: LibraryTab) => {
@@ -682,6 +730,18 @@ export const LibraryView: React.FC<LibraryViewProps> = ({
                         встают столбиком — два яруса до первого плейлиста. */}
                     {isNarrow ? 'Импорт' : 'Импортировать'}
                   </Button>
+                  {/* Папка из одного плейлиста бессмысленна, поэтому кнопка появляется со второго. */}
+                  {playlists.length >= 2 && (
+                    <Button
+                      variant="secondary"
+                      size="sm"
+                      icon={<FolderPlus size={ICON.md} aria-hidden="true" />}
+                      onClick={() => setFolderDialog({ mode: 'create' })}
+                      data-testid="library-create-folder-btn"
+                    >
+                      {isNarrow ? 'Папка' : 'Новая папка'}
+                    </Button>
+                  )}
                   {onCreatePlaylistClick && (
                     <Button
                       variant="primary"
@@ -747,10 +807,34 @@ export const LibraryView: React.FC<LibraryViewProps> = ({
                 data-testid="playlists-no-matches"
               />
             ) : (
+              <>
+                {showFolders && (
+                  <FolderShelf
+                    groups={grouped.groups}
+                    openFolderId={openFolderId}
+                    onOpen={setOpenFolderId}
+                    onBack={() => setOpenFolderId(null)}
+                    onRename={(folder) => setFolderDialog({ mode: 'rename', folder })}
+                    onDelete={setPendingFolderDelete}
+                  />
+                )}
+                {/* «Остальные» — только рядом с папками: без них это просто все плейлисты. */}
+                {showFolders && !openFolderId && gridPlaylists.length > 0 && (
+                  <h3 className="m-0 text-base weight-semibold text-secondary leading-base" data-testid="playlists-loose-heading">
+                    Остальные
+                  </h3>
+                )}
+                {gridPlaylists.length === 0 ? (
+                  <p className="m-0 text-sm text-muted leading-sm" data-testid="folder-empty">
+                    {openFolderId
+                      ? 'В папке пока пусто. Положите сюда плейлист через «…» на его карточке.'
+                      : 'Все плейлисты разложены по папкам.'}
+                  </p>
+                ) : (
               <div
                 className="grid gap-4" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))' }}
               >
-                {visiblePlaylists.map((playlist, index) => (
+                {gridPlaylists.map((playlist, index) => (
                   <div
                     key={playlist.id}
                     // Оседание и блик — только здесь: во всей медиатеке это
@@ -812,24 +896,38 @@ export const LibraryView: React.FC<LibraryViewProps> = ({
                         </p>
                       </div>
 
-                      <Button
-                        variant="icon"
-                        size="icon"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setPendingDelete({ id: playlist.id, title: playlist.title });
-                        }}
-                        aria-label={`Удалить плейлист «${playlist.title}»`}
-                        title="Удалить плейлист"
-                        style={{ width: '28px', height: '28px' }}
-                        data-testid={`playlist-delete-${playlist.id}`}
-                      >
-                        <Trash2 size={ICON.sm} />
-                      </Button>
+                      <div className="row gap-1 shrink-0">
+                        {/* Меню «В папку…» есть, только когда есть куда класть. */}
+                        {folders.length > 0 && (
+                          <PlaylistFolderMenu
+                            playlistId={playlist.id}
+                            playlistTitle={playlist.title}
+                            folders={folders}
+                            currentFolderId={folderOfPlaylist(folders, playlist.id)?.id ?? null}
+                            onMove={(folderId) => useFolderStore.getState().moveToFolder(playlist.id, folderId)}
+                          />
+                        )}
+                        <Button
+                          variant="icon"
+                          size="icon"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setPendingDelete({ id: playlist.id, title: playlist.title });
+                          }}
+                          aria-label={`Удалить плейлист «${playlist.title}»`}
+                          title="Удалить плейлист"
+                          style={{ width: '28px', height: '28px' }}
+                          data-testid={`playlist-delete-${playlist.id}`}
+                        >
+                          <Trash2 size={ICON.sm} />
+                        </Button>
+                      </div>
                     </div>
                   </div>
                 ))}
               </div>
+                )}
+              </>
             )}
 
             {/* Умные плейлисты — под обычными: те же «Плейлисты», только по правилам. */}
@@ -884,6 +982,23 @@ export const LibraryView: React.FC<LibraryViewProps> = ({
       <ImportPlaylistModal
         isOpen={isImportModalOpen}
         onClose={() => setIsImportModalOpen(false)}
+      />
+
+      <FolderNameModal
+        isOpen={folderDialog !== null}
+        initialTitle={folderDialog?.mode === 'rename' ? folderDialog.folder.title : ''}
+        onClose={() => setFolderDialog(null)}
+        onSubmit={handleFolderSubmit}
+      />
+
+      <ConfirmDialog
+        isOpen={pendingFolderDelete !== null}
+        title={pendingFolderDelete ? `Удалить папку «${pendingFolderDelete.title}»?` : 'Удалить папку?'}
+        description="Плейлисты останутся в медиатеке — они просто выйдут из папки."
+        confirmLabel="Удалить папку"
+        danger
+        onConfirm={handleConfirmFolderDelete}
+        onCancel={() => setPendingFolderDelete(null)}
       />
     </>
   );

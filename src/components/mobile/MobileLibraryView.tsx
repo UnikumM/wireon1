@@ -4,11 +4,15 @@ import { SmartPlaylistsShelf } from '../smart/SmartPlaylistsShelf';
 import {
   Clock,
   Download,
+  Folder,
+  FolderMinus,
+  FolderPlus,
   Heart,
   HeartOff,
   Link2,
   ListMusic,
   ListPlus,
+  MoreHorizontal,
   Plus,
   Search as SearchIcon,
   Trash2,
@@ -29,6 +33,10 @@ import { TrackSelectionBar } from './TrackSelectionBar';
 import { CoverCard } from '../common/CoverCard';
 import { PlaylistCover } from '../library/PlaylistCover';
 import { Sheet, SheetRow } from './Sheet';
+import { ConfirmDialog } from '../common/ConfirmDialog';
+import { FolderShelf } from '../library/FolderShelf';
+import { FolderNameModal } from '../library/FolderNameModal';
+import { useFolderStore, groupByFolders, folderOfPlaylist, PlaylistFolder } from '../../store/useFolderStore';
 import { offlineMode } from '../../services/offlineMode';
 
 /**
@@ -160,6 +168,47 @@ export const MobileLibraryView: React.FC<MobileLibraryViewProps> = ({ onCreatePl
       ),
     [needle, playlists, pinnedIds]
   );
+
+  /*
+   * Папки — та же логика, что в медиатеке ПК (`LibraryView`), только компактнее:
+   * полка карточек с прокруткой вбок, а «В папку…» — листом снизу вместо меню.
+   */
+  const folders = useFolderStore((s) => s.folders);
+  useEffect(() => {
+    void useFolderStore.getState().hydrate();
+  }, []);
+  const [openFolderId, setOpenFolderId] = useState<string | null>(null);
+  const [folderDialog, setFolderDialog] = useState<{ mode: 'create' } | { mode: 'rename'; folder: PlaylistFolder } | null>(null);
+  const [pendingFolderDelete, setPendingFolderDelete] = useState<PlaylistFolder | null>(null);
+  /** Плейлист, для которого открыт лист «В папку…». */
+  const [folderPickFor, setFolderPickFor] = useState<string | null>(null);
+  useEffect(() => {
+    if (openFolderId && !folders.some((f) => f.id === openFolderId)) setOpenFolderId(null);
+  }, [folders, openFolderId]);
+  const grouped = useMemo(() => groupByFolders(visiblePlaylists, folders), [visiblePlaylists, folders]);
+  // При поиске — плоский список по всей медиатеке, папки не мешают.
+  const showFolders = !needle && folders.length > 0;
+  const openGroup = showFolders && openFolderId ? grouped.groups.find((g) => g.folder.id === openFolderId) ?? null : null;
+  const gridPlaylists = !showFolders ? visiblePlaylists : openGroup ? openGroup.playlists : grouped.loose;
+  const pickTarget = folderPickFor ? playlists.find((p) => p.id === folderPickFor) ?? null : null;
+  const pickCurrentFolderId = folderPickFor ? folderOfPlaylist(folders, folderPickFor)?.id ?? null : null;
+
+  const handleFolderSubmit = (title: string) => {
+    if (!folderDialog) return;
+    if (folderDialog.mode === 'create') {
+      const id = useFolderStore.getState().createFolder(title);
+      if (id) showToast(`Папка «${title}» создана`, 'success');
+    } else {
+      useFolderStore.getState().renameFolder(folderDialog.folder.id, title);
+    }
+  };
+
+  const handlePickFolder = (folderId: string | null) => {
+    if (folderPickFor && folderId !== pickCurrentFolderId) {
+      useFolderStore.getState().moveToFolder(folderPickFor, folderId);
+    }
+    setFolderPickFor(null);
+  };
 
   // История копится годами: в разметке держим только видимую часть.
   const virtual = useVirtualRows({ itemCount: tracks.length, rowPitch: TRACK_ROW_PITCH });
@@ -303,6 +352,11 @@ export const MobileLibraryView: React.FC<MobileLibraryViewProps> = ({ onCreatePl
                 >
                   <Link2 size={ICON.lg} aria-hidden="true" />
                 </IconButton>
+                {playlists.length >= 2 && (
+                  <IconButton label="Новая папка" onClick={() => setFolderDialog({ mode: 'create' })} testId="mobile-library-create-folder">
+                    <FolderPlus size={ICON.lg} aria-hidden="true" />
+                  </IconButton>
+                )}
                 {onCreatePlaylistClick && (
                   <IconButton label="Новый плейлист" onClick={onCreatePlaylistClick} testId="mobile-library-create">
                     <Plus size={ICON.lg} aria-hidden="true" />
@@ -423,29 +477,64 @@ export const MobileLibraryView: React.FC<MobileLibraryViewProps> = ({ onCreatePl
             * берётся своя, если её поставили, иначе складывается мозаикой из
             * состава — и то и другое различается с одного взгляда.
             */
+          <div className="stack gap-4">
+            {showFolders && (
+              <FolderShelf
+                compact
+                groups={grouped.groups}
+                openFolderId={openFolderId}
+                onOpen={setOpenFolderId}
+                onBack={() => setOpenFolderId(null)}
+                onRename={(folder) => setFolderDialog({ mode: 'rename', folder })}
+                onDelete={setPendingFolderDelete}
+              />
+            )}
+            {showFolders && !openFolderId && gridPlaylists.length > 0 && (
+              <h2 className="m-0 text-base weight-semibold text-secondary leading-base" data-testid="playlists-loose-heading">
+                Остальные
+              </h2>
+            )}
+            {gridPlaylists.length === 0 ? (
+              <Empty text={openFolderId ? 'В папке пока пусто. Положите сюда плейлист кнопкой «…» на обложке.' : 'Все плейлисты разложены по папкам.'} />
+            ) : (
           <div
             className="grid gap-4" style={{ gridTemplateColumns: 'repeat(2, minmax(0, 1fr))' }}
           >
-            {visiblePlaylists.map((playlist) => (
-              <CoverCard
-                key={playlist.id}
-                title={playlist.title}
-                subtitle={
-                  (pinnedIds.includes(playlist.id) ? 'Закреплён · ' : '') +
-                  pluralize(playlist.tracks.length, 'трек', 'трека', 'треков')
-                }
-                cover={
-                  <PlaylistCover
-                    tracks={playlist.tracks}
-                    coverUrl={playlist.coverUrl}
-                    size="100%"
-                    radius="var(--radius-lg)"
-                  />
-                }
-                testId={`mobile-library-playlist-${playlist.id}`}
-                onClick={() => openPlaylist(playlist.id)}
-              />
+            {gridPlaylists.map((playlist) => (
+              <div key={playlist.id} className="relative">
+                <CoverCard
+                  title={playlist.title}
+                  subtitle={
+                    (pinnedIds.includes(playlist.id) ? 'Закреплён · ' : '') +
+                    pluralize(playlist.tracks.length, 'трек', 'трека', 'треков')
+                  }
+                  cover={
+                    <PlaylistCover
+                      tracks={playlist.tracks}
+                      coverUrl={playlist.coverUrl}
+                      size="100%"
+                      radius="var(--radius-lg)"
+                    />
+                  }
+                  testId={`mobile-library-playlist-${playlist.id}`}
+                  onClick={() => openPlaylist(playlist.id)}
+                />
+                {/* Кнопка «в папку» — поверх обложки: у карточки другого места для действий нет. */}
+                {folders.length > 0 && (
+                  <button
+                    type="button"
+                    className="folder-pick-btn press focus-ring pointer"
+                    onClick={() => setFolderPickFor(playlist.id)}
+                    aria-label={`Папка для «${playlist.title}»`}
+                    data-testid={`mobile-playlist-folder-btn-${playlist.id}`}
+                  >
+                    <MoreHorizontal size={ICON.md} aria-hidden="true" />
+                  </button>
+                )}
+              </div>
             ))}
+          </div>
+            )}
           </div>
         )
       ) : tracks.length === 0 ? (
@@ -509,6 +598,51 @@ export const MobileLibraryView: React.FC<MobileLibraryViewProps> = ({ onCreatePl
       </Sheet>
 
       <ImportPlaylistModal isOpen={isImportOpen} onClose={() => setImportOpen(false)} />
+
+      <Sheet
+        isOpen={folderPickFor !== null}
+        onClose={() => setFolderPickFor(null)}
+        title={pickTarget ? `В папку — ${pickTarget.title}` : 'В папку'}
+        data-testid="mobile-folder-pick-sheet"
+      >
+        {folders.map((folder) => (
+          <SheetRow
+            key={folder.id}
+            icon={<Folder size={ICON.lg} aria-hidden="true" />}
+            label={folder.title}
+            hint={folder.id === pickCurrentFolderId ? 'Уже здесь' : pluralize(folder.playlistIds.length, 'плейлист', 'плейлиста', 'плейлистов')}
+            onClick={() => handlePickFolder(folder.id)}
+            data-testid={`mobile-folder-pick-${folder.id}`}
+          />
+        ))}
+        <SheetRow
+          icon={<FolderMinus size={ICON.lg} aria-hidden="true" />}
+          label="Без папки"
+          hint={pickCurrentFolderId === null ? 'Сейчас так' : undefined}
+          onClick={() => handlePickFolder(null)}
+          data-testid="mobile-folder-pick-none"
+        />
+      </Sheet>
+
+      <FolderNameModal
+        isOpen={folderDialog !== null}
+        initialTitle={folderDialog?.mode === 'rename' ? folderDialog.folder.title : ''}
+        onClose={() => setFolderDialog(null)}
+        onSubmit={handleFolderSubmit}
+      />
+
+      <ConfirmDialog
+        isOpen={pendingFolderDelete !== null}
+        title={pendingFolderDelete ? `Удалить папку «${pendingFolderDelete.title}»?` : 'Удалить папку?'}
+        description="Плейлисты останутся в медиатеке — они просто выйдут из папки."
+        confirmLabel="Удалить папку"
+        danger
+        onConfirm={() => {
+          if (pendingFolderDelete) useFolderStore.getState().deleteFolder(pendingFolderDelete.id);
+          setPendingFolderDelete(null);
+        }}
+        onCancel={() => setPendingFolderDelete(null)}
+      />
     </div>
   );
 };
