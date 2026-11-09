@@ -1,5 +1,4 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Music2, Play, Radio } from 'lucide-react';
 import { usePlayerStore } from '../../store/usePlayerStore';
 import { useLibraryStore } from '../../store/useLibraryStore';
 import { useUIStore } from '../../store/useUIStore';
@@ -8,10 +7,10 @@ import { buildDailyMixes, dailyMixDateKey, DailyMix } from '../../services/daily
 import { SearchCollection, UnifiedTrack } from '../../types/music';
 import { checkNewReleases, NewRelease } from '../../services/subscriptions';
 import { DiscoverShelf, getCharts, getNewReleases } from '../../services/discover';
-import { ICON } from '../../styles/icons';
 import { CoverCard } from '../common/CoverCard';
 import { formatDuration } from '../../utils/time';
 import { HomeLayout } from './HomeLayout';
+import { ResumeCard, WaveCard } from './HeroCards';
 import { HomeBlockId } from '../../store/useAppLayoutStore';
 import { useAutoMixes } from '../../hooks/useAutoMixes';
 
@@ -34,8 +33,6 @@ export const HomeView: React.FC = () => {
   const currentTrack = usePlayerStore((s) => s.currentTrack);
   const resumePosition = usePlayerStore((s) => s.resumePosition);
   const isPlaying = usePlayerStore((s) => s.isPlaying);
-  const [heroArtFailed, setHeroArtFailed] = useState(false);
-  useEffect(() => setHeroArtFailed(false), [currentTrack?.artworkUrl]);
   const play = usePlayerStore((s) => s.play);
   const playTrack = usePlayerStore((s) => s.playTrack);
   const startMyWave = usePlayerStore((s) => s.startMyWave);
@@ -161,59 +158,21 @@ export const HomeView: React.FC = () => {
           }}
         />
 
-        <div className="resume-card" data-testid="home-resume">
-          <div className="resume-card-art" data-testid="home-hero-art">
-            {heroTrack?.artworkUrl && !heroArtFailed ? (
-              <img src={heroTrack.artworkUrl} alt="" onError={() => setHeroArtFailed(true)} className="fill-cover" />
-            ) : (
-              // Без обложки квадрат был пустым и читался как недогруженный.
-              <Music2 size={ICON.xl} aria-hidden="true" className="text-faint" />
-            )}
-          </div>
-
-          <div className="stack grow gap-1 min-0">
-            <div className="home-eyebrow">{heroKicker}</div>
-            <h3 className="m-0 text-truncate type-lg weight-semibold text-primary font-sans" data-testid="home-hero-title">
-              {heroTrack?.title ?? 'Wireon'}
-            </h3>
-            <div className="text-truncate type-sm text-secondary">{heroSubtitle}</div>
-            {resumeProgress !== null && (
-              <div className="resume-card-bar" aria-hidden="true">
-                <span style={{ width: `${resumeProgress}%` }} />
-              </div>
-            )}
-          </div>
-
-          <div className="row gap-2 shrink-0 resume-card-actions">
-            <button
-              type="button"
-              className="focus-ring press home-btn home-btn-primary"
-              onClick={() => {
-                if (!heroTrack) return;
-                // Трек с прошлого запуска уже стоит в плеере на паузе: ему нужен
-                // именно `play`, иначе он начался бы сначала.
-                if (currentTrack && heroTrack.id === currentTrack.id) void play();
-                else void playTrack(heroTrack);
-              }}
-              disabled={!heroTrack}
-              data-testid="home-hero-play"
-            >
-              <Play size={ICON.sm} fill="currentColor" aria-hidden="true" />
-              {resumePosition && resumePosition > 1 ? 'Продолжить' : 'Слушать'}
-            </button>
-            <button
-              type="button"
-              className="focus-ring press home-btn"
-              onClick={() => heroTrack && void startTrackRadio(heroTrack)}
-              disabled={!heroTrack}
-              aria-label="Радио по треку"
-              title="Радио по треку"
-              data-testid="home-hero-radio"
-            >
-              <Radio size={ICON.sm} aria-hidden="true" />
-            </button>
-          </div>
-        </div>
+        <ResumeCard
+          track={heroTrack}
+          kicker={heroKicker}
+          subtitle={heroSubtitle}
+          progress={resumeProgress}
+          playLabel={resumePosition && resumePosition > 1 ? 'Продолжить' : 'Слушать'}
+          onPlay={() => {
+            if (!heroTrack) return;
+            // Трек с прошлого запуска уже стоит в плеере на паузе: ему нужен
+            // именно `play`, иначе он начался бы сначала.
+            if (currentTrack && heroTrack.id === currentTrack.id) void play();
+            else void playTrack(heroTrack);
+          }}
+          onRadio={() => heroTrack && void startTrackRadio(heroTrack)}
+        />
       </section>
 
       {/* --- Собрано для тебя --------------------------------------------- */}
@@ -304,52 +263,6 @@ export const HomeView: React.FC = () => {
         </Shelf>
       ))}
     </HomeLayout>
-  );
-};
-
-/** Время суток — для подписи Волны. Границы грубые нарочно: это настроение, а не расписание. */
-function dayPart(hour: number): { eyebrow: string; title: string; note: string } {
-  if (hour >= 5 && hour < 12) return { eyebrow: 'Волна · утро', title: 'Разогнаться мягко', note: 'Знакомое и светлое, чтобы день начался без рывка.' };
-  if (hour >= 12 && hour < 18) return { eyebrow: 'Волна · день', title: 'В ритме дня', note: 'Поток из того, что вы любите, и того, что рядом с ним.' };
-  if (hour >= 18 && hour < 23) return { eyebrow: 'Волна · вечер', title: 'Потише, поглубже', note: 'Медленнее, чем днём, с тем, что вы слушали в последние недели.' };
-  return { eyebrow: 'Волна · ночь', title: 'Ночная смена', note: 'Тихое и длинное — для часов, когда никто не торопит.' };
-}
-
-function plural(n: number, forms: [string, string, string]): string {
-  const mod10 = n % 10;
-  const mod100 = n % 100;
-  if (mod10 === 1 && mod100 !== 11) return forms[0];
-  if (mod10 >= 2 && mod10 <= 4 && (mod100 < 10 || mod100 >= 20)) return forms[1];
-  return forms[2];
-}
-
-interface WaveCardProps {
-  favorites: number;
-  onStart: () => void;
-}
-
-/**
- * Волна — главное действие на главной.
- *
- * Карточка, а не строка в ряду: бесконечный поток — это то, ради чего человек
- * открывает приложение, не зная, что хочет слушать. Подпись меняется со временем
- * суток, чтобы карточка читалась живой, а не вывеской.
- */
-const WaveCard: React.FC<WaveCardProps> = ({ favorites, onStart }) => {
-  const part = dayPart(new Date().getHours());
-  return (
-    <button type="button" className="wave-card focus-ring" onClick={onStart} data-testid="home-card-wave" aria-label={`Включить Волну: ${part.title}`}>
-      <span className="wave-orb" aria-hidden="true" />
-      <span className="home-eyebrow">{part.eyebrow}</span>
-      <span className="wave-card-title">{part.title}</span>
-      <span className="wave-card-note">
-        {part.note}
-        {favorites > 0 ? ` Опирается на ${favorites} ${plural(favorites, ['любимый трек', 'любимых трека', 'любимых треков'])}.` : ''}
-      </span>
-      <span className="wave-card-play" aria-hidden="true">
-        <Play size={ICON.md} fill="currentColor" />
-      </span>
-    </button>
   );
 };
 

@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { BarChart3, ChevronRight, Music2, Radio, Settings } from 'lucide-react';
+import { BarChart3, ChevronRight, Music2, Settings } from 'lucide-react';
 import { usePlayerStore } from '../../store/usePlayerStore';
 import { useLibraryStore } from '../../store/useLibraryStore';
 import { useUIStore } from '../../store/useUIStore';
@@ -10,6 +10,7 @@ import { normalizeArtist } from '../../services/recommendationEngine';
 import { ICON } from '../../styles/icons';
 import type { UnifiedTrack } from '../../types/music';
 import { HomeLayout } from '../home/HomeLayout';
+import { ResumeCard, WaveCard } from '../home/HeroCards';
 
 /**
  * Главная — то, что человек видит, открыв приложение.
@@ -103,6 +104,11 @@ export const MobileHomeView: React.FC = () => {
    */
   const heroTrack: UnifiedTrack | null = currentTrack ?? history[0] ?? null;
 
+  const resumeProgress =
+    heroTrack && resumePosition && resumePosition > 1 && heroTrack.duration > 0
+      ? Math.min(100, Math.round((resumePosition / heroTrack.duration) * 100))
+      : null;
+
   const heroKicker = resumePosition
     ? 'Продолжить'
     : currentTrack
@@ -152,63 +158,18 @@ export const MobileHomeView: React.FC = () => {
       }
     >
 
-      {/* --- Герой: то, на чём остановились ------------------------------- */}
-      <section
-        className="stack gap-4"
-        data-testid="mobile-home-hero" data-home-block="hero"
-      >
-        <div
-          className="w-full overflow-hidden items-center justify-center text-faint bg-surface-2" style={{ aspectRatio: '1', borderRadius: 'var(--radius-xl)', boxShadow: 'var(--shadow-lg)', display: heroTrack ? 'flex' : 'none' }}
-        >
-          {heroTrack?.artworkUrl ? (
-            <img
-              src={heroTrack.artworkUrl}
-              alt=""
-              className="fill-cover"
-            />
-          ) : (
-            <Music2 size={ICON.display} aria-hidden="true" />
-          )}
-        </div>
-
-        <div className="stack gap-2">
-          <span
-            className="text-xs weight-semibold" style={{ letterSpacing: '0.14em', textTransform: 'uppercase', color: 'var(--info)' }}
-          >
-            {heroKicker}
-          </span>
-
-          <h1
-            className="m-0 weight-semibold text-primary type-3xl" style={{ fontFamily: 'var(--font-display)', overflowWrap: 'anywhere' }}
-            data-testid="mobile-home-hero-title"
-          >
-            {heroTrack?.title ?? 'Здесь появится то, на чём вы остановитесь'}
-          </h1>
-
-          {heroTrack && (
-            <span className="text-base text-secondary">
-              {heroTrack.artist}
-            </span>
-          )}
-        </div>
-
-        <div className="row-stretch gap-2">
-          <HeroButton
-            label={resumePosition ? 'Продолжить' : 'Слушать'}
-            primary
-            disabled={!heroTrack}
-            onClick={handleHeroPlay}
-            testId="mobile-home-hero-play"
-          />
-          <HeroButton
-            // «Радио по треку» на 360 px не влезало и обрезалось многоточием:
-            // половине кнопки досталось «Радио по тре…».
-            label="Радио"
-            disabled={!heroTrack}
-            onClick={() => heroTrack && void startTrackRadio(heroTrack)}
-            testId="mobile-home-hero-radio"
-          />
-        </div>
+      {/* --- Герой: то, на чём остановились — общая карточка с ПК --------- */}
+      <section className="stack gap-3" data-testid="mobile-home-hero" data-home-block="hero">
+        <ResumeCard
+          track={heroTrack}
+          kicker={heroKicker}
+          subtitle={heroTrack?.artist ?? 'Здесь появится то, на чём вы остановитесь'}
+          progress={resumeProgress}
+          playLabel={resumePosition ? 'Продолжить' : 'Слушать'}
+          onPlay={handleHeroPlay}
+          onRadio={() => heroTrack && void startTrackRadio(heroTrack)}
+          testIds={{ root: 'mobile-home-resume', art: 'mobile-home-hero-art', title: 'mobile-home-hero-title', play: 'mobile-home-hero-play', radio: 'mobile-home-hero-radio' }}
+        />
       </section>
 
       {recent.length > 0 && (
@@ -271,32 +232,7 @@ export const MobileHomeView: React.FC = () => {
         * целая вкладка нижней панели ради единственной кнопки «Запустить».
         */}
       <section data-home-block="wave">
-        <button
-          type="button"
-          className="press card-interactive row gap-4 w-full p-4 radius-lg text-left pointer"
-          onClick={handleStartWave}
-          style={{ minHeight: '88px' }}
-          data-testid="mobile-home-wave"
-        >
-          <span
-            className="row justify-center shrink-0 radius-md text-accent bg-accent-soft" style={{ width: '56px', height: '56px' }}
-          >
-            <Radio size={ICON.xl} aria-hidden="true" />
-          </span>
-          <span className="stack grow gap-px">
-            <span
-              className="text-lg weight-semibold text-primary leading-lg tracking-lg"
-            >
-              Поток
-            </span>
-            <span
-              className="text-sm text-muted leading-sm tracking-sm"
-            >
-              Бесконечный подбор
-            </span>
-          </span>
-          <ChevronRight size={ICON.md} className="shrink-0 text-faint" aria-hidden="true" />
-        </button>
+        <WaveCard favorites={favorites.length} onStart={handleStartWave} data-testid="mobile-home-wave" />
       </section>
 
       {/*
@@ -401,25 +337,6 @@ export const MobileHomeView: React.FC = () => {
  * большом экране, и обе занимают ровно половину ширины. Общая кнопка растёт по
  * содержимому, и «Слушать» с «Радио по треку» вышли бы разной величины.
  */
-const HeroButton: React.FC<{
-  label: string;
-  primary?: boolean;
-  disabled?: boolean;
-  onClick: () => void;
-  testId: string;
-}> = ({ label, primary = false, disabled = false, onClick, testId }) => (
-  <button
-    type="button"
-    className="hero-button press focus-ring"
-    onClick={onClick}
-    disabled={disabled}
-    data-primary={primary}
-    data-testid={testId}
-  >
-    {label}
-  </button>
-);
-
 const SectionTitle: React.FC<{ children: React.ReactNode }> = ({ children }) => (
   <h2
     className="text-lg weight-semibold text-primary leading-lg tracking-lg" style={{ margin: '0 0 var(--space-3)' }}
