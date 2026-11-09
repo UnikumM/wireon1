@@ -6,18 +6,19 @@ export type PanelPosition = 'top' | 'bottom' | 'left' | 'right';
 export const PANEL_POSITIONS: PanelPosition[] = ['top', 'bottom', 'left', 'right'];
 export const TAB_IDS = ['home', 'search', 'wave', 'foryou', 'library'] as const;
 export type LayoutTab = typeof TAB_IDS[number];
-export const HOME_BLOCK_IDS = ['hero', 'recent', 'wave', 'stats', 'mixes', 'forgotten', 'artists', 'releases', 'discover'] as const;
+export const HOME_BLOCK_IDS = ['hero', 'monthlyRecap', 'recent', 'wave', 'stats', 'mixes', 'forgotten', 'artists', 'releases', 'discover'] as const;
 export type HomeBlockId = typeof HOME_BLOCK_IDS[number];
 export const AVAILABLE_HOME_BLOCKS: Record<LayoutPlatform, HomeBlockId[]> = {
   // 4.0: Волна на ПК стоит в герое вместе с «продолжить», отдельного блока нет.
-  desktop: ['hero', 'recent', 'mixes', 'forgotten', 'releases', 'discover'],
-  mobile: ['hero', 'recent', 'wave', 'stats', 'mixes', 'artists']
+  // «Итоги месяца» стоят сразу под героем: первые дни месяца это самое свежее на экране.
+  desktop: ['hero', 'monthlyRecap', 'recent', 'mixes', 'forgotten', 'releases', 'discover'],
+  mobile: ['hero', 'monthlyRecap', 'recent', 'wave', 'stats', 'mixes', 'artists']
 };
 export const TAB_LABELS: Record<LayoutTab, string> = {
   home: 'Главная', search: 'Поиск', wave: 'Поток', foryou: 'Для вас', library: 'Медиатека'
 };
 export const HOME_BLOCK_LABELS: Record<HomeBlockId, string> = {
-  hero: 'Продолжить слушать', recent: 'Недавние треки', wave: 'Поток', stats: 'Итоги прослушанного',
+  hero: 'Продолжить слушать', monthlyRecap: 'Итоги месяца', recent: 'Недавние треки', wave: 'Поток', stats: 'Итоги прослушанного',
   mixes: 'Миксы дня', forgotten: 'Забытое', artists: 'Радио по артистам', releases: 'Новое у исполнителей', discover: 'Чарты и новинки'
 };
 export interface AppLayout {
