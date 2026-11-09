@@ -34,6 +34,8 @@ import { ImportPlaylistModal } from '../modals/ImportPlaylistModal';
 import { TrackRow } from './TrackRow';
 import { TrackSelectionBar } from './TrackSelectionBar';
 import { CoverCard } from '../common/CoverCard';
+import { EmptyState, type EmptyStateAction } from '../common/EmptyState';
+import type { EmptyArtName } from '../common/emptyArt';
 import { PlaylistCover } from '../library/PlaylistCover';
 import { Sheet, SheetRow } from './Sheet';
 import { ConfirmDialog } from '../common/ConfirmDialog';
@@ -483,13 +485,25 @@ export const MobileLibraryView: React.FC<MobileLibraryViewProps> = ({ onCreatePl
 
       {tab === 'playlists' ? (
         visiblePlaylists.length === 0 ? (
-          <Empty
-            text={
-              needle
-                ? 'Ничего не нашлось'
-                : 'Плейлистов пока нет. Соберите первый — треки добавляются из листа действий.'
-            }
-          />
+          needle ? (
+            <Empty
+              art="search"
+              title="Ничего не нашлось"
+              text={`Ни один плейлист не подходит под «${query.trim()}».`}
+              action={{ label: 'Сбросить поиск', onClick: () => setQuery('') }}
+            />
+          ) : (
+            <Empty
+              art="playlists"
+              title="Здесь будут ваши плейлисты"
+              text="Соберите первый, треки добавляются из листа действий."
+              action={
+                onCreatePlaylistClick
+                  ? { label: 'Создать плейлист', onClick: onCreatePlaylistClick }
+                  : { label: 'Найти треки', onClick: () => setActiveView('search') }
+              }
+            />
+          )
         ) : (
           /*
             * Сетка обложек, а не строки со значком-заглушкой.
@@ -517,7 +531,18 @@ export const MobileLibraryView: React.FC<MobileLibraryViewProps> = ({ onCreatePl
               </h2>
             )}
             {gridPlaylists.length === 0 ? (
-              <Empty text={openFolderId ? 'В папке пока пусто. Положите сюда плейлист кнопкой «…» на обложке.' : 'Все плейлисты разложены по папкам.'} />
+              openFolderId ? (
+                <Empty
+                  art="playlists"
+                  title="В папке пока пусто"
+                  text="Положите сюда плейлист кнопкой «…» на обложке."
+                  action={{ label: 'Ко всем плейлистам', onClick: () => setOpenFolderId(null) }}
+                />
+              ) : (
+                <p className="m-0 text-sm text-muted py-5 px-0 leading-sm tracking-sm" data-testid="mobile-library-empty">
+                  Все плейлисты разложены по папкам.
+                </p>
+              )
             ) : (
           <div
             className="grid gap-4" style={{ gridTemplateColumns: 'repeat(2, minmax(0, 1fr))' }}
@@ -560,17 +585,35 @@ export const MobileLibraryView: React.FC<MobileLibraryViewProps> = ({ onCreatePl
           </div>
         )
       ) : tracks.length === 0 ? (
-        <Empty
-          text={
-            needle
-              ? 'Ничего не нашлось'
-              : tab === 'favorites'
-                ? 'Избранного пока нет. Сердце — в листе действий над треком.'
-                : tab === 'offline'
-                  ? 'Офлайн пока пусто. Сюда попадает то, что вы слушали.'
-                  : 'Здесь появится то, что вы слушали.'
-          }
-        />
+        needle ? (
+          <Empty
+            art="search"
+            title="Ничего не нашлось"
+            text={`Здесь нет ничего по запросу «${query.trim()}».`}
+            action={{ label: 'Сбросить поиск', onClick: () => setQuery('') }}
+          />
+        ) : tab === 'favorites' ? (
+          <Empty
+            art="favorites"
+            title="Здесь будут ваши любимые"
+            text="Сердце есть в листе действий над треком."
+            action={{ label: 'Найти что-нибудь', onClick: () => setActiveView('search') }}
+          />
+        ) : tab === 'offline' ? (
+          <Empty
+            art="offline"
+            title="Здесь будет музыка без интернета"
+            text="Включите офлайн-режим, и прослушанное останется на телефоне."
+            action={{ label: 'Открыть настройки', onClick: () => setActiveView('settings') }}
+          />
+        ) : (
+          <Empty
+            art="history"
+            title="Здесь появится то, что вы слушали"
+            text="Включите любой трек или запустите Поток."
+            action={{ label: 'Включить Поток', onClick: () => setActiveView('wave') }}
+          />
+        )
       ) : (
         <div ref={virtual.containerRef} style={{ paddingTop: virtual.paddingTop, paddingBottom: virtual.paddingBottom }}>
           {tracks.slice(virtual.startIndex, virtual.endIndex).map((track, offset) => {
@@ -687,11 +730,10 @@ const IconButton: React.FC<{
   </button>
 );
 
-const Empty: React.FC<{ text: string }> = ({ text }) => (
-  <p
-    className="m-0 text-sm text-muted py-5 px-0 leading-sm tracking-sm"
-    data-testid="mobile-library-empty"
-  >
-    {text}
-  </p>
-);
+/** Пустая вкладка медиатеки: рисунок, что здесь будет, и одно действие. */
+const Empty: React.FC<{ art: EmptyArtName; title: string; text: string; action: EmptyStateAction }> = ({
+  art,
+  title,
+  text,
+  action
+}) => <EmptyState art={art} title={title} description={text} action={action} data-testid="mobile-library-empty" />;

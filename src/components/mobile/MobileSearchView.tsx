@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { parseCollectionLink } from '../../services/collections';
 import { parseTrackLink, resolveTrackLink, trackSearchQuery } from '../../services/trackLinks';
+import { looksLikeLyricLine, searchByLyricLine, type LyricTrackHit } from '../../services/lyricSearch';
 import { Clock, Loader2, Play, Search as SearchIcon, X } from 'lucide-react';
 import { useUIStore } from '../../store/useUIStore';
 import { usePlayerStore } from '../../store/usePlayerStore';
@@ -13,6 +14,7 @@ import * as dbService from '../../services/db';
 import { ICON } from '../../styles/icons';
 import type { CollectionKind, SearchCollection, SearchKind, UnifiedTrack } from '../../types/music';
 import { TrackRow } from './TrackRow';
+import { LyricQuote } from '../search/LyricQuote';
 
 /**
  * Поиск на телефоне.
@@ -78,6 +80,8 @@ export const MobileSearchView: React.FC = () => {
   /** Трек, открытый по ссылке, и признак, что по ссылке ничего не нашли. */
   const [linkTrack, setLinkTrack] = useState<UnifiedTrack | null>(null);
   const [linkMissed, setLinkMissed] = useState(false);
+  /** Треки, найденные по строчке из песни: локальные тексты, затем LRCLIB. */
+  const [lyricHits, setLyricHits] = useState<LyricTrackHit[]>([]);
 
   /** Растущий номер запроса: ответ на устаревший ввод не должен перебить свежий. */
   const requestId = useRef(0);
@@ -120,6 +124,7 @@ export const MobileSearchView: React.FC = () => {
       setLoading(false);
       setLinkTrack(null);
       setLinkMissed(false);
+      setLyricHits([]);
       return;
     }
 
@@ -139,6 +144,20 @@ export const MobileSearchView: React.FC = () => {
     setLoading(true);
     setLinkTrack(null);
     setLinkMissed(false);
+    setLyricHits([]);
+
+    // Длинная фраза без ссылки — возможно, строчка из песни: ищем в текстах
+    // параллельно с обычным поиском, показываем над выдачей.
+    if (!trackLink && looksLikeLyricLine(trimmed)) {
+      void searchByLyricLine(trimmed)
+        .then((found) => {
+          if (cancelled || id !== requestId.current) return;
+          setLyricHits([...found.local, ...found.online]);
+        })
+        .catch(() => {
+          /* строчка — подсказка поверх поиска, её неудача не ломает выдачу */
+        });
+    }
     void (async () => {
       try {
         let query = trimmed;
@@ -240,6 +259,8 @@ export const MobileSearchView: React.FC = () => {
     [linkTrack, results]
   );
   const queue = useMemo(() => (linkTrack ? [linkTrack, ...otherResults] : results), [linkTrack, otherResults, results]);
+  /** Очередь находок по строчке: сыграл одну — дальше остальные находки. */
+  const lyricQueue = useMemo(() => lyricHits.map((hit) => hit.track), [lyricHits]);
 
   return (
     <div className="stack gap-4" data-testid="mobile-search">
@@ -361,6 +382,25 @@ export const MobileSearchView: React.FC = () => {
             </div>
           </section>
         </>
+      )}
+
+      {/* По строчке из песни: сначала свои тексты, потом найденное на LRCLIB. */}
+      {kind === 'tracks' && lyricHits.length > 0 && (
+        <section className="card stack gap-3 p-3" data-testid="mobile-search-lyric-hits">
+          <SectionTitle>По строчке из песни</SectionTitle>
+          {lyricHits.map((hit, index) => (
+            <div key={hit.track.id} className="stack gap-2">
+              <TrackRow
+                track={hit.track}
+                isCurrent={currentTrack?.id === hit.track.id}
+                onPlay={() => void playTrack(hit.track, lyricQueue, index)}
+                onOpenActions={() => openTrackActions(hit.track)}
+                data-testid={`mobile-search-lyric-${hit.track.id}`}
+              />
+              <LyricQuote hit={hit} />
+            </div>
+          ))}
+        </section>
       )}
 
       {/* Трек по ссылке: карточка сразу, остальное доезжает под ней. */}

@@ -31,6 +31,8 @@ export const CollectionView: React.FC = () => {
 
   const [tracks, setTracks] = useState<UnifiedTrack[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  // Счётчик попыток: «Попробовать снова» на пустом составе перезапускает загрузку.
+  const [attempt, setAttempt] = useState(0);
   const [isSaving, setIsSaving] = useState(false);
   /** Настоящее название подборки, открытой по ссылке. */
   const [loadedTitle, setLoadedTitle] = useState<string | null>(null);
@@ -84,7 +86,7 @@ export const CollectionView: React.FC = () => {
     return () => {
       cancelled = true;
     };
-  }, [collection]);
+  }, [collection, attempt]);
 
   const handlePlay = useCallback(
     (shuffle: boolean) => {
@@ -98,9 +100,10 @@ export const CollectionView: React.FC = () => {
   if (!collection) {
     return (
       <EmptyState
-        icon={<ListMusic size={ICON.display} />}
+        art="library"
         title="Подборка не выбрана"
         description="Найдите альбом или плейлист в поиске и откройте его."
+        action={{ label: 'К поиску', onClick: () => setActiveView('search') }}
       />
     );
   }
@@ -201,9 +204,10 @@ export const CollectionView: React.FC = () => {
       {!isLoading && tracks.length === 0 && (
         <EmptyState
           data-testid="collection-empty"
-          icon={<ListMusic size={ICON.display} />}
+          art="network"
           title="Состав не приехал"
-          description="Источник не отдал список треков. Попробуйте открыть подборку ещё раз чуть позже."
+          description="Источник не отдал список треков. Попробуйте ещё раз чуть позже."
+          action={{ label: 'Попробовать снова', onClick: () => setAttempt((n) => n + 1) }}
         />
       )}
 

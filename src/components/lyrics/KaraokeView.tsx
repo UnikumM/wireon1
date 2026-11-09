@@ -1,7 +1,6 @@
 import React, { useEffect, useState, useRef, useCallback } from 'react';
 import {
   Mic,
-  MicOff,
   Music2,
   RefreshCw,
   X,

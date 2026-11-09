@@ -1,7 +1,6 @@
 import React from 'react';
 import { Users, RefreshCw, User } from 'lucide-react';
 import { SimilarArtistOrigin, SimilarArtistsResult } from '../../../services/similarArtists';
-import { Button } from '../../common/Button';
 import { Skeleton } from '../../common/Skeleton';
 import { EmptyState } from '../../common/EmptyState';
 import { ICON } from '../../../styles/icons';
@@ -65,7 +64,7 @@ export const ArtistSimilar: React.FC<ArtistSimilarProps> = ({
       </div>
     ) : similar.artists.length === 0 ? (
       <EmptyState
-        icon={<Users size={ICON.display} />}
+        art={similar.status === 'unavailable' ? 'network' : 'search'}
         title={
           similar.status === 'unavailable'
             ? 'Похожих сейчас не подобрать'
@@ -74,19 +73,14 @@ export const ArtistSimilar: React.FC<ArtistSimilarProps> = ({
         description={
           similar.status === 'unavailable'
             ? `Ни YouTube, ни ваша медиатека сейчас не отвечают. Похожие на «${artistName}» появятся, когда связь вернётся.`
-            : `Мы посмотрели совместные треки, рекомендации YouTube и вашу медиатеку — рядом с «${artistName}» никого не набралось. Послушайте его в «Радио», и связи появятся.`
+            : `Рядом с «${artistName}» пока никого не набралось. Послушайте его в «Радио», и связи появятся.`
         }
-        action={
-          <Button
-            variant="secondary"
-            size="sm"
-            icon={<RefreshCw size={ICON.sm} />}
-            onClick={onRetry}
-            data-testid="artist-similar-retry-btn"
-          >
-            Повторить
-          </Button>
-        }
+        action={{
+          label: 'Повторить',
+          icon: <RefreshCw size={ICON.sm} />,
+          onClick: onRetry,
+          'data-testid': 'artist-similar-retry-btn'
+        }}
         style={{ padding: 'var(--space-6)' }}
         data-testid="artist-similar-empty"
       />

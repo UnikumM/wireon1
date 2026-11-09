@@ -13,6 +13,8 @@ import { HomeLayout } from './HomeLayout';
 import { HandoffBanner, ResumeCard, WaveCard } from './HeroCards';
 import { HomeBlockId } from '../../store/useAppLayoutStore';
 import { useAutoMixes } from '../../hooks/useAutoMixes';
+import { MonthlyRecapCard } from '../recap/MonthlyRecapCard';
+import { useHomeMonthlyRecap } from '../recap/useMonthlyRecap';
 
 /**
  * Главная страница.
@@ -47,6 +49,8 @@ export const HomeView: React.FC = () => {
   const openCollection = useUIStore((s) => s.openCollection);
 
   const autoMixes = useAutoMixes();
+  // Итоги прошлого месяца — первые семь дней нового, пока не закрыли.
+  const monthlyRecap = useHomeMonthlyRecap();
   const [records, setRecords] = useState<HistoryRecord[] | null>(null);
   const [releases, setReleases] = useState<NewRelease[]>([]);
   const [shelves, setShelves] = useState<DiscoverShelf[]>([]);
@@ -195,6 +199,16 @@ export const HomeView: React.FC = () => {
           onRadio={() => heroTrack && void startTrackRadio(heroTrack)}
         />
       </section>
+
+      {/* --- Итоги месяца: первые дни нового месяца ------------------------ */}
+      {monthlyRecap && (
+        <MonthlyRecapCard
+          homeBlock="monthlyRecap"
+          recap={monthlyRecap.recap}
+          onDismiss={monthlyRecap.dismiss}
+          testId="home-monthly-recap"
+        />
+      )}
 
       {/* --- Собрано для тебя --------------------------------------------- */}
       {recent.length > 0 && (

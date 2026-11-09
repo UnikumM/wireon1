@@ -1,6 +1,7 @@
 import React from 'react';
-import { Music2, TrendingUp } from 'lucide-react';
+import { TrendingUp } from 'lucide-react';
 import { UnifiedTrack } from '../../../types/music';
+import { useUIStore } from '../../../store/useUIStore';
 import { TrackCard } from '../../search/TrackCard';
 import { EmptyState } from '../../common/EmptyState';
 import { pluralize } from '../../../utils/plural';
@@ -12,7 +13,16 @@ interface ArtistTopTracksProps {
 }
 
 /** Десятка популярных треков; строки рисует `TrackCard`, очередь — весь список. */
-export const ArtistTopTracks: React.FC<ArtistTopTracksProps> = ({ artistName, tracks }) => (
+export const ArtistTopTracks: React.FC<ArtistTopTracksProps> = ({ artistName, tracks }) => {
+  const setActiveView = useUIStore((s) => s.setActiveView);
+  const setSearchQuery = useUIStore((s) => s.setSearchQuery);
+  // Пустая десятка ведёт в обычный поиск по имени: там источников больше.
+  const searchArtist = () => {
+    setSearchQuery(artistName);
+    setActiveView('search');
+  };
+
+  return (
   <section aria-labelledby="artist-top-tracks-heading" data-testid="artist-top-tracks-section">
     {/*
       * `space-between` без зазора и без запрета на сжатие — это не ряд, а
@@ -42,9 +52,10 @@ export const ArtistTopTracks: React.FC<ArtistTopTracksProps> = ({ artistName, tr
 
     {tracks.length === 0 ? (
       <EmptyState
-        icon={<Music2 size={ICON.display} />}
+        art="search"
         title="Треки не найдены"
         description={`Доступных треков для «${artistName}» найти не удалось.`}
+        action={{ label: 'Поискать по имени', onClick: searchArtist }}
         style={{ padding: 'var(--space-6)' }}
       />
     ) : (
@@ -64,4 +75,5 @@ export const ArtistTopTracks: React.FC<ArtistTopTracksProps> = ({ artistName, tr
       </div>
     )}
   </section>
-);
+  );
+};

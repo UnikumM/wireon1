@@ -1,7 +1,6 @@
 import React from 'react';
-import { Info, RefreshCw } from 'lucide-react';
+import { RefreshCw } from 'lucide-react';
 import { ArtistProfile } from '../../../services/artistService';
-import { Button } from '../../common/Button';
 import { Skeleton } from '../../common/Skeleton';
 import { EmptyState } from '../../common/EmptyState';
 import { ICON } from '../../../styles/icons';
@@ -73,20 +72,15 @@ export const ArtistHubError: React.FC<ArtistHubErrorProps> = ({
       data-testid="artist-hub-error"
     >
       <EmptyState
-        icon={<Info size={ICON.display} />}
+        art={profile?.isSparse && !error ? 'search' : 'network'}
         title={profile?.isSparse && !error ? 'Исполнитель не найден' : 'Не удалось открыть профиль'}
         description={description}
-        action={
-          <Button
-            variant="secondary"
-            size="sm"
-            icon={<RefreshCw size={ICON.sm} />}
-            onClick={onRetry}
-            data-testid="artist-hub-retry-btn"
-          >
-            Повторить
-          </Button>
-        }
+        action={{
+          label: 'Повторить',
+          icon: <RefreshCw size={ICON.sm} />,
+          onClick: onRetry,
+          'data-testid': 'artist-hub-retry-btn'
+        }}
       />
     </div>
   );

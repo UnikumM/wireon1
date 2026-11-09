@@ -1,7 +1,8 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { parseCollectionLink } from '../../services/collections';
 import { parseTrackLink, resolveTrackLink, trackSearchQuery } from '../../services/trackLinks';
-import { AlertTriangle, Music2, RotateCcw, Shuffle, Play, X } from 'lucide-react';
+import { looksLikeLyricLine, searchByLyricLine, type LyricTrackHit } from '../../services/lyricSearch';
+import { AlertTriangle, RotateCcw, Shuffle, Play, X } from 'lucide-react';
 import { AudioSource, SearchCollection, SearchKind, UnifiedTrack } from '../../types/music';
 import { searchAggregator } from '../../services/aggregator';
 import { youtubeService } from '../../services/youtube';
@@ -11,6 +12,7 @@ import { usePlayerStore } from '../../store/usePlayerStore';
 import { useMediaQuery } from '../../hooks/useMediaQuery';
 import { SearchBar } from './SearchBar';
 import { TrackCard } from './TrackCard';
+import { LyricQuote } from './LyricQuote';
 import { CoverCard } from '../common/CoverCard';
 import { Disc3, ListMusic, User } from 'lucide-react';
 import { Button } from '../common/Button';
@@ -107,6 +109,8 @@ export const SearchResults: React.FC<SearchResultsProps> = ({ className = '' }) 
   /** Трек, открытый по ссылке, и признак, что по ссылке ничего не нашли. */
   const [linkTrack, setLinkTrack] = useState<UnifiedTrack | null>(null);
   const [linkMissed, setLinkMissed] = useState(false);
+  /** Треки, найденные по строчке из песни: локальные тексты, затем LRCLIB. */
+  const [lyricHits, setLyricHits] = useState<LyricTrackHit[]>([]);
 
   /** Monotonic request id: only the newest search is allowed to commit state. */
   const requestIdRef = useRef(0);
@@ -150,6 +154,7 @@ export const SearchResults: React.FC<SearchResultsProps> = ({ className = '' }) 
       setIsLoading(false);
       setLinkTrack(null);
       setLinkMissed(false);
+      setLyricHits([]);
       return;
     }
 
@@ -169,6 +174,20 @@ export const SearchResults: React.FC<SearchResultsProps> = ({ className = '' }) 
     setIsLoading(true);
     setLinkTrack(null);
     setLinkMissed(false);
+    setLyricHits([]);
+
+    // Длинная фраза без ссылки — возможно, строчка из песни: ищем её в текстах
+    // параллельно с обычным поиском и показываем над выдачей, когда нашлась.
+    if (!trackLink && looksLikeLyricLine(trimmed)) {
+      void searchByLyricLine(trimmed)
+        .then((found) => {
+          if (cancelled || requestId !== requestIdRef.current) return;
+          setLyricHits([...found.local, ...found.online]);
+        })
+        .catch(() => {
+          /* строчка — подсказка поверх поиска, её неудача не ломает выдачу */
+        });
+    }
 
     const run = async () => {
       try {
@@ -260,6 +279,7 @@ export const SearchResults: React.FC<SearchResultsProps> = ({ className = '' }) 
     setError(null);
     setLinkTrack(null);
     setLinkMissed(false);
+    setLyricHits([]);
   }, [setSearchQuery]);
 
   const handleSubmit = useCallback(
@@ -332,6 +352,8 @@ export const SearchResults: React.FC<SearchResultsProps> = ({ className = '' }) 
   const queue = linkTrack ? [linkTrack, ...otherResults] : results;
   const topMatch = linkTrack ? null : queue[0] ?? null;
   const restResults = queue.slice(1);
+  /** Очередь находок по строчке: сыграл одну — дальше идут остальные находки. */
+  const lyricQueue = lyricHits.map((hit) => hit.track);
 
   return (
     <div
@@ -468,6 +490,23 @@ export const SearchResults: React.FC<SearchResultsProps> = ({ className = '' }) 
         </div>
       )}
 
+      {/* По строчке из песни: сначала свои тексты, потом найденное на LRCLIB. */}
+      {kind === 'tracks' && hasQuery && lyricHits.length > 0 && (
+        <section className="stack gap-3" data-testid="search-lyric-hits">
+          <h2 className="m-0 text-xl weight-semibold text-primary leading-xl tracking-xl">
+            По строчке из песни
+          </h2>
+          <div className="stack gap-3">
+            {lyricHits.map((hit, index) => (
+              <div key={hit.track.id} className="stack gap-2" data-testid={`search-lyric-hit-${hit.track.id}`}>
+                <TrackCard track={hit.track} index={index} layout="row" contextQueue={lyricQueue} />
+                <LyricQuote hit={hit} />
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
+
       {/* Трек по ссылке — показывается сразу, остальное доезжает под ним. */}
       {kind === 'tracks' && hasQuery && linkTrack && (
         <section className="stack gap-3" data-testid="search-link-track">
@@ -528,9 +567,10 @@ export const SearchResults: React.FC<SearchResultsProps> = ({ className = '' }) 
       {kind !== 'tracks' && !isLoadingCollections && hasQuery && shownCollections.length === 0 && (
         <EmptyState
           data-testid="search-no-collections"
-          icon={<Music2 size={ICON.display} />}
+          art="search"
           title={`Ничего не нашлось по запросу «${searchQuery.trim()}»`}
-          description="Источники ответили, но подборок такого вида у них нет. Попробуйте вкладку «Треки» или другое написание."
+          description="Подборок такого вида у источников нет. Поищите среди треков или напишите иначе."
+          action={{ label: 'Искать среди треков', onClick: () => setKind('tracks') }}
         />
       )}
 
@@ -624,15 +664,17 @@ export const SearchResults: React.FC<SearchResultsProps> = ({ className = '' }) 
         failedSources.length === 0 && (
         <EmptyState
           data-testid="search-no-results"
-          icon={<Music2 size={ICON.display} />}
+          art="search"
           title={`Ничего не нашлось по запросу «${searchQuery.trim()}»`}
-          description="Все источники ответили, но такого трека у них нет. Проверьте написание, попробуйте одно имя исполнителя или снимите фильтр — искать везде."
+          description={
+            searchFilter !== 'all'
+              ? 'Такого трека у выбранного источника нет. Попробуйте искать везде.'
+              : 'Такого трека у источников нет. Проверьте написание или оставьте одно имя исполнителя.'
+          }
           action={
-            searchFilter !== 'all' ? (
-              <Button variant="secondary" size="sm" onClick={() => setSearchFilter('all')}>
-                Искать везде
-              </Button>
-            ) : undefined
+            searchFilter !== 'all'
+              ? { label: 'Искать везде', onClick: () => setSearchFilter('all') }
+              : { label: 'Новый запрос', onClick: () => setSearchQuery('') }
           }
         />
       )}

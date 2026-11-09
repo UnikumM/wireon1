@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { BarChart3, Disc3, Music2, RefreshCw, Sparkles } from 'lucide-react';
+import { Music2, RefreshCw, Sparkles } from 'lucide-react';
 import { Button } from '../common/Button';
 import { EmptyState } from '../common/EmptyState';
 import { Skeleton } from '../common/Skeleton';
@@ -7,6 +7,7 @@ import { SourceBadge } from '../common/SourceBadge';
 import { TrackCard } from '../search/TrackCard';
 import { DailyMixCard } from './DailyMixCard';
 import { HistoryCalendar } from './HistoryCalendar';
+import { MonthlyRecapSection } from '../recap/MonthlyRecapCard';
 import { useUIStore } from '../../store/useUIStore';
 import { useLibraryStore } from '../../store/useLibraryStore';
 import {
@@ -264,14 +265,10 @@ export const ForYouView: React.FC<ForYouViewProps> = ({ className = '' }) => {
       >
         {header}
         <EmptyState
-          icon={<BarChart3 size={ICON.display} />}
+          art="network"
           title="Не удалось прочитать историю"
-          description="Локальная база сейчас недоступна, а без неё ни миксы, ни итоги не собрать."
-          action={
-            <Button variant="secondary" size="sm" onClick={() => void load()}>
-              Попробовать снова
-            </Button>
-          }
+          description="Локальная база сейчас недоступна, без неё миксы и итоги не собрать."
+          action={{ label: 'Попробовать снова', onClick: () => void load() }}
           data-testid="foryou-error"
         />
       </div>
@@ -352,14 +349,10 @@ export const ForYouView: React.FC<ForYouViewProps> = ({ className = '' }) => {
           </div>
         ) : mixes.length === 0 ? (
           <EmptyState
-            icon={<Disc3 size={ICON.display} />}
-            title="Миксы ещё не из чего собрать"
-            description="Нужно немного больше музыки: сохраните треки хотя бы двух исполнителей, и подборки появятся сами."
-            action={
-              <Button variant="secondary" size="sm" onClick={() => setActiveView('search')}>
-                Найти музыку
-              </Button>
-            }
+            art="library"
+            title="Здесь будут ваши миксы"
+            description="Сохраните треки хотя бы двух исполнителей, и подборки соберутся сами."
+            action={{ label: 'Найти музыку', onClick: () => setActiveView('search') }}
             data-testid="foryou-mixes-empty"
           />
         ) : (
@@ -407,25 +400,22 @@ export const ForYouView: React.FC<ForYouViewProps> = ({ className = '' }) => {
           <Skeleton count={3} height={72} radius="var(--radius-sm)" />
         ) : !hasHistory || !stats ? (
           <EmptyState
-            icon={<BarChart3 size={ICON.display} />}
+            art="history"
             title="Итогов пока нет"
             description="Послушайте что-нибудь, и статистика соберётся сама."
+            action={{ label: 'Найти, что послушать', onClick: () => setActiveView('search') }}
             data-testid="foryou-stats-empty"
           />
         ) : !hasPeriodData ? (
           <EmptyState
-            icon={<BarChart3 size={ICON.display} />}
+            art="history"
             title={period === 'week' ? 'За неделю ничего' : 'За месяц ничего'}
             description={
               eventsSince === null
-                ? 'Отдельные включения начали записываться только в этой сборке. Топ за неделю и месяц наберётся по мере прослушивания, а «Всё время» уже готово.'
-                : 'В это окно ничего не попало. Загляните в «Всё время» — там всё наслушанное.'
+                ? 'Отдельные включения записываются только с этой сборки, топ за неделю и месяц наберётся по мере прослушивания.'
+                : 'В это окно ничего не попало.'
             }
-            action={
-              <Button variant="secondary" size="sm" onClick={() => setPeriod('all')}>
-                Показать всё время
-              </Button>
-            }
+            action={{ label: 'Показать всё время', onClick: () => setPeriod('all') }}
             data-testid="foryou-stats-period-empty"
           />
         ) : (
@@ -611,6 +601,9 @@ export const ForYouView: React.FC<ForYouViewProps> = ({ className = '' }) => {
           approximate={eventsSince === null || eventsSince > calendarWindowStart(now)}
         />
       )}
+
+      {/* Итоги прошлого месяца — здесь постоянно, в отличие от главной. */}
+      <MonthlyRecapSection />
     </div>
   );
 };

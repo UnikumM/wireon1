@@ -1,13 +1,11 @@
 import React, { useCallback, useMemo, useRef, useState } from 'react';
 import {
-  ListMusic,
   Play,
   Shuffle,
   Trash2,
   Edit2,
   Check,
   X,
-  Music2,
   Plus,
   ArrowUp,
   ArrowDown,
@@ -352,14 +350,10 @@ export const PlaylistView: React.FC<PlaylistViewProps> = ({ playlistId: propPlay
     return (
       <EmptyState
         className="animate-view-in"
-        icon={<ListMusic size={ICON.display} />}
+        art="playlists"
         title="Плейлист не найден"
         description="Скорее всего, он удалён."
-        action={
-          <Button variant="secondary" size="sm" onClick={() => setActiveView('playlists')}>
-            К плейлистам
-          </Button>
-        }
+        action={{ label: 'К плейлистам', onClick: () => setActiveView('playlists') }}
         data-testid="playlist-not-found"
       />
     );
@@ -686,23 +680,20 @@ export const PlaylistView: React.FC<PlaylistViewProps> = ({ playlistId: propPlay
 
         {tracks.length > 0 && entries.length === 0 && (
           <EmptyState
-            icon={<Search size={ICON.xl} />}
+            art="search"
             title="Ничего не нашлось"
             description="В этом плейлисте нет треков с такими словами."
+            action={{ label: 'Сбросить поиск', onClick: () => setQuery('') }}
             data-testid="playlist-filter-empty"
           />
         )}
 
         {tracks.length === 0 ? (
           <EmptyState
-            icon={<Music2 size={ICON.display} />}
+            art="playlists"
             title="В плейлисте пока пусто"
-            description="Найдите что-нибудь в поиске и добавьте сюда через меню трека."
-            action={
-              <Button variant="secondary" size="sm" icon={<Plus size={ICON.sm} />} onClick={() => setActiveView('search')}>
-                Найти треки
-              </Button>
-            }
+            description="Найдите трек и добавьте его сюда через меню."
+            action={{ label: 'Найти треки', icon: <Plus size={ICON.sm} />, onClick: () => setActiveView('search') }}
             data-testid="playlist-empty"
           />
         ) : (

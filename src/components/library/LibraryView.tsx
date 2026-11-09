@@ -11,8 +11,6 @@ import {
   RotateCcw,
   Search,
   Trash2,
-  Clock,
-  Disc,
   HardDrive,
   Import,
   FolderPlus
@@ -614,24 +612,25 @@ export const LibraryView: React.FC<LibraryViewProps> = ({
               <Skeleton count={5} height={54} radius="var(--radius-sm)" />
             ) : recentlyPlayed.length === 0 ? (
               <EmptyState
-                icon={<Clock size={ICON.display} />}
-                title="Здесь пока пусто"
-                description="Всё, что вы слушаете, появляется здесь — сначала новое."
-                action={
-                  <Button variant="secondary" size="sm" onClick={() => setActiveView('search')}>
-                    Найти, что послушать
-                  </Button>
-                }
+                art="history"
+                title="Здесь будет то, что вы слушали"
+                description="Включите любой трек, и он встанет первым."
+                action={{ label: 'Найти, что послушать', onClick: () => setActiveView('search') }}
                 data-testid="history-empty"
               />
             ) : visibleHistory.length === 0 ? (
               <EmptyState
-                icon={<Clock size={ICON.display} />}
+                art="search"
                 title="Ничего не нашлось"
                 description={
                   needle
                     ? `Среди прослушанного нет ничего по запросу «${query}».`
                     : 'Под выбранные фильтры не подошёл ни один трек.'
+                }
+                action={
+                  needle
+                    ? { label: 'Сбросить поиск', onClick: () => setQuery('') }
+                    : { label: 'Сбросить фильтры', onClick: () => libraryFilters.reset() }
                 }
                 data-testid="history-no-matches"
               />
@@ -813,39 +812,23 @@ export const LibraryView: React.FC<LibraryViewProps> = ({
               </div>
             ) : playlists.length === 0 ? (
               <EmptyState
-                icon={<Disc size={ICON.display} />}
-                title="Плейлистов пока нет"
-                description="Соберите вместе треки, которые хочется слушать подряд."
-                action={
-                  <div className="row-stretch gap-2 wrap justify-center">
-                    <Button
-                      variant="secondary"
-                      size="sm"
-                      icon={<Import size={ICON.md} aria-hidden="true" />}
-                      onClick={onImportPlaylistClick || (() => setIsImportModalOpen(true))}
-                      data-testid="library-empty-import-playlist-btn"
-                    >
-                      Импортировать плейлист
-                    </Button>
-                    {onCreatePlaylistClick && (
-                      <Button
-                        variant="primary"
-                        size="sm"
-                        icon={<Plus size={ICON.md} aria-hidden="true" />}
-                        onClick={onCreatePlaylistClick}
-                      >
-                        Создать плейлист
-                      </Button>
-                    )}
-                  </div>
-                }
+                art="playlists"
+                title="Здесь будут ваши плейлисты"
+                description="Перенесите готовый плейлист по ссылке или соберите свой."
+                action={{
+                  label: 'Импортировать плейлист',
+                  icon: <Import size={ICON.md} aria-hidden="true" />,
+                  onClick: onImportPlaylistClick || (() => setIsImportModalOpen(true)),
+                  'data-testid': 'library-empty-import-playlist-btn'
+                }}
                 data-testid="library-empty-playlists"
               />
             ) : visiblePlaylists.length === 0 ? (
               <EmptyState
-                icon={<Disc size={ICON.display} />}
+                art="search"
                 title="Ничего не нашлось"
                 description={`Ни один плейлист не подходит под «${query}».`}
+                action={{ label: 'Сбросить поиск', onClick: () => setQuery('') }}
                 data-testid="playlists-no-matches"
               />
             ) : (
@@ -867,11 +850,19 @@ export const LibraryView: React.FC<LibraryViewProps> = ({
                   </h3>
                 )}
                 {gridPlaylists.length === 0 ? (
-                  <p className="m-0 text-sm text-muted leading-sm" data-testid="folder-empty">
-                    {openFolderId
-                      ? 'В папке пока пусто. Положите сюда плейлист через «…» на его карточке.'
-                      : 'Все плейлисты разложены по папкам.'}
-                  </p>
+                  openFolderId ? (
+                    <EmptyState
+                      art="playlists"
+                      title="В папке пока пусто"
+                      description="Положите сюда плейлист через «…» на его карточке."
+                      action={{ label: 'Ко всем плейлистам', onClick: () => setOpenFolderId(null) }}
+                      data-testid="folder-empty"
+                    />
+                  ) : (
+                    <p className="m-0 text-sm text-muted leading-sm" data-testid="folder-empty">
+                      Все плейлисты разложены по папкам.
+                    </p>
+                  )
                 ) : (
               <div
                 className="grid gap-4" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))' }}

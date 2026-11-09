@@ -1,5 +1,5 @@
 import React, { useCallback, useMemo, useState } from 'react';
-import { Check, ListMusic, Plus } from 'lucide-react';
+import { Check, Plus } from 'lucide-react';
 import { Modal } from '../common/Modal';
 import { Button } from '../common/Button';
 import { EmptyState } from '../common/EmptyState';
@@ -193,9 +193,10 @@ export const AddToPlaylistModal: React.FC<AddToPlaylistModalProps> = ({
 
         {playlists.length === 0 && !isCreating && (
           <EmptyState
-            icon={<ListMusic size={ICON.display} />}
+            art="playlists"
             title="Плейлистов пока нет"
-            description="Создайте первый — трек сразу попадёт в него."
+            description="Создайте первый, трек сразу попадёт в него."
+            action={{ label: 'Создать плейлист', icon: <Plus size={ICON.sm} />, onClick: () => setIsCreating(true) }}
             data-testid="add-to-playlist-empty"
           />
         )}

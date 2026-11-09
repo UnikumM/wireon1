@@ -6,7 +6,6 @@ import {
   Search,
   HardDrive,
   HardDriveDownload,
-  Clock,
   WifiOff
 } from 'lucide-react';
 import { pluralize } from '../../utils/plural';
@@ -225,21 +224,22 @@ export const OfflineSection: React.FC<OfflineSectionProps> = ({ className = '' }
         <Skeleton count={5} height={54} radius="var(--radius-sm)" />
       ) : offlineRecords.length === 0 ? (
         <EmptyState
-          icon={<HardDrive size={ICON.display} />}
-          title="Пока ничего не сохранено"
-          description="Включите офлайн-режим в настройках — и всё, что вы слушаете, останется доступным без интернета."
-          action={
-            <Button variant="secondary" size="sm" onClick={() => setActiveView('settings')} data-testid="offline-open-settings">
-              Открыть настройки офлайна
-            </Button>
-          }
+          art="offline"
+          title="Здесь будет музыка без интернета"
+          description="Включите офлайн-режим, и прослушанное останется на устройстве."
+          action={{
+            label: 'Открыть настройки офлайна',
+            onClick: () => setActiveView('settings'),
+            'data-testid': 'offline-open-settings'
+          }}
           data-testid="offline-empty-state"
         />
       ) : filteredRecords.length === 0 ? (
         <EmptyState
-          icon={<Clock size={ICON.display} />}
-          title="Ничего не найдено"
+          art="search"
+          title="Ничего не нашлось"
           description={`Среди офлайн-треков нет ничего по запросу «${query}».`}
+          action={{ label: 'Сбросить поиск', onClick: () => setQuery('') }}
           data-testid="offline-no-matches"
         />
       ) : (

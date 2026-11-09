@@ -32,6 +32,7 @@ import { TrackSelectionBar } from './TrackSelectionBar';
 import { offlineMode } from '../../services/offlineMode';
 import { prepareCoverImage } from '../../services/playlistCover';
 import { PlaylistCover } from '../library/PlaylistCover';
+import { EmptyState } from '../common/EmptyState';
 
 /**
  * Плейлист на телефоне.
@@ -320,9 +321,13 @@ export const MobilePlaylistView: React.FC = () => {
     return (
       <div className="stack gap-4">
         <BackRow onBack={back} />
-        <p className="m-0 text-sm text-muted">
-          Плейлист не найден — возможно, он был удалён.
-        </p>
+        <EmptyState
+          art="playlists"
+          title="Плейлист не найден"
+          description="Скорее всего, он удалён."
+          action={{ label: 'К плейлистам', onClick: back }}
+          data-testid="mobile-playlist-not-found"
+        />
       </div>
     );
   }
@@ -487,19 +492,21 @@ export const MobilePlaylistView: React.FC = () => {
       />
 
       {tracks.length === 0 ? (
-        <p
-          className="m-0 text-sm text-muted py-5 px-0 leading-sm"
+        <EmptyState
+          art="playlists"
+          title="В плейлисте пока пусто"
+          description="Нажмите на песню и подержите, в листе действий есть «В плейлист»."
+          action={{ label: 'Найти треки', onClick: () => setActiveView('search') }}
           data-testid="mobile-playlist-empty"
-        >
-          Плейлист пуст. Треки добавляются из листа действий — нажмите на песню и подержите.
-        </p>
+        />
       ) : listTracks.length === 0 ? (
-        <p
-          className="m-0 text-sm text-muted py-5 px-0"
+        <EmptyState
+          art="search"
+          title="Ничего не нашлось"
+          description="В этом плейлисте нет треков с такими словами."
+          action={{ label: 'Сбросить поиск', onClick: () => setQuery('') }}
           data-testid="mobile-playlist-filter-empty"
-        >
-          Ничего не нашлось.
-        </p>
+        />
       ) : (
         <div ref={virtual.containerRef} style={{ paddingTop: virtual.paddingTop, paddingBottom: virtual.paddingBottom }}>
           {listTracks.slice(virtual.startIndex, virtual.endIndex).map((track, offset) => {

@@ -1,6 +1,6 @@
 import React from 'react';
 import clsx from 'clsx';
-import { Heart, Play, Shuffle, Music2, CheckSquare } from 'lucide-react';
+import { Heart, Play, Shuffle, CheckSquare } from 'lucide-react';
 import { usePlayerStore } from '../../store/usePlayerStore';
 import { Button } from '../common/Button';
 import { EmptyState } from '../common/EmptyState';
@@ -45,6 +45,7 @@ export const FavoritesView: React.FC<FavoritesViewProps> = ({
   const playTrack = usePlayerStore((s) => s.playTrack);
   const toggleFavorite = useLibraryStore((s) => s.toggleFavorite);
   const showToast = useUIStore((s) => s.showToast);
+  const setActiveView = useUIStore((s) => s.setActiveView);
 
   /*
    * Выбор пачки — тот же, что на телефоне: перенести в плейлист, скачать,
@@ -208,16 +209,18 @@ export const FavoritesView: React.FC<FavoritesViewProps> = ({
         <Skeleton count={5} height={54} radius="var(--radius-sm)" />
       ) : total === 0 ? (
         <EmptyState
-          icon={<Music2 size={ICON.display} />}
-          title="В избранном пока пусто"
-          description="Нажмите сердечко на любом треке — он появится здесь."
+          art="favorites"
+          title="Здесь будут ваши любимые"
+          description="Нажмите сердце у трека, и он останется тут."
+          action={{ label: 'Найти что-нибудь', onClick: () => setActiveView('search') }}
           data-testid="favorites-empty"
         />
       ) : tracks.length === 0 ? (
         <EmptyState
-          icon={<Music2 size={ICON.display} />}
+          art="search"
           title="Ничего не нашлось"
           description={query ? `Среди избранного нет ничего по запросу «${query}».` : 'Под фильтр не подошёл ни один трек.'}
+          action={{ label: 'Найти в поиске', onClick: () => setActiveView('search') }}
           data-testid="favorites-no-matches"
         />
       ) : (

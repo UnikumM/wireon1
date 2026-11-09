@@ -66,14 +66,10 @@ export const SmartPlaylistView: React.FC = () => {
     return (
       <EmptyState
         className="animate-view-in"
-        icon={<Wand2 size={ICON.display} />}
+        art="playlists"
         title="Умный плейлист не найден"
         description="Скорее всего, его удалили."
-        action={
-          <Button variant="secondary" size="sm" onClick={() => setActiveView('playlists')}>
-            К плейлистам
-          </Button>
-        }
+        action={{ label: 'К плейлистам', onClick: () => setActiveView('playlists') }}
         data-testid="smart-not-found"
       />
     );
@@ -140,14 +136,10 @@ export const SmartPlaylistView: React.FC = () => {
         <Skeleton height={56} count={6} />
       ) : list.length === 0 ? (
         <EmptyState
-          icon={<Wand2 size={ICON.display} />}
+          art="playlists"
           title="Под эти правила пока ничего не подходит"
-          description="Ослабьте условия или послушайте ещё — список пересоберётся сам."
-          action={
-            <Button variant="secondary" size="sm" onClick={() => setEditing(true)}>
-              Изменить правила
-            </Button>
-          }
+          description="Ослабьте условия или послушайте ещё, список пересоберётся сам."
+          action={{ label: 'Изменить правила', onClick: () => setEditing(true) }}
           data-testid="smart-empty"
         />
       ) : (

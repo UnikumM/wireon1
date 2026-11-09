@@ -15,6 +15,7 @@ import {
   WaveConfig
 } from '../../services/recommendationEngine';
 import { SourceBadge } from '../common/SourceBadge';
+import { EmptyState } from '../common/EmptyState';
 import { formatDuration } from '../../utils/time';
 import { UnifiedTrack } from '../../types/music';
 import { WaveSeedKind } from '../../types/store';
@@ -523,13 +524,15 @@ export const WaveView: React.FC<WaveViewProps> = ({ className = '' }) => {
 
       {/* Поток включён, а очередь пуста — это состояние тоже надо объяснить. */}
       {isWaveMode && !isReplenishingQueue && upcomingTracks.length === 0 && currentTrack && (
-        <div
-          className="w-full p-4 radius-lg text-sm text-secondary text-center bg-surface-2 border-subtle" style={{ maxWidth: '680px', zIndex: 1 }}
+        <EmptyState
+          art="wave"
+          title="Поток закончился"
+          description="По этим настройкам ничего больше не нашлось. Сдвиньте «Знакомое или новое» или снимите жанр."
+          action={{ label: 'Настроить Поток', onClick: () => setIsTuneOpen(true) }}
+          className="w-full"
+          style={{ maxWidth: '680px', zIndex: 1 }}
           data-testid="wave-empty-stream"
-        >
-          Поток закончился — по этим настройкам ничего больше не нашлось. Сдвиньте «Знакомое или
-          новое» или снимите жанр.
-        </div>
+        />
       )}
     </div>
   );

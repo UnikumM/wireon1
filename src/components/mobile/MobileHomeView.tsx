@@ -10,7 +10,10 @@ import { normalizeArtist } from '../../services/recommendationEngine';
 import { ICON } from '../../styles/icons';
 import type { UnifiedTrack } from '../../types/music';
 import { HomeLayout } from '../home/HomeLayout';
+import { EmptyState } from '../common/EmptyState';
 import { HandoffBanner, ResumeCard, WaveCard } from '../home/HeroCards';
+import { MonthlyRecapCard } from '../recap/MonthlyRecapCard';
+import { useHomeMonthlyRecap } from '../recap/useMonthlyRecap';
 
 /**
  * Главная — то, что человек видит, открыв приложение.
@@ -45,6 +48,8 @@ export const MobileHomeView: React.FC = () => {
   const setActiveView = useUIStore((s) => s.setActiveView);
 
   const autoMixes = useAutoMixes();
+  // Итоги прошлого месяца — первые семь дней нового, пока не закрыли.
+  const monthlyRecap = useHomeMonthlyRecap();
   const [records, setRecords] = useState<HistoryRecord[] | null>(null);
 
   useEffect(() => {
@@ -172,6 +177,12 @@ export const MobileHomeView: React.FC = () => {
           testIds={{ root: 'mobile-home-resume', art: 'mobile-home-hero-art', title: 'mobile-home-hero-title', play: 'mobile-home-hero-play', radio: 'mobile-home-hero-radio' }}
         />
       </section>
+
+      {monthlyRecap && (
+        <section data-testid="mobile-home-monthly-recap" data-home-block="monthlyRecap">
+          <MonthlyRecapCard recap={monthlyRecap.recap} onDismiss={monthlyRecap.dismiss} testId="mobile-monthly-recap" />
+        </section>
+      )}
 
       {recent.length > 0 && (
         <section data-testid="mobile-home-recent" data-home-block="recent">
@@ -320,12 +331,13 @@ export const MobileHomeView: React.FC = () => {
       )}
 
       {recent.length === 0 && mixes.length === 0 && (
-        <p
-          className="m-0 text-sm text-muted leading-sm tracking-sm"
+        <EmptyState
+          art="history"
+          title="Здесь появится то, что вы слушали"
+          description="Начните с поиска или включите Поток, он соберёт музыку сам."
+          action={{ label: 'Включить Поток', onClick: handleStartWave }}
           data-testid="mobile-home-empty"
-        >
-          Здесь появится то, что вы слушали. Начните с поиска или запустите Поток — он соберёт музыку сам.
-        </p>
+        />
       )}
     </HomeLayout>
   );
