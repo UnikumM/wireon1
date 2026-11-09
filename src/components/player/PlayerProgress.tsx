@@ -1,6 +1,7 @@
 import React from 'react';
 import { usePlayerStore } from '../../store/usePlayerStore';
 import { SeekBar } from './SeekBar';
+import { useTrackWaveform } from './core/useTrackWaveform';
 
 export interface PlayerProgressProps {
   /** `compact` — полоса плеера, `comfortable` — плеер на весь экран. */
@@ -32,6 +33,11 @@ export const PlayerProgress: React.FC<PlayerProgressProps> = ({
   const buffered = usePlayerStore((s) => s.buffered);
   const seekTo = usePlayerStore((s) => s.seekTo);
 
+  // Волна нужна только просторному варианту; компактный трек не читает вовсе,
+  // чтобы полоса плеера не просыпалась на смену трека ради ничего.
+  const currentTrack = usePlayerStore((s) => (variant === 'comfortable' ? s.currentTrack : null));
+  const waveform = useTrackWaveform(currentTrack);
+
   return (
     <SeekBar
       currentTime={currentTime}
@@ -41,6 +47,7 @@ export const PlayerProgress: React.FC<PlayerProgressProps> = ({
       variant={variant}
       idPrefix={idPrefix}
       className={className}
+      waveform={waveform}
     />
   );
 };

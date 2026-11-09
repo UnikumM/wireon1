@@ -86,6 +86,35 @@ const DEFAULT_STREAM_TTL_MS = 3600 * 1000;
 
 const HLS_UNAVAILABLE = 'SoundCloud HLS playback unavailable';
 
+/*
+ * Адреса волновых дорожек, которые api-v2 отдаёт вместе с треком (`waveform_url`).
+ *
+ * Почему не поле в UnifiedTrack: тип общий для всех источников и уходит в
+ * медиатеку и на сервер синхронизации, а адрес волны — деталь одного источника,
+ * нужная только плееру. Поэтому он остаётся в памяти модуля: нормализация
+ * трека кладёт его сюда, а `services/waveform.ts` забирает по originalId.
+ * Карта ограничена, чтобы долгая сессия с поиском не копила адреса бесконечно.
+ */
+const MAX_WAVEFORM_URLS = 500;
+const waveformUrls = new Map<string, string>();
+
+/** Запомнить адрес волны по сырому id трека SoundCloud (без приставки `sc_`). */
+export function rememberWaveformUrl(trackId: string, url: string): void {
+  if (!trackId || !url) return;
+  // Переставляем в конец: Map хранит порядок вставки, и первым вытесняется самое старое.
+  waveformUrls.delete(trackId);
+  waveformUrls.set(trackId, url);
+  if (waveformUrls.size > MAX_WAVEFORM_URLS) {
+    const oldest = waveformUrls.keys().next().value;
+    if (oldest !== undefined) waveformUrls.delete(oldest);
+  }
+}
+
+/** Адрес волны по сырому id трека SoundCloud или null, если трек ещё не встречался. */
+export function getWaveformUrl(trackId: string): string | null {
+  return waveformUrls.get(trackId) ?? null;
+}
+
 const QUALITY_SCORE: Record<string, number> = { hq: 3, sq: 2, lq: 1 };
 
 interface ElectronBridge {
@@ -876,6 +905,7 @@ export class SoundCloudService {
         Number.isFinite(durationMs) && durationMs > 0 ? Math.round(durationMs / 1000) : 0;
       const artist = item.user?.username || 'SoundCloud Artist';
       const artwork = upgradeSoundCloudArtwork(item.artwork_url || item.user?.avatar_url);
+      if (typeof item.waveform_url === 'string') rememberWaveformUrl(trackId, item.waveform_url);
 
       results.push({
         id: `sc_${trackId}`,

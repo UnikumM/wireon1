@@ -20,6 +20,7 @@ import { useUIStore } from '../../store/useUIStore';
 import { useSwipeDismiss } from '../../hooks/useSwipeDismiss';
 import { useDismissable } from '../../hooks/useDismissable';
 import { useDominantColor } from '../../hooks/useDominantColor';
+import { useTrackWaveform } from './core/useTrackWaveform';
 import { swap } from '../../styles/motion';
 import { ICON } from '../../styles/icons';
 import { formatDuration } from '../../utils/time';
@@ -96,6 +97,8 @@ const StageBody: React.FC<{ track: UnifiedTrack }> = ({ track }) => {
   const { containerRef } = useDismissable<HTMLDivElement>({ isOpen: true, onDismiss: close });
   const { offset, isDragging, handlers } = useSwipeDismiss({ enabled: true, onDismiss: close });
   const dominant = useDominantColor(track.artworkUrl);
+  // Форма волны есть только у SoundCloud; остальным SeekBar рисует полоску.
+  const waveform = useTrackWaveform(track);
 
   return (
     <motion.div className="player-stage-host" initial={false} animate={{ opacity: 1 }} exit={{ opacity: 1 }}>
@@ -174,6 +177,7 @@ const StageBody: React.FC<{ track: UnifiedTrack }> = ({ track }) => {
             onSeek={seekTo}
             variant="comfortable"
             idPrefix="mobile-fullscreen"
+            waveform={waveform}
           />
         </div>
 

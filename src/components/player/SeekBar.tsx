@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { formatDuration } from '../../utils/time';
+import { WaveformBar } from './WaveformBar';
 
 const KEYBOARD_SEEK_STEP_SECONDS = 5;
 
@@ -12,6 +13,12 @@ export interface SeekBarProps {
   variant?: 'compact' | 'comfortable';
   idPrefix?: string;
   className?: string;
+  /**
+   * Форма волны трека (столбики 0..1) — когда источник её отдаёт. В варианте
+   * `comfortable` рисуется вместо ровной полосы; `compact` её игнорирует:
+   * в полосе плеера высоты на столбики нет.
+   */
+  waveform?: number[] | null;
 }
 
 /**
@@ -26,11 +33,15 @@ export const SeekBar: React.FC<SeekBarProps> = ({
   onSeek,
   variant = 'compact',
   idPrefix = 'player',
-  className = ''
+  className = '',
+  waveform = null
 }) => {
   const [isScrubbing, setIsScrubbing] = useState(false);
   const [scrubTime, setScrubTime] = useState(0);
   const [hoverTime, setHoverTime] = useState<number | null>(null);
+  // Протаскивание по волне — отдельное состояние: у WaveformBar свой слушатель
+  // отпускания, и общий `isScrubbing` заставил бы перемотать дважды.
+  const [waveScrubTime, setWaveScrubTime] = useState<number | null>(null);
 
   // The change handler must know about the drag in the same tick it fires in.
   const scrubbingRef = useRef(false);
@@ -43,7 +54,8 @@ export const SeekBar: React.FC<SeekBarProps> = ({
   );
 
   // An incoming syncProgress must never pull the handle out from under a drag.
-  const displayTime = isScrubbing ? scrubTime : clampTime(currentTime);
+  const displayTime = isScrubbing ? scrubTime : waveScrubTime ?? clampTime(currentTime);
+  const showWaveform = variant === 'comfortable' && seekable && !!waveform && waveform.length > 0;
   const progressPercent = seekable ? (displayTime / duration) * 100 : 0;
   const bufferedPercent = seekable ? Math.min(100, (buffered / duration) * 100) : 0;
 
@@ -155,75 +167,87 @@ export const SeekBar: React.FC<SeekBarProps> = ({
         {formatDuration(displayTime)}
       </span>
 
-      <div
-        className="relative grow row" style={{ height: 'var(--range-thumb-size)' }}
-        onPointerMove={handleRailPointerMove}
-        onPointerLeave={() => setHoverTime(null)}
-      >
-        {/* Recessed base rail, then the buffered rail, then the accent fill. */}
-        <div style={{ ...railStyle, right: 0, background: 'var(--surface-sunken)' }} />
-        <div style={{ ...railStyle, width: `${bufferedPercent}%`, background: 'var(--surface-active)' }} />
-
-        <input
-          type="range"
-          role="slider"
-          min={0}
-          max={seekable ? duration : 1}
-          step={0.1}
-          value={displayTime}
-          disabled={!seekable}
-          onPointerDown={handlePointerDown}
-          onChange={handleChange}
-          onKeyDown={handleKeyDown}
-          aria-label="Перемотка по треку"
-          aria-valuemin={0}
-          aria-valuemax={seekable ? Math.floor(duration) : 0}
-          aria-valuenow={Math.floor(displayTime)}
-          aria-valuetext={
-            seekable
-              ? `${formatDuration(displayTime)} из ${formatDuration(duration)}`
-              : 'Позиция неизвестна — длительность ещё не загрузилась'
-          }
-          data-testid={`${idPrefix}-seek-slider`}
-          /*
-           * `range-bare` keeps the track transparent. This is the one slider in
-           * the app that draws its own rails — sunken base, buffered, then the
-           * accent fill — because two independent levels cannot come from a
-           * single gradient. An opaque default track would cover both.
-           */
-          className="range-bare"
-          style={{
-            position: 'relative',
-            width: '100%',
-            background: `linear-gradient(to right, var(--accent) 0 ${progressPercent}%, transparent ${progressPercent}% 100%)`
-          }}
+      {showWaveform ? (
+        <WaveformBar
+          className="grow"
+          samples={waveform}
+          progress={displayTime / duration}
+          duration={duration}
+          idPrefix={idPrefix}
+          onSeek={(fraction) => onSeek(clampTime(fraction * duration))}
+          onScrub={(fraction) => setWaveScrubTime(fraction === null ? null : clampTime(fraction * duration))}
         />
+      ) : (
+        <div
+          className="relative grow row" style={{ height: 'var(--range-thumb-size)' }}
+          onPointerMove={handleRailPointerMove}
+          onPointerLeave={() => setHoverTime(null)}
+        >
+          {/* Recessed base rail, then the buffered rail, then the accent fill. */}
+          <div style={{ ...railStyle, right: 0, background: 'var(--surface-sunken)' }} />
+          <div style={{ ...railStyle, width: `${bufferedPercent}%`, background: 'var(--surface-active)' }} />
 
-        {previewTime !== null && seekable && (
-          <span
-            data-numeric
-            aria-hidden="true"
+          <input
+            type="range"
+            role="slider"
+            min={0}
+            max={seekable ? duration : 1}
+            step={0.1}
+            value={displayTime}
+            disabled={!seekable}
+            onPointerDown={handlePointerDown}
+            onChange={handleChange}
+            onKeyDown={handleKeyDown}
+            aria-label="Перемотка по треку"
+            aria-valuemin={0}
+            aria-valuemax={seekable ? Math.floor(duration) : 0}
+            aria-valuenow={Math.floor(displayTime)}
+            aria-valuetext={
+              seekable
+                ? `${formatDuration(displayTime)} из ${formatDuration(duration)}`
+                : 'Позиция неизвестна — длительность ещё не загрузилась'
+            }
+            data-testid={`${idPrefix}-seek-slider`}
+            /*
+             * `range-bare` keeps the track transparent. This is the one slider in
+             * the app that draws its own rails — sunken base, buffered, then the
+             * accent fill — because two independent levels cannot come from a
+             * single gradient. An opaque default track would cover both.
+             */
+            className="range-bare"
             style={{
-              position: 'absolute',
-              bottom: 'calc(100% + var(--space-2))',
-              left: `${previewPercent}%`,
-              transform: 'translateX(-50%)',
-              padding: '2px var(--space-2)',
-              fontSize: 'var(--text-xs)',
-              color: 'var(--text-primary)',
-              background: 'var(--surface-4)',
-              border: '1px solid var(--border)',
-              borderRadius: 'var(--radius-sm)',
-              boxShadow: 'var(--shadow-md)',
-              pointerEvents: 'none',
-              whiteSpace: 'nowrap'
+              position: 'relative',
+              width: '100%',
+              background: `linear-gradient(to right, var(--accent) 0 ${progressPercent}%, transparent ${progressPercent}% 100%)`
             }}
-            data-testid={`${idPrefix}-seek-preview`}
-          >
-            {formatDuration(previewTime)}
-          </span>
-        )}
-      </div>
+          />
+
+          {previewTime !== null && seekable && (
+            <span
+              data-numeric
+              aria-hidden="true"
+              style={{
+                position: 'absolute',
+                bottom: 'calc(100% + var(--space-2))',
+                left: `${previewPercent}%`,
+                transform: 'translateX(-50%)',
+                padding: '2px var(--space-2)',
+                fontSize: 'var(--text-xs)',
+                color: 'var(--text-primary)',
+                background: 'var(--surface-4)',
+                border: '1px solid var(--border)',
+                borderRadius: 'var(--radius-sm)',
+                boxShadow: 'var(--shadow-md)',
+                pointerEvents: 'none',
+                whiteSpace: 'nowrap'
+              }}
+              data-testid={`${idPrefix}-seek-preview`}
+            >
+              {formatDuration(previewTime)}
+            </span>
+          )}
+        </div>
+      )}
 
       <span data-numeric style={timeStyle} data-testid={`${idPrefix}-duration`}>
         {seekable ? formatDuration(duration) : '--:--'}
