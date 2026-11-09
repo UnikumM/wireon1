@@ -94,7 +94,11 @@ jobs:
             echo "VITE_WIREON_MQTT_URL=${{ secrets.VITE_WIREON_MQTT_URL }}"
             echo "VITE_SPOTIFY_CLIENT_ID=${{ secrets.VITE_SPOTIFY_CLIENT_ID }}"
           } > .env
+      # postinstall youtube-dl-exec ходит в GitHub API без токена и упирается в лимит
+      # общего IP раннеров; бинарник yt-dlp всё равно скачивает refresh:ytdlp прямой ссылкой.
       - run: npm ci
+        env:
+          YOUTUBE_DL_SKIP_DOWNLOAD: 'true'
       - run: npm run refresh:ytdlp
       - run: npm run electron:build
       - run: node scripts/check-platform-binaries.mjs --platform=win32
@@ -131,7 +135,11 @@ jobs:
             echo "VITE_WIREON_MQTT_URL=${{ secrets.VITE_WIREON_MQTT_URL }}"
             echo "VITE_SPOTIFY_CLIENT_ID=${{ secrets.VITE_SPOTIFY_CLIENT_ID }}"
           } > .env
+      # postinstall youtube-dl-exec ходит в GitHub API без токена и упирается в лимит
+      # общего IP раннеров; бинарник yt-dlp всё равно скачивает refresh:ytdlp прямой ссылкой.
       - run: npm ci
+        env:
+          YOUTUBE_DL_SKIP_DOWNLOAD: 'true'
       - run: npm run refresh:ytdlp
       - run: npm run electron:build
       - run: node scripts/check-platform-binaries.mjs --platform=linux
@@ -176,7 +184,11 @@ jobs:
             echo "VITE_WIREON_MQTT_URL=${{ secrets.VITE_WIREON_MQTT_URL }}"
             echo "VITE_SPOTIFY_CLIENT_ID=${{ secrets.VITE_SPOTIFY_CLIENT_ID }}"
           } > .env
+      # postinstall youtube-dl-exec ходит в GitHub API без токена и упирается в лимит
+      # общего IP раннеров; бинарник yt-dlp всё равно скачивает refresh:ytdlp прямой ссылкой.
       - run: npm ci
+        env:
+          YOUTUBE_DL_SKIP_DOWNLOAD: 'true'
       - run: npm run build
       - run: npx cap sync android
       - name: Собрать подписанный APK
