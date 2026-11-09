@@ -181,20 +181,10 @@ export const SearchBar: React.FC<SearchBarProps> = ({
       className={`wireon-search-bar-container ${className} relative w-full`}
       style={{ maxWidth: '780px' }}
     >
-      <div
-        style={{
-          display: 'flex',
-          alignItems: 'center',
-          gap: 'var(--space-3)',
-          padding: 'var(--space-3) var(--space-4)',
-          background: 'var(--surface-sunken)',
-          border: `1px solid ${isFocused ? 'var(--accent)' : 'var(--border)'}`,
-          borderRadius: 'var(--radius-md)',
-          boxShadow: isFocused ? 'var(--ring-inset)' : 'none',
-          transition: 'border-color var(--dur-fast) var(--ease-out), box-shadow var(--dur-fast) var(--ease-out)',
-        }}
-      >
-        <Search size={ICON.lg} className="text-muted shrink-0" aria-hidden="true" />
+      {/* Рамку и фокус рисует класс (global.css «Поле поиска 4.0»): инлайновая
+          рамка не давала теме и обликам до неё дотянуться. */}
+      <div className="search-shell row gap-3" data-focused={isFocused ? 'true' : undefined}>
+        <Search size={ICON.lg} className="text-muted shrink-0 search-shell-icon" aria-hidden="true" />
 
         <input
           ref={inputRef}
@@ -211,14 +201,14 @@ export const SearchBar: React.FC<SearchBarProps> = ({
            * Что искать, короткий вариант говорит ровно так же; где искать —
            * написано на переключателе источников прямо под полем.
            */
-          placeholder={isNarrow ? 'Треки и исполнители' : 'Поиск треков и исполнителей на YouTube и SoundCloud'}
+          placeholder={isNarrow ? 'Треки и исполнители' : 'Треки, исполнители, альбомы или ссылка'}
           aria-label="Поиск музыки"
           aria-expanded={showDropdown}
           aria-controls={LISTBOX_ID}
           aria-autocomplete="list"
           aria-activedescendant={highlight >= 0 ? `${LISTBOX_ID}-option-${highlight}` : undefined}
           autoComplete="off"
-          className="grow p-0 text-primary text-base bg-transparent border-none" style={{ outline: 'none', boxShadow: 'none', fontFamily: 'inherit' }}
+          className="grow p-0 text-primary bg-transparent border-none search-shell-input"
           data-testid="search-input"
         />
 
@@ -274,9 +264,8 @@ export const SearchBar: React.FC<SearchBarProps> = ({
       )}
 
       {!localQuery && (
-        <div
-          className="row wrap gap-2 mt-3"
-        >
+        <div className="row wrap gap-2 mt-4 search-quick">
+          <span className="type-sm text-muted mr-1">Попробуйте</span>
           {QUICK_TAGS.map((tag) => (
             <button key={tag.query} type="button" className="chip" onClick={() => commit(tag.query)}>
               {tag.label}

@@ -307,13 +307,25 @@ export const SearchResults: React.FC<SearchResultsProps> = ({ className = '' }) 
       className={`wireon-search-view animate-view-in ${className} stack gap-5 w-full`}
       data-testid="search-view"
     >
-      <SearchBar
-        query={searchQuery}
-        isLoading={isLoading}
-        onQueryChange={setSearchQuery}
-        onSearchSubmit={handleSubmit}
-        onClear={handleClear}
-      />
+      {/*
+        * Пока не ищут — экран начинается с вопроса, а не с пустого поля:
+        * заголовок дисплейным шрифтом даёт экрану лицо, поле под ним шире и
+        * выше. С первой буквой запроса заголовок уходит, место — результатам.
+        */}
+      <div className={hasQuery ? 'search-head' : 'search-head search-head-idle'} data-idle={hasQuery ? undefined : 'true'}>
+        {!hasQuery && !isLoading && (
+          <h2 className="m-0 type-2xl text-primary search-title" data-testid="search-title">
+            Что послушать?
+          </h2>
+        )}
+        <SearchBar
+          query={searchQuery}
+          isLoading={isLoading}
+          onQueryChange={setSearchQuery}
+          onSearchSubmit={handleSubmit}
+          onClear={handleClear}
+        />
+      </div>
 
       {/* Вкладки выдачи: треки и три вида подборок. */}
       <div

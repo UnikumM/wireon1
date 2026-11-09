@@ -4121,3 +4121,82 @@ h2 {
   opacity: 0.5;
   cursor: default;
 }
+
+/* ==========================================================================
+   4.0 — Поле поиска и голова экрана поиска
+   ========================================================================== */
+
+.search-shell {
+  padding: var(--space-3) var(--space-4);
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-pill);
+  transition:
+    border-color var(--dur-fast) var(--ease-out),
+    background-color var(--dur-fast) var(--ease-out),
+    box-shadow var(--dur-fast) var(--ease-out);
+}
+
+.search-shell:hover {
+  border-color: var(--border-strong);
+}
+
+.search-shell[data-focused='true'] {
+  border-color: var(--border-accent);
+  background: var(--surface-3);
+  box-shadow: var(--ring);
+}
+
+/* Специфичность выше `input[type='text']` из сброса: иначе поле рисовало
+ * собственную подложку и рамку внутри пилюли. */
+.search-shell .search-shell-input,
+.search-shell .search-shell-input:focus,
+.search-shell .search-shell-input:hover {
+  outline: none;
+  box-shadow: none;
+  background: transparent;
+  border: none;
+  padding: 0;
+  font: inherit;
+  font-size: var(--text-base);
+  line-height: var(--leading-base);
+}
+
+.search-shell-icon {
+  color: var(--text-muted);
+}
+
+.search-head {
+  min-width: 0;
+}
+
+/* Голова поиска без запроса: заголовок и широкое поле, по центру колонки. */
+.search-head-idle {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-4);
+  padding-top: var(--space-7);
+  padding-bottom: var(--space-3);
+}
+
+.search-head-idle .wireon-search-bar-container {
+  max-width: 720px;
+}
+
+.search-head-idle .search-shell {
+  padding: var(--space-4) var(--space-5);
+}
+
+.search-head-idle .search-shell-input {
+  font-size: var(--text-lg);
+  line-height: var(--leading-lg);
+}
+
+.search-head-idle .search-quick {
+  justify-content: center;
+}
+
+.search-title {
+  text-align: center;
+}
