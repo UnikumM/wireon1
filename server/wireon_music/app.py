@@ -405,7 +405,7 @@ async def handle_share_page(request: web.Request) -> web.Response:
     page = render_share_page(
         request.match_info.get("source", ""),
         request.match_info.get("id", ""),
-        {key: request.query.get(key, "") for key in ("n", "a", "img")},
+        {key: request.query.get(key, "") for key in ("n", "a", "img", "u")},
     )
     if page is None:
         return web.Response(status=404, text="Такой ссылки нет", content_type="text/plain", charset="utf-8")

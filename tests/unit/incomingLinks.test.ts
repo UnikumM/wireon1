@@ -242,3 +242,25 @@ describe('incomingLinks: подписка на переходы Capacitor', () =
     expect(ui().searchQuery).toBe('');
   });
 });
+
+describe('4.0: «Открыть в Wireon» со страницы «поделиться»', () => {
+  it('wireon://track превращается в адрес источника, а чужие и битые — нет', async () => {
+    const { wireonTrackLinkToSource } = await import('../../src/services/incomingLinks');
+    expect(wireonTrackLinkToSource('wireon://track/yt/dQw4w9WgXcQ')).toBe('https://music.youtube.com/watch?v=dQw4w9WgXcQ');
+    expect(wireonTrackLinkToSource('wireon://track/sc/123?u=https%3A%2F%2Fsoundcloud.com%2Fkino%2Fkukushka')).toBe('https://soundcloud.com/kino/kukushka');
+    // SoundCloud без адреса записи открыть нечем; чужой хост в `u` — тем более.
+    expect(wireonTrackLinkToSource('wireon://track/sc/123')).toBeNull();
+    expect(wireonTrackLinkToSource('wireon://track/sc/123?u=https%3A%2F%2Fevil.example%2Fx')).toBeNull();
+    expect(wireonTrackLinkToSource('wireon://spotify?code=1')).toBeNull();
+    expect(wireonTrackLinkToSource('wireon://track/yt/../etc')).toBeNull();
+    expect(isIncomingMusicLink('wireon://track/yt/dQw4w9WgXcQ')).toBe(true);
+  });
+
+  it('открывается в поиске адресом источника', () => {
+    resetIncomingLinks();
+    useAuthStore.setState({ authStatus: 'guest' });
+    expect(handleIncomingLink('wireon://track/yt/dQw4w9WgXcQ')).toBe(true);
+    expect(useUIStore.getState().searchQuery).toBe('https://music.youtube.com/watch?v=dQw4w9WgXcQ');
+    expect(useUIStore.getState().activeView).toBe('search');
+  });
+});

@@ -26,6 +26,16 @@ def test_bad_source_or_id_is_none():
     assert render_share_page("yt", "", {}) is None
 
 
+def test_soundcloud_permalink_goes_to_button_and_deep_link():
+    page = render_share_page("sc", "123456", {"n": "x", "u": "https://soundcloud.com/kino/kukushka"})
+    assert page is not None
+    assert 'href="https://soundcloud.com/kino/kukushka"' in page
+    assert "wireon://track/sc/123456?u=https%3A%2F%2Fsoundcloud.com%2Fkino%2Fkukushka" in page
+    # Чужой адрес в `u` отбрасывается: кнопка ведёт в поиск SoundCloud.
+    evil = render_share_page("sc", "1", {"u": "https://evil.example/x"})
+    assert evil is not None and "evil.example" not in evil and "soundcloud.com/search" in evil
+
+
 def test_non_https_image_is_dropped():
     page = render_share_page("sc", "123456", {"img": "http://evil/x.jpg", "n": "x"})
     assert page is not None and "og:image" not in page and "cover-empty" in page

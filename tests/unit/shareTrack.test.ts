@@ -28,3 +28,17 @@ describe('3.0: поделиться треком', () => {
     expect(await shareTrack(yt)).toBe('failed');
   });
 });
+
+describe('4.0: страница «поделиться» на своём сервере', () => {
+  it('без сервера — ссылка на источник, с сервером — страница с названием, артистом и обложкой', async () => {
+    const { trackSharePageUrl } = await import('../../src/services/shareTrack');
+    expect(trackSharePageUrl(yt)).toBeNull();
+    const page = trackSharePageUrl({ ...yt, artworkUrl: 'https://i.ytimg.com/vi/abc/hq.jpg' }, 'https://music.wireon.pro/');
+    expect(page).toBe('https://music.wireon.pro/t/yt/abc?n=%D0%9A%D1%83%D0%BA%D1%83%D1%88%D0%BA%D0%B0&a=%D0%9A%D0%B8%D0%BD%D0%BE&img=https%3A%2F%2Fi.ytimg.com%2Fvi%2Fabc%2Fhq.jpg');
+    // Для SoundCloud страница получает адрес записи: по числовому id у них ничего не открыть.
+    expect(trackSharePageUrl(sc, 'https://music.wireon.pro')).toContain('/t/sc/1?n=Song&a=X&u=https%3A%2F%2Fsoundcloud.com%2Fx%2Fsong');
+    // Обложка по http и id с мусором на страницу не попадают.
+    expect(trackSharePageUrl({ ...yt, artworkUrl: 'http://x/y.jpg' }, 'https://s')).toBe('https://s/t/yt/abc?n=%D0%9A%D1%83%D0%BA%D1%83%D1%88%D0%BA%D0%B0&a=%D0%9A%D0%B8%D0%BD%D0%BE');
+    expect(trackSharePageUrl({ ...yt, originalId: 'a/b' }, 'https://s')).toBeNull();
+  });
+});

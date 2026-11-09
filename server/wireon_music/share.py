@@ -26,17 +26,20 @@ MAX_TEXT = 160
 MAX_URL = 600
 _ID_RE = re.compile(r"^[A-Za-z0-9_\-]{1,64}$")
 _HTTPS_IMG_RE = re.compile(r"^https://[^\s\"'<>]+$")
+_SC_URL_RE = re.compile(r"^https://(?:(?:www|m)\.)?(?:on\.)?soundcloud\.com/[^\s\"'<>]+$")
 
 
 def _clip(value: Optional[str], limit: int) -> str:
     return (value or "").strip()[:limit]
 
 
-def source_url(source: str, track_id: str) -> str:
+def source_url(source: str, track_id: str, permalink: str = "") -> str:
     if source == "youtube":
         return f"https://music.youtube.com/watch?v={quote(track_id)}"
-    # Для SoundCloud в ссылке лежит числовой id: страницы по нему у них нет,
-    # но api-v2 `/tracks/<id>` знают клиенты, а человеку годится и поиск.
+    # У SoundCloud по числовому id страницы нет, поэтому приложение кладёт в
+    # ссылку адрес записи (`u`); без него остаётся только поиск.
+    if _SC_URL_RE.match(permalink):
+        return permalink
     return f"https://soundcloud.com/search?q={quote(track_id)}"
 
 
@@ -50,8 +53,13 @@ def render_share_page(source_key: str, track_id: str, query: Dict[str, str]) -> 
     image = _clip(query.get("img"), MAX_URL)
     if not _HTTPS_IMG_RE.match(image):
         image = ""
+    permalink = _clip(query.get("u"), MAX_URL)
+    if not _SC_URL_RE.match(permalink):
+        permalink = ""
     deep = f"wireon://track/{source_key}/{track_id}"
-    origin = source_url(source, track_id)
+    if source == "soundcloud" and permalink:
+        deep += f"?u={quote(permalink, safe='')}"
+    origin = source_url(source, track_id, permalink)
     heading = f"{artist} — {title}" if artist else title
     e = html.escape
     og_image = f'<meta property="og:image" content="{e(image)}">' if image else ""

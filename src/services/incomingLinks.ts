@@ -1,5 +1,6 @@
 /**
- * Ссылки на музыку, открытые в Wireon с телефона.
+ * Ссылки на музыку, открытые в Wireon с телефона, и кнопка «Открыть в Wireon»
+ * со страницы «поделиться» (`wireon://track/...`) на телефоне и ПК.
  *
  * Человек нажал ссылку YouTube, YouTube Music или SoundCloud в мессенджере и
  * выбрал Wireon в системном окне «чем открыть» (фильтры — в `AndroidManifest.xml`).
@@ -50,6 +51,7 @@ const DUPLICATE_WINDOW_MS = 5000;
  */
 export function isIncomingMusicLink(url: string): boolean {
   const raw = (url || '').trim();
+  if (wireonTrackLinkToSource(raw)) return true;
   if (!/^https?:\/\//i.test(raw)) return false;
   let parsed: URL;
   try {
@@ -60,6 +62,41 @@ export function isIncomingMusicLink(url: string): boolean {
   // Хвостовая точка — законная форма того же имени, а регистр хоста ничего не значит.
   const host = parsed.hostname.toLowerCase().replace(/\.$/, '');
   return INCOMING_LINK_HOSTS.includes(host);
+}
+
+/**
+ * `wireon://track/yt/<id>` (и `sc/<id>?u=<адрес>`) — кнопка «Открыть в Wireon»
+ * со страницы «поделиться». Превращается в адрес источника, который поиск
+ * уже умеет: второго разбора ссылок на трек здесь не нужно. Для SoundCloud
+ * числовой id сам по себе страницы не имеет, поэтому со страницы приезжает
+ * и адрес записи (`u`); без него такую ссылку открыть нечем.
+ */
+export function wireonTrackLinkToSource(url: string): string | null {
+  const raw = (url || '').trim();
+  if (!/^wireon:\/\/track\//i.test(raw)) return null;
+  let parsed: URL;
+  try {
+    parsed = new URL(raw);
+  } catch {
+    return null;
+  }
+  // `wireon://track/yt/ID`: у кастомной схемы хост — `track`, путь — `/yt/ID`.
+  const parts = `${parsed.hostname}${parsed.pathname}`.split('/').filter(Boolean);
+  if (parts[0] !== 'track' || parts.length !== 3) return null;
+  const [, source, id] = parts;
+  if (!/^[\w-]{1,64}$/.test(id)) return null;
+  if (source === 'yt') return `https://music.youtube.com/watch?v=${encodeURIComponent(id)}`;
+  if (source === 'sc') {
+    const u = parsed.searchParams.get('u') || '';
+    try {
+      const target = new URL(u);
+      const host = target.hostname.toLowerCase().replace(/^(www|m)\./, '');
+      if (target.protocol === 'https:' && (host === 'soundcloud.com' || host === 'on.soundcloud.com')) return target.toString();
+    } catch {
+      // Адреса записи нет — открыть нечем.
+    }
+  }
+  return null;
 }
 
 /**
@@ -109,7 +146,7 @@ export function flushIncomingLinks(): void {
  */
 export function handleIncomingLink(url: string): boolean {
   if (!isIncomingMusicLink(url)) return false;
-  const clean = url.trim();
+  const clean = wireonTrackLinkToSource(url) ?? url.trim();
 
   if (isAppReadyForLinks()) {
     openInSearch(clean);
@@ -151,6 +188,21 @@ function isDuplicate(url: string, now: number): boolean {
 }
 
 /**
+ * На ПК `wireon://` приходит из главного процесса событием `deep-link`
+ * (протокол за приложением закреплён там же). Сюда берутся только ссылки на
+ * трек: `wireon://spotify…` и возврат Discord ждут свои модули.
+ */
+function startDesktopTrackLinks(): () => void {
+  const api = typeof window === 'undefined' ? undefined : window.electronAPI;
+  if (!api?.onDeepLink) return () => {};
+  return api.onDeepLink((url: string) => {
+    if (!wireonTrackLinkToSource(url)) return;
+    if (isDuplicate(url, Date.now())) return;
+    handleIncomingLink(url);
+  });
+}
+
+/**
  * Подписывается на переходы Capacitor. Вызывается один раз при запуске;
  * повторный вызов отдаёт ту же подписку. Вне телефона — пустышка: на ПК ссылки
  * сюда не приходят, а плагин вне нативной оболочки бросает исключение.
@@ -161,7 +213,9 @@ function isDuplicate(url: string, now: number): boolean {
 export function startIncomingLinks(): Promise<() => void> {
   if (started) return started;
   started = (async () => {
-    if (detectPlatform() !== 'mobile') return () => {};
+    const platform = detectPlatform();
+    if (platform === 'electron') return startDesktopTrackLinks();
+    if (platform !== 'mobile') return () => {};
 
     let App: any;
     try {
