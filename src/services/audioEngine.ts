@@ -17,8 +17,20 @@ interface EqNodes {
   treble: BiquadFilterNode;
 }
 
+/**
+ * Что можно попросить у одного конкретного включения.
+ *
+ * `crossfadeSeconds` — длина перехода именно для этого включения поверх общей
+ * настройки: умный кроссфейд считает её по паре треков (см. smartCrossfade.ts).
+ * Ноль — переключиться встык без наложения, даже если кроссфейд включён.
+ * Не указано — действует общая настройка.
+ */
+export interface LoadOptions {
+  crossfadeSeconds?: number;
+}
+
 export interface IAudioEngine {
-  load(track: UnifiedTrack, autoPlay?: boolean): Promise<void>;
+  load(track: UnifiedTrack, autoPlay?: boolean, options?: LoadOptions): Promise<void>;
   play(): Promise<void>;
   pause(): void;
   seek(timeInSeconds: number): void;
@@ -735,21 +747,29 @@ export class AudioEngine implements IAudioEngine {
    * If DJ crossfade is active (>0s duration, currently playing another track),
    * seamlessly crossfades between Deck A and Deck B.
    */
-  public async load(track: UnifiedTrack, autoPlay: boolean = true): Promise<void> {
+  public async load(track: UnifiedTrack, autoPlay: boolean = true, options: LoadOptions = {}): Promise<void> {
     if (!track) {
       throw new Error('Cannot load null or undefined track');
     }
 
     const currentLoadId = ++this.loadRequestId;
+    // Длина перехода на это включение: своя, если её посчитал умный кроссфейд,
+    // иначе общая из настроек. Ноль означает «встык»: обычная загрузка на
+    // активную колоду, без наложения.
+    const requested = options.crossfadeSeconds;
+    const crossfadeSeconds =
+      typeof requested === 'number' && Number.isFinite(requested)
+        ? Math.max(0, Math.min(12, requested))
+        : this.crossfadeDuration;
     const shouldCrossfade =
       this.crossfadeEnabled &&
-      this.crossfadeDuration > 0 &&
+      crossfadeSeconds > 0 &&
       this.state === 'playing' &&
       this.currentTrack !== null &&
       this.currentTrack.id !== track.id;
 
     if (shouldCrossfade) {
-      await this.executeCrossfade(track, currentLoadId, autoPlay);
+      await this.executeCrossfade(track, currentLoadId, autoPlay, crossfadeSeconds);
       return;
     }
 
@@ -912,7 +932,12 @@ export class AudioEngine implements IAudioEngine {
    * Performs a smooth DJ crossfade transition from active deck to secondary deck.
    * Ramps gains smoothly via linearRampToValueAtTime (0s-12s).
    */
-  private async executeCrossfade(track: UnifiedTrack, currentLoadId: number, autoPlay: boolean): Promise<void> {
+  private async executeCrossfade(
+    track: UnifiedTrack,
+    currentLoadId: number,
+    autoPlay: boolean,
+    xfadeDur: number = this.crossfadeDuration
+  ): Promise<void> {
     const outgoingDeck = this.activeDeck;
     const incomingDeck = outgoingDeck === 'A' ? 'B' : 'A';
     const outgoingAudio = outgoingDeck === 'A' ? this.audioA : this.audioB;
@@ -972,7 +997,6 @@ export class AudioEngine implements IAudioEngine {
 
       const outgoingGain = outgoingDeck === 'A' ? this.gainNodeA : this.gainNodeB;
       const incomingGain = incomingDeck === 'A' ? this.gainNodeA : this.gainNodeB;
-      const xfadeDur = this.crossfadeDuration;
 
       // Web Audio smooth gain ramps
       if (this.audioContext && outgoingGain && incomingGain) {

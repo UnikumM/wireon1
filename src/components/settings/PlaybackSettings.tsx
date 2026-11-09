@@ -48,6 +48,7 @@ export const PlaybackSettings: React.FC = () => {
   const eq = usePlayerStore((s) => s.eq);
   const crossfadeEnabled = usePlayerStore((s) => s.crossfadeEnabled);
   const crossfadeDuration = usePlayerStore((s) => s.crossfadeDuration);
+  const crossfadeSmart = usePlayerStore((s) => s.crossfadeSmart);
   const loudnessNormalization = usePlayerStore((s) => s.loudnessNormalization);
   const softResume = usePlayerStore((s) => s.softResume);
   const audioBalance = usePlayerStore((s) => s.audioBalance);
@@ -71,6 +72,7 @@ export const PlaybackSettings: React.FC = () => {
   const bindEqProfileToDevice = usePlayerStore((s) => s.bindEqProfileToDevice);
   const setCrossfadeEnabled = usePlayerStore((s) => s.setCrossfadeEnabled);
   const setCrossfadeDuration = usePlayerStore((s) => s.setCrossfadeDuration);
+  const setCrossfadeSmart = usePlayerStore((s) => s.setCrossfadeSmart);
   const setLoudnessNormalization = usePlayerStore((s) => s.setLoudnessNormalization);
   const setSoftResume = usePlayerStore((s) => s.setSoftResume);
   const setAutoplayRadio = usePlayerStore((s) => s.setAutoplayRadio);
@@ -149,6 +151,15 @@ export const PlaybackSettings: React.FC = () => {
         disabled={!crossfadeEnabled}
         onChange={setCrossfadeDuration}
         format={(next) => `${next} с`}
+      />
+
+      <ToggleSetting
+        id="setting-crossfade-smart"
+        label="Умный кроссфейд"
+        description="Внутри альбома треки идут встык, между разными — плавно."
+        checked={crossfadeSmart}
+        disabled={!crossfadeEnabled}
+        onChange={setCrossfadeSmart}
       />
 
       <div className="divider" role="presentation" />

@@ -15,7 +15,8 @@ import {
   subscribeOutputDevice
 } from '../services/eqProfiles';
 import { detectPlatform } from '../services/nativeBridge';
-import { audioEngine, MIN_PLAYBACK_RATE, MAX_PLAYBACK_RATE } from '../services/audioEngine';
+import { audioEngine, MIN_PLAYBACK_RATE, MAX_PLAYBACK_RATE, LoadOptions } from '../services/audioEngine';
+import { pickCrossfadeSeconds } from '../services/smartCrossfade';
 import { MediaSessionService } from '../services/mediaSession';
 import { streamResolver } from '../services/streamResolver';
 import { describePlaybackError } from '../services/playbackErrors';
@@ -60,6 +61,7 @@ export const PLAYER_SETTING_KEYS = {
   mediaKeysEnabled: 'mediaKeysEnabled',
   crossfadeEnabled: 'crossfadeEnabled',
   crossfadeDuration: 'crossfadeDuration',
+  crossfadeSmart: 'crossfadeSmart',
   loudnessNormalization: 'loudnessNormalization',
   softResume: 'softResume',
   audioBalance: 'audioBalance',
@@ -161,6 +163,20 @@ let queueGeneration = 0;
 let waveBuildPromise: Promise<void> | null = null;
 let radioFetchInFlight = false;
 let crossfadeTransitionInFlight = false;
+
+/**
+ * Сколько секунд наложения полагается переходу от играющего трека к `next`.
+ * Ноль — кроссфейд выключен или умный режим решил играть встык. Без умного
+ * режима это просто настройка; с ним — правила из services/smartCrossfade.ts.
+ */
+const plannedCrossfadeSeconds = (
+  state: Pick<PlayerStoreState, 'crossfadeEnabled' | 'crossfadeDuration' | 'crossfadeSmart' | 'currentTrack'>,
+  next: UnifiedTrack | null
+): number => {
+  if (!state.crossfadeEnabled || state.crossfadeDuration <= 0) return 0;
+  if (!state.crossfadeSmart) return state.crossfadeDuration;
+  return pickCrossfadeSeconds(state.currentTrack, next, state.crossfadeDuration);
+};
 
 /**
  * Номер последнего запрошенного включения трека.
@@ -577,6 +593,12 @@ export const usePlayerStore = create<PlayerStore>((set, get) => {
     const addToHistory = options.addToHistory !== false;
     const commitId = ++commitGeneration;
     lastSessionSavedAt = 0;
+    // Длина перехода решается до смены трека: нужен тот, что играет сейчас.
+    // Вне умного режима движку ничего не подсказываем — он играет по настройке.
+    const before = get();
+    const loadOptions: LoadOptions | undefined = before.crossfadeSmart
+      ? { crossfadeSeconds: plannedCrossfadeSeconds(before, track) }
+      : undefined;
 
     const patch: Partial<PlayerStoreState> = {
       currentTrack: track,
@@ -604,7 +626,7 @@ export const usePlayerStore = create<PlayerStore>((set, get) => {
     MediaSessionService.updatePlaybackState('loading');
 
     try {
-      await audioEngine.load(track, true);
+      await (loadOptions ? audioEngine.load(track, true, loadOptions) : audioEngine.load(track, true));
 
       // Пока ходили за ссылкой, человек мог включить другое. Тогда это включение
       // уже никого не интересует: состояние, история и обложка принадлежат тому
@@ -884,6 +906,7 @@ export const usePlayerStore = create<PlayerStore>((set, get) => {
     eqDeviceSupport: 'unknown',
     crossfadeEnabled: false,
     crossfadeDuration: 3,
+    crossfadeSmart: false,
     loudnessNormalization: false,
     softResume: true,
     audioBalance: 0,
@@ -1801,6 +1824,7 @@ export const usePlayerStore = create<PlayerStore>((set, get) => {
             mediaKeysEnabled,
             crossfadeEnabled,
             crossfadeDuration,
+            crossfadeSmart,
             loudnessNormalization,
             playbackRate,
             preservePitch,
@@ -1830,6 +1854,7 @@ export const usePlayerStore = create<PlayerStore>((set, get) => {
             dbService.getSetting<boolean>(PLAYER_SETTING_KEYS.mediaKeysEnabled, current.mediaKeysEnabled),
             dbService.getSetting<boolean>(PLAYER_SETTING_KEYS.crossfadeEnabled, current.crossfadeEnabled),
             dbService.getSetting<number>(PLAYER_SETTING_KEYS.crossfadeDuration, current.crossfadeDuration),
+            dbService.getSetting<boolean>(PLAYER_SETTING_KEYS.crossfadeSmart, current.crossfadeSmart),
             dbService.getSetting<boolean>(PLAYER_SETTING_KEYS.loudnessNormalization, current.loudnessNormalization),
             dbService.getSetting<number>(PLAYER_SETTING_KEYS.playbackRate, current.playbackRate),
             dbService.getSetting<boolean>(PLAYER_SETTING_KEYS.preservePitch, current.preservePitch),
@@ -1864,6 +1889,7 @@ export const usePlayerStore = create<PlayerStore>((set, get) => {
             typeof crossfadeDuration === 'number' && Number.isFinite(crossfadeDuration)
               ? Math.max(0, Math.min(12, Math.round(crossfadeDuration)))
               : current.crossfadeDuration;
+          const nextCrossfadeSmart = typeof crossfadeSmart === 'boolean' ? crossfadeSmart : current.crossfadeSmart;
           const nextLoudnessNorm =
             typeof loudnessNormalization === 'boolean' ? loudnessNormalization : current.loudnessNormalization;
           const nextSoftResume = typeof softResume === 'boolean' ? softResume : current.softResume;
@@ -1902,6 +1928,7 @@ export const usePlayerStore = create<PlayerStore>((set, get) => {
             activeEqProfileId: nextActiveProfileId,
             crossfadeEnabled: nextCrossfadeEnabled,
             crossfadeDuration: nextCrossfadeDuration,
+            crossfadeSmart: nextCrossfadeSmart,
             loudnessNormalization: nextLoudnessNorm,
             softResume: nextSoftResume,
             mobileAudioFx: nextMobileFx,
@@ -2167,6 +2194,11 @@ export const usePlayerStore = create<PlayerStore>((set, get) => {
       persistSetting(PLAYER_SETTING_KEYS.crossfadeDuration, clamped);
     },
 
+    setCrossfadeSmart: (enabled: boolean) => {
+      set({ crossfadeSmart: enabled });
+      persistSetting(PLAYER_SETTING_KEYS.crossfadeSmart, enabled);
+    },
+
     setMobileAudioFx: (enabled: boolean) => {
       set({ mobileAudioFx: enabled });
       setAudioProcessingEnabled(enabled);
@@ -2294,24 +2326,26 @@ export const usePlayerStore = create<PlayerStore>((set, get) => {
       rememberSession();
       playbackTracker.noteProgress(safeTime);
 
-      // DJ Crossfade early progression trigger before current track finishes
+      // DJ Crossfade early progression trigger before current track finishes.
+      // В умном режиме длина своя на каждую пару треков: внутри альбома она
+      // нулевая, и трек доигрывает до конца сам, без раннего перехода.
+      const crossfadeSeconds = plannedCrossfadeSeconds(state, peekUpcomingTracks(1)[0] ?? null);
       if (
-        state.crossfadeEnabled &&
-        state.crossfadeDuration > 0 &&
+        crossfadeSeconds > 0 &&
         // Таймер «до конца трека» ждёт настоящего конца: кроссфейд начал бы
         // следующую песню и тут же её оборвал.
         !state.sleepAtTrackEnd &&
         state.isPlaying &&
         !state.isLoading &&
-        safeDuration > state.crossfadeDuration * 1.5 &&
-        safeDuration - safeTime <= state.crossfadeDuration &&
+        safeDuration > crossfadeSeconds * 1.5 &&
+        safeDuration - safeTime <= crossfadeSeconds &&
         !crossfadeTransitionInFlight
       ) {
         crossfadeTransitionInFlight = true;
         void get().nextTrack(false).finally(() => {
           setTimeout(() => {
             crossfadeTransitionInFlight = false;
-          }, (state.crossfadeDuration + 1) * 1000);
+          }, (crossfadeSeconds + 1) * 1000);
         });
       }
     },

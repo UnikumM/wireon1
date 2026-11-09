@@ -361,4 +361,47 @@ describe('M1: DJ Crossfade, Loudness Normalization & Settings Core', () => {
       });
     });
   });
+
+  describe('6. Умный кроссфейд', () => {
+    const albumA1: UnifiedTrack = { ...track1, id: 'yt_album_1', album: 'Hurry Up, We’re Dreaming', artist: 'M83', duration: 244 };
+    const albumA2: UnifiedTrack = { ...track1, id: 'yt_album_2', album: 'Hurry Up, We’re Dreaming', artist: 'M83', duration: 300 };
+    const otherAlbum: UnifiedTrack = { ...track2, id: 'sc_other', album: 'For Lack of a Better Name', duration: 637 };
+
+    it('движок: явный ноль на включение переключает встык, хотя кроссфейд включён', async () => {
+      engine.setCrossfade(true, 4);
+      await engine.load(albumA1, true);
+      expect(engine.getActiveDeck()).toBe('A');
+
+      const gainA = engine.getDeckAGainNode();
+      const rampSpyA = vi.spyOn(gainA!.gain, 'linearRampToValueAtTime');
+
+      await engine.load(albumA2, true, { crossfadeSeconds: 0 });
+
+      // Та же колода, без наложения и рампы громкости
+      expect(engine.getActiveDeck()).toBe('A');
+      expect(mockAudioA.src).toBe(`https://audio.wireon.io/stream_${albumA2.id}.mp3`);
+      expect(mockAudioB.play).not.toHaveBeenCalled();
+      expect(rampSpyA).not.toHaveBeenCalled();
+      expect(engine.isCrossfadeInProgress()).toBe(false);
+      expect(engine.getCurrentTrack()?.id).toBe(albumA2.id);
+    });
+
+    it('движок: своя длина на включение задаёт срок рампы, общая настройка не меняется', async () => {
+      engine.setCrossfade(true, 8);
+      await engine.load(albumA1, true);
+
+      const ctx = engine.getAudioContext()!;
+      const gainB = engine.getDeckBGainNode();
+      const rampSpyB = vi.spyOn(gainB!.gain, 'linearRampToValueAtTime');
+      const startedAt = ctx.currentTime;
+
+      await engine.load(otherAlbum, true, { crossfadeSeconds: 2 });
+
+      expect(engine.getActiveDeck()).toBe('B');
+      expect(rampSpyB).toHaveBeenCalledWith(1.0, expect.any(Number));
+      const endAt = rampSpyB.mock.calls[0][1] as number;
+      expect(endAt - startedAt).toBeCloseTo(2, 1);
+      expect(engine.getCrossfadeDuration()).toBe(8);
+    });
+  });
 });

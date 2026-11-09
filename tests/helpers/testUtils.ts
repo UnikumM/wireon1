@@ -239,6 +239,7 @@ export function resetPlayerStore(): void {
     eq: { bass: 0, mid: 0, treble: 0 },
     crossfadeEnabled: false,
     crossfadeDuration: 3,
+    crossfadeSmart: false,
     loudnessNormalization: false,
     mediaKeysEnabled: true,
     settingsHydrated: false,

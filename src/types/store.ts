@@ -120,6 +120,8 @@ export interface PlayerStoreState {
   eqDeviceSupport: EqDeviceSupport;
   crossfadeEnabled: boolean;
   crossfadeDuration: number; // 0..12 seconds
+  /** Умный кроссфейд: длина перехода считается по паре треков (см. services/smartCrossfade.ts). */
+  crossfadeSmart: boolean;
   loudnessNormalization: boolean;
   /** Мягкое возвращение: после долгой паузы трек начинается чуть раньше и входит с тихого. */
   softResume: boolean;
@@ -213,6 +215,7 @@ export interface PlayerStoreActions {
   noteEqOutputDevice: (device: OutputDevice | null, support: EqDeviceSupport) => void;
   setCrossfadeEnabled: (enabled: boolean) => void;
   setCrossfadeDuration: (seconds: number) => void;
+  setCrossfadeSmart: (enabled: boolean) => void;
   setLoudnessNormalization: (enabled: boolean) => void;
   setSoftResume: (enabled: boolean) => void;
   setAudioBalance: (balance: number) => void;
@@ -277,6 +280,8 @@ export interface UIStoreState {
   activeCollection: SearchCollection | null;
   /** Трек, для которого открыт лист действий на телефоне. */
   actionsTrack: UnifiedTrack | null;
+  /** Трек, для которого открыто окно «Теги и заметка». `null` — окно закрыто. */
+  notesTrack: UnifiedTrack | null;
   /**
    * Отмеченные треки, когда список в режиме выбора. `null` — обычный список.
    *
@@ -341,6 +346,9 @@ export interface UIStoreActions {
   clearToast: () => void;
   openTrackActions: (track: UnifiedTrack) => void;
   closeTrackActions: () => void;
+  /** Окно тегов и заметки к треку — одно на приложение, как лист действий. */
+  openTrackNotes: (track: UnifiedTrack) => void;
+  closeTrackNotes: () => void;
   /** Включает режим выбора, сразу отмечая трек, из которого его позвали. */
   startSelection: (trackId?: string) => void;
   toggleSelected: (trackId: string) => void;

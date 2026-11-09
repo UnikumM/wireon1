@@ -22,6 +22,7 @@ import {
   Volume2
 } from 'lucide-react';
 import { useDismissable } from '../../hooks/useDismissable';
+import { useTrackTagsIndex } from '../../hooks/useTrackNote';
 import { useLibraryStore } from '../../store/useLibraryStore';
 import { useSmartPlaylistStore } from '../../store/useSmartPlaylistStore';
 import { usePlayerStore } from '../../store/usePlayerStore';
@@ -36,7 +37,9 @@ import {
   looksLikeUrl,
   searchArtists,
   searchPlaylists,
-  searchTracks
+  searchTracks,
+  TRACK_LIMIT,
+  type TagsById
 } from './commandPalette/librarySearch';
 
 interface Command {
@@ -352,7 +355,12 @@ function goSearch(query: string) {
 function buildItems(
   commands: Command[],
   query: string,
-  library: { tracks: UnifiedTrack[]; playlists: ReturnType<typeof useLibraryStore.getState>['playlists'] }
+  library: {
+    tracks: UnifiedTrack[];
+    playlists: ReturnType<typeof useLibraryStore.getState>['playlists'];
+    /** Свои теги треков: `#бег` и слово, совпавшее с тегом, находят трек. */
+    tagsById?: TagsById;
+  }
 ): PaletteItem[] {
   const trimmed = query.trim();
   if (trimmed.length === 0) return commands.map((command) => commandItem(command, command.group));
@@ -383,7 +391,7 @@ function buildItems(
     .sort((a, b) => b.score - a.score)
     .map((entry) => commandItem(entry.command, 'Команды'));
 
-  const trackItems: PaletteItem[] = searchTracks(library.tracks, trimmed).map((track) => ({
+  const trackItems: PaletteItem[] = searchTracks(library.tracks, trimmed, TRACK_LIMIT, library.tagsById).map((track) => ({
     id: `track-${track.id}`,
     section: 'Треки',
     label: track.title,
@@ -455,9 +463,11 @@ export const CommandPalette: React.FC = () => {
     [favorites, history, playlists]
   );
 
+  const tagsById = useTrackTagsIndex();
+
   const results = useMemo(
-    () => buildItems(commands, query, { tracks: libraryTracks, playlists }),
-    [commands, query, libraryTracks, playlists]
+    () => buildItems(commands, query, { tracks: libraryTracks, playlists, tagsById }),
+    [commands, query, libraryTracks, playlists, tagsById]
   );
 
   useEffect(() => {

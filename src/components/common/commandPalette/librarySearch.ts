@@ -32,6 +32,26 @@ export interface TrackMatch {
   score: number;
 }
 
+/** Теги по id трека — из `services/trackNotes`; поиск их не читает сам, чтобы остаться чистой функцией. */
+export type TagsById = ReadonlyMap<string, ReadonlyArray<string>>;
+
+/** `#бег` — запрос только по тегам: решётка впереди и хоть одна буква после. */
+export function isTagQuery(value: string): boolean {
+  return /^#\S/.test(value.trim());
+}
+
+/** Есть ли у трека тег, равный запросу или начинающийся с него. */
+function tagScore(tags: ReadonlyArray<string> | undefined, needle: string): number {
+  if (!tags || tags.length === 0) return 0;
+  let best = 0;
+  for (const tag of tags) {
+    const key = normalizeQuery(tag);
+    if (key === needle) return 2;
+    if (key.startsWith(needle)) best = Math.max(best, 1);
+  }
+  return best;
+}
+
 /**
  * Треки из избранного, истории и плейлистов, без дублей по id: первым
  * считается избранное — там у трека самая свежая обложка и название.
@@ -55,10 +75,35 @@ export function collectLibraryTracks(
 }
 
 /**
- * Совпадения по названию и артисту. Начало названия — выше, чем середина,
- * а середина названия — выше совпадения только по артисту.
+ * Совпадения по названию, артисту и своим тегам.
+ *
+ * Начало названия — выше, чем середина, а середина названия — выше совпадения
+ * только по артисту. Тег, совпавший целиком («бег» при теге «бег»), стоит между
+ * началом и серединой названия: человек, который пометил песню сам, помнит
+ * пометку лучше, чем середину чужого названия. Запрос с решёткой (`#бег`)
+ * ищет только по тегам: точный — выше, по началу — ниже, названия не смотрит.
  */
-export function searchTracks(tracks: UnifiedTrack[], query: string, limit: number = TRACK_LIMIT): UnifiedTrack[] {
+export function searchTracks(
+  tracks: UnifiedTrack[],
+  query: string,
+  limit: number = TRACK_LIMIT,
+  tagsById?: TagsById
+): UnifiedTrack[] {
+  const trimmed = query.trim();
+  if (isTagQuery(trimmed)) {
+    const needle = normalizeQuery(trimmed.replace(/^#+/, ''));
+    if (!needle) return [];
+    const matches: TrackMatch[] = [];
+    for (const track of tracks) {
+      const score = tagScore(tagsById?.get(track.id), needle);
+      if (score > 0) matches.push({ track, score });
+    }
+    return matches
+      .sort((a, b) => b.score - a.score)
+      .slice(0, limit)
+      .map((entry) => entry.track);
+  }
+
   const needle = normalizeQuery(query);
   if (!needle) return [];
   const words = needle.split(' ');
@@ -67,8 +112,10 @@ export function searchTracks(tracks: UnifiedTrack[], query: string, limit: numbe
   for (const track of tracks) {
     const title = normalizeQuery(track.title);
     const artist = normalizeQuery(track.artist);
+    const byTag = tagScore(tagsById?.get(track.id), needle) === 2;
     let score = 0;
-    if (title.startsWith(needle)) score = 4;
+    if (title.startsWith(needle)) score = 5;
+    else if (byTag) score = 4;
     else if (title.includes(needle)) score = 3;
     else if (artist.includes(needle)) score = 2;
     else if (matchesWords(`${title} ${artist}`, words)) score = 1;

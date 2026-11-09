@@ -66,6 +66,7 @@ export const KaraokeView: React.FC<KaraokeViewProps> = ({ className = '', onClos
   // Раньше это условие стояло в PlayerBar, но панель оттуда переехала.
   const lyricsModuleOn = usePlayerLayoutStore((s) => s.modules.lyrics);
   const setLyricsOpen = useUIStore((s) => s.setLyricsOpen);
+  const setActiveView = useUIStore((s) => s.setActiveView);
   const showToast = useUIStore((s) => s.showToast);
 
   /*
@@ -108,6 +109,13 @@ export const KaraokeView: React.FC<KaraokeViewProps> = ({ className = '', onClos
       setLyricsOpen(false);
     }
   }, [onClose, setLyricsOpen]);
+
+  // Пустой экран «ничего не играет» ведёт в поиск: текст закрывается, чтобы
+  // не висеть поверх результатов.
+  const goToSearch = useCallback(() => {
+    handleClose();
+    setActiveView('search');
+  }, [handleClose, setActiveView]);
 
   const { containerRef } = useDismissable<HTMLDivElement>({
     isOpen: isLyricsOpen,
@@ -709,9 +717,10 @@ export const KaraokeView: React.FC<KaraokeViewProps> = ({ className = '', onClos
             className="flex-1 row justify-center p-6"
           >
             <EmptyState
-              icon={<Music2 size={ICON.display} />}
+              art="lyrics"
               title="Ничего не играет"
-              description="Включите песню — текст появится здесь и будет подсвечиваться по ходу."
+              description="Включите песню, и текст появится здесь."
+              action={{ label: 'Найти песню', onClick: goToSearch }}
               data-testid="karaoke-empty"
             />
           </div>
@@ -722,9 +731,10 @@ export const KaraokeView: React.FC<KaraokeViewProps> = ({ className = '', onClos
             className="flex-1 row justify-center p-6"
           >
             <EmptyState
-              icon={<Music2 size={ICON.display} />}
+              art="wave"
               title="Инструментал"
-              description="В этой записи нет вокала — текста тоже нет."
+              description="В этой записи нет вокала, текста тоже нет."
+              action={{ label: 'Поискать вручную', onClick: openPicker }}
               data-testid="karaoke-instrumental"
             />
           </div>
@@ -735,19 +745,10 @@ export const KaraokeView: React.FC<KaraokeViewProps> = ({ className = '', onClos
             className="flex-1 row justify-center p-6"
           >
             <EmptyState
-              icon={<MicOff size={ICON.display} />}
+              art="lyrics"
               title="Текст не найден"
-              description={`Для «${currentTrack.title}» текста в базе нет. Иногда помогает поиск по другому написанию названия.`}
-              action={
-                <div className="row-stretch gap-2 justify-center">
-                  <Button variant="secondary" size="sm" onClick={openPicker} data-testid="karaoke-search-manually">
-                    Поискать вручную
-                  </Button>
-                  <Button variant="ghost" size="sm" onClick={() => void loadLyrics()}>
-                    Попробовать снова
-                  </Button>
-                </div>
-              }
+              description={`Для «${currentTrack.title}» текста в базе нет. Иногда помогает другое написание названия.`}
+              action={{ label: 'Поискать вручную', onClick: openPicker, 'data-testid': 'karaoke-search-manually' }}
               data-testid="karaoke-not-found"
             />
           </div>
