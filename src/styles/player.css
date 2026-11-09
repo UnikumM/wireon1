@@ -300,14 +300,36 @@
   transform: translate3d(4%, 5%, 0) scale(1.14);
 }
 
+/* Размытая обложка под светом: фактура трека вместо ровной заливки. Масштаб с
+ * запасом, чтобы размытые края не показывали фон. */
+.ambient-light-art {
+  position: absolute;
+  inset: -12%;
+  width: 124%;
+  height: 124%;
+  object-fit: cover;
+  filter: blur(48px) saturate(1.2);
+  opacity: 0.42;
+  transform: translateZ(0);
+}
+
+/* Пульс в такт: один слой, меняется только прозрачность. */
+.ambient-light-pulse {
+  position: absolute;
+  inset: 10% -10% -10%;
+  transition: opacity var(--dur-fast) linear;
+  will-change: opacity;
+}
+
 /* Держит контраст текста при любой яркости обложки. */
 .ambient-light-scrim {
   position: absolute;
   inset: 0;
   background-image: linear-gradient(
     to bottom,
-    color-mix(in srgb, var(--bg-base) 55%, transparent) 0%,
-    var(--bg-base) 82%
+    color-mix(in srgb, var(--bg-base) 40%, transparent) 0%,
+    color-mix(in srgb, var(--bg-base) 78%, transparent) 60%,
+    var(--bg-base) 100%
   );
 }
 
@@ -476,7 +498,7 @@
  * `flex: 0 1 auto` даёт это обещание исполнить. Масштаб на паузе — на рамке,
  * а не на обложке: transform обложки принадлежит морфу. */
 .fullscreen-artwork-frame {
-  height: min(46vh, 88vw, 360px);
+  height: min(52vh, 88vw, 460px);
   width: auto;
   max-height: 100%;
   aspect-ratio: 1 / 1;
@@ -506,4 +528,16 @@
 
 .player-stage-backdrop + * {
   position: relative;
+}
+
+/* Очередь на сцене ПК: обложки 40 px, чтобы список читался глазом, а не только текстом. */
+.stage-queue-art {
+  width: 40px;
+  height: 40px;
+  border-radius: var(--radius-xs);
+}
+
+.stage-queue {
+  max-height: 100%;
+  overflow-y: auto;
 }

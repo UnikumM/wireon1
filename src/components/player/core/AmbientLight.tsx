@@ -7,6 +7,13 @@ export interface AmbientLightProps {
   playing: boolean;
   /** Насколько плотный верх: сцена на телефоне светлее, чем окно на ПК. */
   intensity?: 'soft' | 'strong';
+  /**
+   * Обложка под светом — размытая, едва различимая. Даёт фону фактуру трека, а
+   * не ровную заливку; пятна света ложатся поверх неё.
+   */
+  artworkUrl?: string | null;
+  /** Громкость момента 0…1 (useAudioEnergy): пульс вокруг центра дышит в такт. */
+  energy?: number;
   'data-testid'?: string;
 }
 
@@ -21,12 +28,20 @@ export const AmbientLight: React.FC<AmbientLightProps> = ({
   color,
   playing,
   intensity = 'soft',
+  artworkUrl = null,
+  energy = 0,
   'data-testid': testId
 }) => {
   const wash = (percent: number): string => `color-mix(in srgb, ${color} ${percent}%, transparent)`;
   const [primary, secondary] = intensity === 'strong' ? [46, 28] : [34, 20];
   return (
     <div aria-hidden="true" className="ambient-light" data-testid={testId}>
+      {artworkUrl && <img className="ambient-light-art" src={artworkUrl} alt="" draggable={false} />}
+      <div
+        className="ambient-light-pulse"
+        style={{ opacity: Math.min(0.55, energy * 0.7), backgroundImage: `radial-gradient(closest-side, ${wash(60)} 0%, transparent 100%)` }}
+        data-testid={testId ? `${testId}-pulse` : undefined}
+      />
       <div
         className={`ambient-light-wash ambient-light-wash-a ${playing ? 'ambient-wash-a' : ''}`}
         style={{ backgroundImage: `radial-gradient(closest-side, ${wash(primary)} 0%, transparent 100%)` }}

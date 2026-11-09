@@ -117,7 +117,7 @@ const StageBody: React.FC<{ track: UnifiedTrack }> = ({ track }) => {
           * («раскрыться» наоборот). Если бы гас весь слой, полёт был бы невидим.
           */}
         <motion.div className="player-stage-backdrop" {...swap()}>
-          <AmbientLight color={dominant} playing={isPlaying} intensity="strong" />
+          <AmbientLight color={dominant} playing={isPlaying} intensity="strong" artworkUrl={track.artworkUrl} />
         </motion.div>
 
         {/* Ухватка: сообщает, что экран смахивается, до того как это попробуют. */}

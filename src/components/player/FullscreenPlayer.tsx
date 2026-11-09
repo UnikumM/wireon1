@@ -21,7 +21,7 @@ import { EmptyState } from '../common/EmptyState';
 import { formatDuration } from '../../utils/time';
 import { UnifiedTrack } from '../../types/music';
 import { ICON } from '../../styles/icons';
-import { AmbientLight, NowPlayingArtwork, useFavoriteToggle } from './core';
+import { AmbientLight, NowPlayingArtwork, useAudioEnergy, useFavoriteToggle } from './core';
 
 const PEEK_LIMIT = 6;
 
@@ -114,6 +114,8 @@ export const FullscreenPlayer: React.FC<FullscreenPlayerProps> = ({ className = 
 
   // Falls back to `var(--accent)` on its own for cross-origin or missing art.
   const ambientColor = useDominantColor(currentTrack?.artworkUrl);
+  // Фон дышит в такт, только пока окно открыто и звук идёт: иначе кадровый цикл гонял бы вхолостую.
+  const energy = useAudioEnergy(isFullscreenPlayerOpen && isPlaying);
 
   const upcomingFromSource = useMemo(() => {
     if (sourceQueue.length === 0) return [];
@@ -206,7 +208,14 @@ export const FullscreenPlayer: React.FC<FullscreenPlayerProps> = ({ className = 
       data-testid="fullscreen-player"
     >
       {/* Свет от обложки: два пятна её цвета дрейфуют, пока играет, и замирают на паузе. */}
-      <AmbientLight color={ambientColor} playing={isPlaying} intensity="strong" data-testid="fullscreen-ambient" />
+      <AmbientLight
+        color={ambientColor}
+        playing={isPlaying}
+        intensity="strong"
+        artworkUrl={currentTrack?.artworkUrl}
+        energy={energy}
+        data-testid="fullscreen-ambient"
+      />
 
       {/*
         * Полоска сверху — единственное, что говорит о жесте.
@@ -378,8 +387,8 @@ export const FullscreenPlayer: React.FC<FullscreenPlayerProps> = ({ className = 
             {fullscreenModules.queue && isQueueOpen && (
               <aside
                 aria-labelledby="fullscreen-peek-label"
-                className="animate-slide-left shrink-0 self-center"
-                style={{ width: '260px' }}
+                className="animate-slide-left shrink-0 self-center stage-queue"
+                style={{ width: '320px' }}
                 // Очередь прокручивается своим содержимым: жест закрытия здесь
                 // забирал бы движение у списка.
                 data-swipe-ignore="true"
@@ -414,12 +423,14 @@ export const FullscreenPlayer: React.FC<FullscreenPlayerProps> = ({ className = 
                     {peekRows.map(({ key, track, play }) => (
                       <li key={key}>
                         <button
-                          className="menu-item-hover gap-2 py-1 px-2"
+                          className="menu-item-hover gap-3 py-2 px-2"
                           onClick={play}
                           title={`Включить «${track.title}»`}
                           aria-label={`Включить «${track.title}»`}
                         >
-                          <span className="grow block">
+                          {/* Обложка в списке — без морфа: летает только обложка играющего. */}
+                          <NowPlayingArtwork track={track} morph={false} className="stage-queue-art" fallbackIcon={ICON.sm} />
+                          <span className="grow block min-0">
                             <span
                               className="text-truncate block text-sm text-primary"
                             >
@@ -467,7 +478,7 @@ export const FullscreenPlayer: React.FC<FullscreenPlayerProps> = ({ className = 
             <div className="row-end gap-4">
               <div className="grow">
                 <h1
-                  className="m-0 row-stretch min-0 weight-semibold text-primary type-2xl"
+                  className="m-0 row-stretch min-0 weight-bold text-primary type-3xl font-sans"
                 >
                   <MarqueeText text={currentTrack.title} data-testid="fullscreen-track-title" />
                 </h1>
@@ -481,7 +492,7 @@ export const FullscreenPlayer: React.FC<FullscreenPlayerProps> = ({ className = 
                         openArtist(currentTrack.artist);
                       }
                     }}
-                    className="text-truncate focus-ring hover-underline text-base text-secondary p-0 pointer text-left bg-none border-none"
+                    className="text-truncate focus-ring hover-underline type-lg text-secondary p-0 pointer text-left bg-none border-none"
                     title={`Открыть артиста ${currentTrack.artist}`}
                     data-testid="fullscreen-track-artist"
                   >
