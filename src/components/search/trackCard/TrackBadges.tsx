@@ -3,6 +3,7 @@ import { CheckCircle2, Scissors, SignalLow } from 'lucide-react';
 import { ICON } from '../../../styles/icons';
 import { useTrackQuality } from '../../../hooks/useTrackQuality';
 import { describeQuality } from '../../../services/trackQuality';
+import { useTrackTags } from '../../../hooks/useTrackNote';
 
 export interface OfflineBadgeProps {
   trackId: string;
@@ -82,6 +83,46 @@ export const QualityBadge: React.FC<QualityBadgeProps> = ({ trackId, variant }) 
     >
       <Icon size={ICON.xs} aria-hidden="true" />
       {label}
+    </span>
+  );
+};
+
+export interface TagBadgesProps {
+  trackId: string;
+  variant: 'hero' | 'card' | 'row';
+}
+
+/** Сколько тегов показывать на карточке: остальные сворачиваются в «+N». */
+const VISIBLE_TAGS = 2;
+
+/**
+ * Свои теги трека («для бега», «показать Диме») — маленькими пилюлями рядом
+ * с источником. Рисуется только когда теги есть; больше двух — «+N», полный
+ * список во всплывающей подсказке и в окне «Теги и заметка».
+ */
+export const TagBadges: React.FC<TagBadgesProps> = ({ trackId, variant }) => {
+  const tags = useTrackTags(trackId);
+  if (tags.length === 0) return null;
+  const visible = tags.slice(0, VISIBLE_TAGS);
+  const rest = tags.length - visible.length;
+  const title = `Теги: ${tags.join(', ')}`;
+  return (
+    <span
+      className="inline-row gap-1 min-0"
+      title={title}
+      aria-label={title}
+      data-testid={`${variant}-tag-badges-${trackId}`}
+    >
+      {visible.map((tag) => (
+        <span key={tag} className="badge track-tag-badge" data-testid={`${variant}-tag-badge-${trackId}`}>
+          {tag}
+        </span>
+      ))}
+      {rest > 0 && (
+        <span className="badge track-tag-badge shrink-0" data-numeric>
+          +{rest}
+        </span>
+      )}
     </span>
   );
 };

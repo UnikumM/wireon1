@@ -5,7 +5,7 @@ import { Button } from '../../common/Button';
 import { formatDuration } from '../../../utils/time';
 import { ICON } from '../../../styles/icons';
 import { TrackArtwork } from './TrackArtwork';
-import { OfflineBadge, QualityBadge } from './TrackBadges';
+import { OfflineBadge, QualityBadge, TagBadges } from './TrackBadges';
 import type { TrackCardViewProps } from './types';
 
 export interface TrackCardHeroProps extends TrackCardViewProps {
@@ -65,6 +65,7 @@ export const TrackCardHero: React.FC<TrackCardHeroProps> = ({
         <SourceBadge source={track.source} size="xs" />
         {isDownloaded && <OfflineBadge trackId={track.id} variant="hero" />}
         <QualityBadge trackId={track.id} variant="hero" />
+        <TagBadges trackId={track.id} variant="hero" />
       </div>
 
       <h3

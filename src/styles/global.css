@@ -4610,3 +4610,190 @@ h2 {
   height: var(--control-lg);
   object-fit: cover;
 }
+
+/* Поиск по строчке из песни: цитата с найденным фрагментом под карточкой трека. */
+.lyric-quote {
+  padding: var(--space-2) var(--space-3);
+  border-left: 2px solid var(--accent);
+  border-radius: var(--radius-sm);
+  background: var(--surface-2);
+  font-style: italic;
+  white-space: pre-wrap;
+}
+
+/* Сам фрагмент: подложка акцентом, текст не теряет контраст ни в одной теме. */
+.lyric-hit {
+  padding: 0 var(--space-1);
+  border-radius: var(--radius-xs);
+  background: var(--accent-soft);
+  color: var(--text-primary);
+  font-style: normal;
+}
+
+/* --- Месячный рекап (идея 28 плана 4.0, усечённо) ----------------------------
+ * Карточка «Октябрь в цифрах»: на главной первые дни месяца и в «Для вас».
+ * Фон — лёгкая подсветка акцентом поверх обычной карточки, чтобы итог читался
+ * как событие, а не как ещё одна полка. Раскладка внутри — утилитами.
+ */
+.monthly-recap {
+  position: relative;
+  background: linear-gradient(135deg, color-mix(in oklab, var(--accent) 16%, var(--surface-1)), var(--surface-1) 70%);
+}
+
+.monthly-recap-figures {
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+}
+
+.monthly-recap-figure {
+  padding: var(--space-3);
+  border-radius: var(--radius-sm);
+  background: var(--surface-2);
+}
+
+.monthly-recap-thumb {
+  width: var(--control-lg);
+  height: var(--control-lg);
+  border-radius: var(--radius-sm);
+  background: var(--surface-2);
+}
+
+.monthly-recap-thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.monthly-recap-rank {
+  width: var(--space-4);
+}
+
+.monthly-recap-close {
+  width: var(--control-md);
+  height: var(--control-md);
+  border-radius: var(--radius-full);
+  color: var(--text-muted);
+}
+
+/* ==========================================================================
+   Пустые состояния (идея 37): заголовок, одна подсказка, одно действие и
+   рисунок одной линией. Раскладка здесь, а не инлайном; цвет рисунка — токены,
+   чтобы он шёл за темой и пресетом вместе с подписью.
+   ========================================================================== */
+
+.empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  gap: var(--space-3);
+  padding: var(--space-8) var(--space-5);
+}
+
+.empty-state-title {
+  max-width: 28ch;
+  text-wrap: balance;
+}
+
+.empty-state-text {
+  max-width: 44ch;
+  text-wrap: pretty;
+}
+
+.empty-state-action {
+  display: flex;
+  justify-content: center;
+}
+
+/* Рисунок: 120 × 80 единиц, ширина от текста рядом, не от окна. Линия в
+   полтора пикселя не масштабируется вместе с рисунком (`non-scaling-stroke`),
+   иначе на телефоне контур жирнеет, а на большом экране исчезает. */
+.empty-art {
+  display: block;
+  width: clamp(120px, 40%, 180px);
+  height: auto;
+  color: var(--text-muted);
+  margin-bottom: var(--space-1);
+}
+
+.empty-art path {
+  stroke: currentColor;
+  vector-effect: non-scaling-stroke;
+}
+
+.empty-art-accent {
+  color: var(--accent);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .empty-art path {
+    /* Дорисовка линии — тот же переход, что и у остальных: при «меньше
+       движения» штрих сразу целый, без пунктира на первом кадре. */
+    stroke-dasharray: none !important;
+    stroke-dashoffset: 0 !important;
+    opacity: 1 !important;
+  }
+}
+
+/* ---------------------------------------------------------------------------
+ * Теги и заметки к трекам (идея 13 плана 4.0)
+ * ------------------------------------------------------------------------- */
+
+/* Тег на карточке: бледная пилюля рядом с источником, не спорит с названием.
+ * Ширина ограничена, длинный тег обрезается многоточием — место в строке
+ * принадлежит названию, а не пометке. */
+.track-tag-badge {
+  max-width: 7.5rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  color: var(--text-secondary);
+  background: var(--surface-2);
+  box-shadow: var(--ring-1) var(--border-subtle);
+}
+
+/* Тег в окне редактирования: чип с крестиком внутри. Сам чип не нажимается,
+ * поэтому у него нет курсора-руки и ответа на наведение. */
+.tag-chip {
+  cursor: default;
+  padding-right: var(--space-1);
+}
+
+.tag-chip:hover:not(:disabled) {
+  color: var(--text-secondary);
+  background: var(--surface-2);
+  box-shadow: var(--ring-1) var(--border);
+}
+
+.tag-chip-remove {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--control-xs);
+  height: var(--control-xs);
+  border-radius: var(--radius-full);
+  color: var(--text-muted);
+}
+
+.tag-chip-remove:hover {
+  color: var(--text-primary);
+  background: var(--surface-3);
+}
+
+/* Подсказки под полем ввода: те же чипы, но мельче, чтобы ряд читался как
+ * продолжение поля, а не как второй набор фильтров. */
+.tag-suggestion {
+  min-height: var(--control-xs);
+  padding: 0 var(--space-2);
+  font-size: var(--text-xs);
+}
+
+.track-notes-textarea {
+  resize: vertical;
+  min-height: 5.5rem;
+}
+
+/* Топ-3 месячного рекапа: строки отделены тонкой линией, последняя — без неё. */
+.monthly-recap-top > li + li {
+  padding-top: var(--space-2);
+  border-top: 1px solid var(--border-subtle);
+}

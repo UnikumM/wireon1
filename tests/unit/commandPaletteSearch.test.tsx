@@ -20,6 +20,7 @@ import { usePlayerStore } from '../../src/store/usePlayerStore';
 import { useLibraryStore } from '../../src/store/useLibraryStore';
 import { useUIStore } from '../../src/store/useUIStore';
 import { streamResolver } from '../../src/services/streamResolver';
+import { resetTrackNotesForTests, setTags } from '../../src/services/trackNotes';
 import { Playlist, UnifiedTrack } from '../../src/types/music';
 
 import {
@@ -96,6 +97,29 @@ describe('librarySearch — чистые функции', () => {
     expect(found[0].id).toBe('yt_exact');
   });
 
+  it('«#тег» ищет только по тегам, слово-тег ставит трек выше середины названия', () => {
+    const run = track('yt_run', 'Песня о чём-то', 'Кто-то');
+    const list = [quiet, loud, run];
+    const tagsById = new Map<string, string[]>([
+      ['yt_run', ['Бег', 'вечер']],
+      ['yt_quiet', ['беговая дорожка']]
+    ]);
+
+    // Точный тег выше тега по началу; названия не смотрятся вовсе.
+    expect(searchTracks(list, '#бег', 8, tagsById).map((t) => t.id)).toEqual(['yt_run', 'yt_quiet']);
+    expect(searchTracks(list, '#песня', 8, tagsById)).toEqual([]);
+    expect(searchTracks(list, '#', 8, tagsById)).toEqual([]);
+    // Без индекса тегов запрос с решёткой ничего не находит.
+    expect(searchTracks(list, '#бег')).toEqual([]);
+
+    // Обычное слово: трек с тегом «вечер» — выше того, у кого слово в середине названия.
+    const evening = track('yt_evening', 'Тихий вечер', 'Кто-то');
+    expect(searchTracks([evening, run], 'вечер', 8, tagsById).map((t) => t.id)).toEqual(['yt_run', 'yt_evening']);
+    // Но начало названия всё равно первое.
+    const starts = track('yt_starts', 'Вечер в городе', 'Кто-то');
+    expect(searchTracks([run, starts], 'вечер', 8, tagsById)[0].id).toBe('yt_starts');
+  });
+
   it('артисты уникальны без учёта регистра', () => {
     const list = [track('a', 'x', 'Кино'), track('b', 'y', 'КИНО'), track('c', 'z', 'Кинопоиск')];
     expect(searchArtists(list, 'кино')).toEqual(['Кино', 'Кинопоиск']);
@@ -112,6 +136,7 @@ describe('CommandPalette — поиск по медиатеке', () => {
     resetLibraryStore();
     signInForTests();
     resetUIStore();
+    resetTrackNotesForTests();
     Element.prototype.scrollIntoView = vi.fn();
   });
 
@@ -142,6 +167,19 @@ describe('CommandPalette — поиск по медиатеке', () => {
 
     expect(player().currentTrack?.id).toBe('yt_loud');
     expect(ui().isCommandPaletteOpen).toBe(false);
+  });
+
+  it('находит трек по своему тегу: «#бег» и просто «бег»', async () => {
+    await setTags('yt_quiet', ['бег']);
+    useLibraryStore.setState({ favorites: [yolka, loud, quiet] });
+    openPalette();
+
+    type('#бег');
+    expect(screen.getByTestId('command-option-track-yt_quiet')).toBeInTheDocument();
+    expect(screen.queryByTestId('command-option-track-yt_loud')).toBeNull();
+
+    type('бег');
+    expect(screen.getByTestId('command-option-track-yt_quiet')).toBeInTheDocument();
   });
 
   it('показывает обложку, когда она есть, и значок, когда нет', () => {

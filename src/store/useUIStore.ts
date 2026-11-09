@@ -36,6 +36,7 @@ export const useUIStore = create<UIStore>((set, get) => ({
   searchFilter: 'all',
   toastMessage: null,
   actionsTrack: null,
+  notesTrack: null,
   selectedTrackIds: null,
   accountPrompt: null,
   recapPeriod: null,
@@ -252,6 +253,19 @@ export const useUIStore = create<UIStore>((set, get) => ({
 
   closeTrackActions: () => {
     set({ actionsTrack: null });
+  },
+
+  /*
+   * Окно «Теги и заметка» — по той же причине в сторе: его зовут и из меню
+   * карточки на ПК, и из листа действий на телефоне, а лист при закрытии
+   * размонтируется вместе со всем, что нарисовал бы внутри себя.
+   */
+  openTrackNotes: (track) => {
+    set({ notesTrack: track });
+  },
+
+  closeTrackNotes: () => {
+    set({ notesTrack: null });
   },
 
   /**

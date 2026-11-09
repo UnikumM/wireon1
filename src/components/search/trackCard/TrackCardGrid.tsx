@@ -2,7 +2,7 @@ import React from 'react';
 import { SourceBadge } from '../../common/SourceBadge';
 import { formatDuration } from '../../../utils/time';
 import { TrackArtwork } from './TrackArtwork';
-import { OfflineBadge, QualityBadge } from './TrackBadges';
+import { OfflineBadge, QualityBadge, TagBadges } from './TrackBadges';
 import type { TrackCardViewProps } from './types';
 
 /** Карточка для сеток (`layout="card"`): обложка сверху, текст и меню под ней. */
@@ -81,6 +81,7 @@ export const TrackCardGrid: React.FC<TrackCardViewProps> = ({
       <SourceBadge source={track.source} size="xs" />
       {isDownloaded && <OfflineBadge trackId={track.id} variant="card" />}
       <QualityBadge trackId={track.id} variant="card" />
+      <TagBadges trackId={track.id} variant="card" />
       <span data-numeric className="text-xs text-muted">
         {formatDuration(track.duration)}
       </span>

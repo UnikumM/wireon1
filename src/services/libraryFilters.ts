@@ -13,6 +13,7 @@
 
 import type { AudioSource, UnifiedTrack } from '../types/music';
 import type { SmartRule } from './smartPlaylists';
+import { tagKey } from './trackNotes';
 
 export type DurationBucket = 'short' | 'medium' | 'long';
 
@@ -23,6 +24,11 @@ export interface LibraryFilters {
   stale: boolean;
   /** Файл лежит на устройстве. */
   offline: boolean;
+  /**
+   * Свой тег трека (см. `trackNotes.ts`); один за раз. Необязательное поле:
+   * наборы без тега остаются такими, как были, и старые тесты это проверяют.
+   */
+  tag?: string;
 }
 
 export const EMPTY_FILTERS: LibraryFilters = { source: null, duration: null, stale: false, offline: false };
@@ -42,12 +48,20 @@ export interface FilterContext {
   lastPlayedById: ReadonlyMap<string, number>;
   offlineIds: ReadonlySet<string>;
   now: number;
+  /** Теги по id трека — из `trackNotes`. Без него чип тега не пропускает ничего. */
+  tagsById?: ReadonlyMap<string, ReadonlyArray<string>>;
 }
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
 export function countActiveFilters(filters: LibraryFilters): number {
-  return (filters.source ? 1 : 0) + (filters.duration ? 1 : 0) + (filters.stale ? 1 : 0) + (filters.offline ? 1 : 0);
+  return (
+    (filters.source ? 1 : 0) +
+    (filters.duration ? 1 : 0) +
+    (filters.stale ? 1 : 0) +
+    (filters.offline ? 1 : 0) +
+    (filters.tag ? 1 : 0)
+  );
 }
 
 export function hasActiveFilters(filters: LibraryFilters): boolean {
@@ -69,6 +83,11 @@ export function matchesFilters(track: UnifiedTrack, filters: LibraryFilters, ctx
   if (filters.source && track.source !== filters.source) return false;
   if (filters.duration && !inBucket(track.duration, filters.duration)) return false;
   if (filters.offline && !ctx.offlineIds.has(track.id)) return false;
+  if (filters.tag) {
+    const wanted = tagKey(filters.tag);
+    const tags = ctx.tagsById?.get(track.id);
+    if (!tags || !tags.some((tag) => tagKey(tag) === wanted)) return false;
+  }
   if (filters.stale) {
     const last = ctx.lastPlayedById.get(track.id);
     if (last !== undefined && last >= ctx.now - STALE_DAYS * DAY_MS) return false;
@@ -81,7 +100,14 @@ export function applyFilters(tracks: ReadonlyArray<UnifiedTrack>, filters: Libra
   return tracks.filter((track) => matchesFilters(track, filters, ctx));
 }
 
-/** Чипы — правилами умного плейлиста. Порядок устойчивый, чтобы подпись читалась одинаково. */
+/**
+ * Чипы — правилами умного плейлиста. Порядок устойчивый, чтобы подпись читалась одинаково.
+ *
+ * Тег в правила НЕ переводится: у умных плейлистов нет поля «тег», а пометки
+ * живут только на устройстве и не синхронизируются — правило по ним на другом
+ * устройстве собирало бы пустоту. Сохранённый набор получится без тега; в
+ * подписи (`describeFilters`) тег остаётся, чтобы человек видел, что сохранил.
+ */
 export function filtersToSmartRules(filters: LibraryFilters): SmartRule[] {
   const rules: SmartRule[] = [];
   if (filters.source) rules.push({ field: 'source', op: 'is', value: filters.source });
@@ -102,5 +128,6 @@ export function describeFilters(filters: LibraryFilters): string {
   if (filters.duration) parts.push(DURATION_BUCKETS[filters.duration].label.toLowerCase());
   if (filters.stale) parts.push('давно не слушал');
   if (filters.offline) parts.push('офлайн');
+  if (filters.tag) parts.push(`#${filters.tag}`);
   return parts.join(' · ');
 }

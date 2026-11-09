@@ -21,6 +21,7 @@ import { MobileWaveView } from './MobileWaveView';
 import { MobileNavBar } from './MobileNavBar';
 import { Player } from '../player/Player';
 import { TrackActionsSheet } from './TrackActionsSheet';
+import { TrackNotesModalHost } from '../modals/TrackNotesModal';
 import { checkForUpdate } from '../../services/androidUpdater';
 import { useAppLayoutStore } from '../../store/useAppLayoutStore';
 import { CustomAppFrame } from '../layout/CustomAppFrame';
@@ -147,6 +148,8 @@ export const MobileApp: React.FC = () => {
         * виртуализированном списке исчезал бы вместе с уехавшей строкой.
         */}
       <TrackActionsSheet track={actionsTrack} onClose={closeTrackActions} />
+      {/* Окно «Теги и заметка» открывается из листа действий, но живёт отдельно от него. */}
+      <TrackNotesModalHost />
       <Player.Stage shell="mobile" />
       <QueueDrawer />
       <CreatePlaylistModal isOpen={isCreatePlaylistOpen} onClose={() => setIsCreatePlaylistOpen(false)} />

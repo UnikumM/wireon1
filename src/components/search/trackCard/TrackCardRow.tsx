@@ -4,7 +4,7 @@ import { SourceBadge } from '../../common/SourceBadge';
 import { formatDuration } from '../../../utils/time';
 import { ICON } from '../../../styles/icons';
 import { TrackArtwork } from './TrackArtwork';
-import { OfflineBadge, QualityBadge } from './TrackBadges';
+import { OfflineBadge, QualityBadge, TagBadges } from './TrackBadges';
 import type { TrackCardViewProps } from './types';
 
 export interface TrackCardRowProps extends TrackCardViewProps {
@@ -176,6 +176,7 @@ export const TrackCardRow: React.FC<TrackCardRowProps> = ({
         <SourceBadge source={track.source} size="xs" />
         {isDownloaded && <OfflineBadge trackId={track.id} variant="row" />}
         <QualityBadge trackId={track.id} variant="row" />
+        <TagBadges trackId={track.id} variant="row" />
       </div>
 
       <span

@@ -14,6 +14,7 @@ import {
   Music2,
   Plus,
   Radio,
+  Tag,
   User
 } from 'lucide-react';
 import type { UnifiedTrack } from '../../types/music';
@@ -108,6 +109,7 @@ export const TrackActionsSheet: React.FC<TrackActionsSheetProps> = ({ track, onC
   const showToast = useUIStore((s) => s.showToast);
   const openArtist = useUIStore((s) => s.openArtist);
   const startSelection = useUIStore((s) => s.startSelection);
+  const openTrackNotes = useUIStore((s) => s.openTrackNotes);
 
   const close = useCallback(() => {
     setPlaylistPickerOpen(false);
@@ -181,6 +183,15 @@ export const TrackActionsSheet: React.FC<TrackActionsSheetProps> = ({ track, onC
       showToast('Удалить из офлайна не удалось', 'error');
     }
   }, [showToast, track]);
+
+  /* Окно тегов открывает стор, а лист закрывается: иначе окно родилось бы
+   * внутри листа и исчезло вместе с ним. */
+  const handleNotes = useCallback(() => {
+    if (!track) return;
+    const target = track;
+    close();
+    openTrackNotes(target);
+  }, [close, openTrackNotes, track]);
 
   const handleArtist = useCallback(() => {
     if (!track?.artist) return;
@@ -349,6 +360,13 @@ export const TrackActionsSheet: React.FC<TrackActionsSheetProps> = ({ track, onC
           chevron={<ChevronRight size={ICON.md} aria-hidden="true" />}
           onClick={() => setPlaylistPickerOpen(true)}
           data-testid="track-actions-playlists"
+        />
+        <SheetRow
+          icon={<Tag size={ICON.lg} aria-hidden="true" />}
+          label="Теги и заметка"
+          hint="«Для бега», «показать Диме», «припев в 1:12»"
+          onClick={handleNotes}
+          data-testid="track-actions-notes"
         />
         {track.artist && (
           <SheetRow

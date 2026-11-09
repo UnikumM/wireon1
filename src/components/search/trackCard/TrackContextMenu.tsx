@@ -1,6 +1,6 @@
 import React from 'react';
 import { createPortal } from 'react-dom';
-import { Heart, Plus, MoreHorizontal, ListPlus, ExternalLink, Share2, Radio, CheckSquare } from 'lucide-react';
+import { Heart, Plus, MoreHorizontal, ListPlus, ExternalLink, Share2, Radio, CheckSquare, Tag } from 'lucide-react';
 import { UnifiedTrack } from '../../../types/music';
 import { ICON } from '../../../styles/icons';
 import type { TrackMenu } from './useTrackMenu';
@@ -159,6 +159,16 @@ export const TrackContextMenu: React.FC<TrackContextMenuProps> = ({
         >
           <Plus size={ICON.md} aria-hidden="true" />
           <span className="text-truncate">Добавить в плейлист…</span>
+        </button>
+        <button
+          type="button"
+          role="menuitem"
+          className="menu-item-hover"
+          onClick={actions.handleOpenNotes}
+          data-testid={`menu-notes-${track.id}`}
+        >
+          <Tag size={ICON.md} aria-hidden="true" />
+          <span className="text-truncate">Теги и заметка…</span>
         </button>
         {/*
           * Вход в выбор пачкой отсюда же: найдя нужный трек, человек не

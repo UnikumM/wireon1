@@ -6,11 +6,14 @@ import { useUIStore } from '../../store/useUIStore';
 import {
   DURATION_BUCKETS,
   DurationBucket,
+  EMPTY_FILTERS,
   describeFilters,
   filtersToSmartRules,
   hasActiveFilters,
   LibraryFilters
 } from '../../services/libraryFilters';
+import { tagKey } from '../../services/trackNotes';
+import { useAllTags } from '../../hooks/useTrackNote';
 import type { SmartRule } from '../../services/smartPlaylists';
 import type { AudioSource } from '../../types/music';
 import { ICON } from '../../styles/icons';
@@ -38,6 +41,9 @@ const SOURCES: Array<{ value: AudioSource; label: string }> = [
 
 const DURATIONS = Object.keys(DURATION_BUCKETS) as DurationBucket[];
 
+/** Сколько тегов показывать чипами: самые частые; остальные — через поиск. */
+const TAG_CHIP_LIMIT = 12;
+
 /**
  * Ряд чипов-фильтров над списком треков.
  *
@@ -57,10 +63,14 @@ export const LibraryFilterChips: React.FC<LibraryFilterChipsProps> = ({
   const createSmart = useSmartPlaylistStore((s) => s.create);
   const showToast = useUIStore((s) => s.showToast);
   const active = hasActiveFilters(filters);
+  // Ряд тегов появляется, только когда теги вообще есть: пустой ряд — шум.
+  const tags = useAllTags();
 
   const setSource = (value: AudioSource) => onChange({ ...filters, source: filters.source === value ? null : value });
   const setDuration = (value: DurationBucket) =>
     onChange({ ...filters, duration: filters.duration === value ? null : value });
+  const setTag = (value: string) =>
+    onChange({ ...filters, tag: filters.tag && tagKey(filters.tag) === tagKey(value) ? undefined : value });
 
   const handleSave = () => {
     const rules: SmartRule[] = [
@@ -125,6 +135,25 @@ export const LibraryFilterChips: React.FC<LibraryFilterChipsProps> = ({
         Только офлайн
       </button>
 
+      {tags.length > 0 && (
+        <>
+          <span className="library-filter-divider" aria-hidden="true" />
+          {tags.slice(0, TAG_CHIP_LIMIT).map(({ tag, count }) => (
+            <button
+              key={tagKey(tag)}
+              type="button"
+              className="chip"
+              aria-pressed={!!filters.tag && tagKey(filters.tag) === tagKey(tag)}
+              onClick={() => setTag(tag)}
+              title={`Свой тег · ${pluralize(count, 'трек', 'трека', 'треков')}`}
+              data-testid={`library-filter-tag-${tagKey(tag)}`}
+            >
+              #{tag}
+            </button>
+          ))}
+        </>
+      )}
+
       {active && (
         <>
           <span className="text-sm text-secondary ml-auto" data-numeric data-testid="library-filter-count">
@@ -143,7 +172,7 @@ export const LibraryFilterChips: React.FC<LibraryFilterChipsProps> = ({
             variant="ghost"
             size="icon"
             icon={<X size={ICON.sm} aria-hidden="true" />}
-            onClick={() => onChange({ source: null, duration: null, stale: false, offline: false })}
+            onClick={() => onChange(EMPTY_FILTERS)}
             aria-label="Сбросить фильтры"
             title="Сбросить фильтры"
             data-testid="library-filter-reset"

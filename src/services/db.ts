@@ -184,6 +184,22 @@ export interface MatchLinkRecord {
   foreignPlatform?: string;
 }
 
+/**
+ * Своя пометка к треку: теги («для бега», «показать Диме») и свободная заметка
+ * («припев в 1:12»). Ключ — id трека; `tags` индексируется как мультизначный
+ * (`*tags`), чтобы «все треки с тегом» читались индексом, а не перебором.
+ *
+ * Хранится только на устройстве: на сервер не уходит и между устройствами не
+ * ходит — синхронизация пометок запланирована на 4.1 (см. `trackNotes.ts`).
+ */
+export interface TrackNoteRecord {
+  trackId: string;
+  /** Как ввёл человек, без `#`, до 24 знаков; сравнение — без учёта регистра. */
+  tags: string[];
+  note: string;
+  updatedAt: number;
+}
+
 export class WireonDB extends Dexie {
   tracks!: Table<UnifiedTrack, string>;
   playlists!: Table<Playlist, string>;
@@ -196,6 +212,7 @@ export class WireonDB extends Dexie {
   plays!: Table<PlayEventRecord, number>;
   subscriptions!: Table<SubscriptionRecord, string>;
   matchLinks!: Table<MatchLinkRecord, string>;
+  trackNotes!: Table<TrackNoteRecord, string>;
 
   constructor(dbName = 'WireonDB') {
     super(dbName);
@@ -248,6 +265,15 @@ export class WireonDB extends Dexie {
      */
     this.version(7).stores({
       matchLinks: 'key, confirmedAt'
+    });
+    /*
+     * Теги и заметки к трекам (идея 13 плана 4.0). `*tags` — мультизначный
+     * индекс: одна запись попадает в индекс по каждому своему тегу, и фильтр
+     * «все треки с тегом» читается индексом. `updatedAt` — на будущую
+     * синхронизацию (4.1): по нему сливать, что новее.
+     */
+    this.version(8).stores({
+      trackNotes: 'trackId, *tags, updatedAt'
     });
   }
 }
@@ -1261,6 +1287,7 @@ export async function clearAllData(): Promise<void> {
       db.offlineTracks.clear(),
       db.lyrics.clear(),
       db.subscriptions.clear(),
+      db.trackNotes.clear(),
       // Сохранённые треки лежат файлами рядом с базой: очистив только таблицу,
       // мы оставили бы гигабайты, о которых приложение больше не знает.
       //

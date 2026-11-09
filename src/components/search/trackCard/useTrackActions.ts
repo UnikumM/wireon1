@@ -55,6 +55,8 @@ export interface TrackActions {
   handleOpenPlaylistPicker: (e: React.MouseEvent) => void;
   handleShare: (e: React.MouseEvent) => Promise<void>;
   handleOpenSource: (e: React.MouseEvent) => void;
+  /** Окно «Теги и заметка» — живёт в сторе интерфейса, как лист действий. */
+  handleOpenNotes: (e: React.MouseEvent) => void;
   handleStartSelection: () => void;
 }
 
@@ -215,6 +217,12 @@ export function useTrackActions({
     if (track.sourceUrl) openSourceUrl(track.sourceUrl);
   };
 
+  const handleOpenNotes = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    closeMenu(false);
+    useUIStore.getState().openTrackNotes(track);
+  };
+
   /*
    * Вход в выбор пачкой из меню: найдя нужный трек, человек не должен
    * закрывать его меню и искать этот же трек заново уже в режиме выбора.
@@ -246,6 +254,7 @@ export function useTrackActions({
     handleOpenPlaylistPicker,
     handleShare,
     handleOpenSource,
+    handleOpenNotes,
     handleStartSelection,
   };
 }

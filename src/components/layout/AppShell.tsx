@@ -3,6 +3,7 @@ import { Header } from './Header';
 import { MobileNav } from './MobileNav';
 import { Toast } from '../common/Toast';
 import { CommandPalette } from '../common/CommandPalette';
+import { TrackNotesModalHost } from '../modals/TrackNotesModal';
 import { UpdateBanner } from '../common/UpdateBanner';
 import { ParticleField } from '../fx';
 import { useThemeStore } from '../../store/useThemeStore';
@@ -133,6 +134,8 @@ export const AppShell: React.FC<AppShellProps> = ({
         {modalSlot}
 
         <CommandPalette />
+        {/* Окно «Теги и заметка» — одно на приложение, зовётся из меню трека. */}
+        <TrackNotesModalHost />
         <Toast />
 
         {/*

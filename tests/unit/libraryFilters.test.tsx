@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor, act } from '@testing-library/react';
 import '../setup';
 import { LibraryView } from '../../src/components/library/LibraryView';
 import { useLibraryStore } from '../../src/store/useLibraryStore';
@@ -16,6 +16,7 @@ import {
   filtersToSmartRules
 } from '../../src/services/libraryFilters';
 import { collectTrackFacts, matchesRule, sanitizeSmartPlaylists } from '../../src/services/smartPlaylists';
+import { resetTrackNotesForTests, setTags } from '../../src/services/trackNotes';
 import { resetAuthStore, resetLibraryStore, resetPlayerStore, resetUIStore, signInForTests } from '../helpers/testUtils';
 import { UnifiedTrack } from '../../src/types/music';
 
@@ -97,6 +98,26 @@ describe('сервис фильтров', () => {
     );
   });
 
+  it('тег фильтрует по ключу через контекст, считается активным, но в правила умного плейлиста не идёт', () => {
+    const tagsById = new Map<string, string[]>([
+      ['yt_short', ['Бег']],
+      ['sc_mid', ['бег', 'вечер']]
+    ]);
+    const withTags = { ...ctx, tagsById };
+    expect(applyFilters(favorites, { ...EMPTY_FILTERS, tag: '#БЕГ' }, withTags).map((t) => t.id)).toEqual([
+      'yt_short',
+      'sc_mid'
+    ]);
+    expect(applyFilters(favorites, { ...EMPTY_FILTERS, tag: 'вечер', source: 'youtube' }, withTags)).toEqual([]);
+    // Без индекса тегов чип не пропускает ничего — честнее, чем показать всё.
+    expect(applyFilters(favorites, { ...EMPTY_FILTERS, tag: 'бег' }, ctx)).toEqual([]);
+
+    expect(describeFilters({ ...EMPTY_FILTERS, tag: 'бег' })).toBe('#бег');
+    expect(filtersToSmartRules({ ...EMPTY_FILTERS, tag: 'бег', offline: true })).toEqual([
+      { field: 'offline', op: 'is', value: true }
+    ]);
+  });
+
   it('правило «сохранён офлайн» живёт в умных плейлистах и переживает чтение из настроек', () => {
     const facts = collectTrackFacts({ favorites, playlistTracks: [], history: [], offlineIds: new Set(['yt_long']) });
     const byId = new Map(facts.map((f) => [f.track.id, f]));
@@ -112,6 +133,7 @@ describe('сервис фильтров', () => {
 describe('чипы в медиатеке', () => {
   beforeEach(async () => {
     await dbService.clearAllData();
+    resetTrackNotesForTests();
     resetLibraryStore();
     resetUIStore();
     resetPlayerStore();
@@ -194,6 +216,37 @@ describe('чипы в медиатеке', () => {
       { field: 'duration', op: 'gte', value: 6 }
     ]);
     expect(useUIStore.getState().toastMessage?.text).toContain('Умный плейлист');
+  });
+
+  it('ряд тегов появляется только с тегами, один активный, второе нажатие снимает', async () => {
+    render(<LibraryView />);
+    expect(screen.queryByTestId('library-filter-tag-бег')).not.toBeInTheDocument();
+
+    await act(async () => {
+      await setTags('yt_short', ['Бег']);
+      await setTags('sc_mid', ['бег', 'вечер']);
+    });
+    expect(screen.getByTestId('library-filter-tag-бег')).toHaveTextContent('#Бег');
+
+    fireEvent.click(screen.getByTestId('library-filter-tag-бег'));
+    expect(screen.getByTestId('library-filter-tag-бег')).toHaveAttribute('aria-pressed', 'true');
+    expect(screen.getByTestId('library-filter-count')).toHaveTextContent('2 трека');
+    expect(screen.getByText('Song yt_short')).toBeInTheDocument();
+    expect(screen.queryByText('Song yt_long')).not.toBeInTheDocument();
+
+    // Один тег за раз: соседний переставляет выбор.
+    fireEvent.click(screen.getByTestId('library-filter-tag-вечер'));
+    expect(screen.getByTestId('library-filter-tag-бег')).toHaveAttribute('aria-pressed', 'false');
+    expect(screen.getByTestId('library-filter-tag-вечер')).toHaveAttribute('aria-pressed', 'true');
+    expect(screen.getByTestId('library-filter-count')).toHaveTextContent('1 трек');
+
+    fireEvent.click(screen.getByTestId('library-filter-tag-вечер'));
+    expect(screen.queryByTestId('library-filter-count')).not.toBeInTheDocument();
+
+    // Сброс снимает и тег.
+    fireEvent.click(screen.getByTestId('library-filter-tag-бег'));
+    fireEvent.click(screen.getByTestId('library-filter-reset'));
+    expect(screen.getByTestId('library-filter-tag-бег')).toHaveAttribute('aria-pressed', 'false');
   });
 
   it('на «Недавних» нет чипа давности, набор переживает смену закладки', () => {

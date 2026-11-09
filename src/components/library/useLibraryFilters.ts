@@ -9,6 +9,7 @@ import {
   LibraryFilters,
   FilterContext
 } from '../../services/libraryFilters';
+import { useTrackTagsIndex } from '../../hooks/useTrackNote';
 import type { UnifiedTrack } from '../../types/music';
 
 const EMPTY_IDS: ReadonlySet<string> = new Set();
@@ -94,9 +95,11 @@ export function useLibraryFilters(): LibraryFiltersState {
   const [filters, setFilters] = useState<LibraryFilters>(EMPTY_FILTERS);
   const offlineIds = useOfflineIds();
   const lastPlayedById = useLastPlayedById();
+  // Свои теги треков — живой снимок из `trackNotes`, меняется вместе с пометками.
+  const tagsById = useTrackTagsIndex();
 
   return useMemo(() => {
-    const ctx: FilterContext = { lastPlayedById, offlineIds, now: Date.now() };
+    const ctx: FilterContext = { lastPlayedById, offlineIds, tagsById, now: Date.now() };
     return {
       filters,
       setFilters,
@@ -108,5 +111,5 @@ export function useLibraryFilters(): LibraryFiltersState {
         return applyFilters(tracks, effective, ctx);
       }
     };
-  }, [filters, lastPlayedById, offlineIds]);
+  }, [filters, lastPlayedById, offlineIds, tagsById]);
 }
