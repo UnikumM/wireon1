@@ -36,6 +36,7 @@ import asyncio
 import hmac
 import logging
 import os
+import re
 import time
 from typing import Any, Dict, Optional
 
@@ -43,6 +44,7 @@ from aiohttp import web
 
 from . import innertube
 from . import proxy
+from .soundcloud import SoundCloudKeyKeeper
 from .broker import Broker, ConnectionHandler
 from .identity import DiscordIdentity, IdentityError
 from .sync import KIND_FAVORITE, KIND_PLAYLIST, SyncError, SyncStore, sanitize_records
@@ -58,6 +60,15 @@ from .resolver import (
 )
 
 logger = logging.getLogger("wireon.server")
+
+#: Запасные ключи SoundCloud — те же, что вшиты в клиент (src/services/soundcloud.ts).
+#: С них сервер начинает, пока не нашёл свой; протухшие отсеивает проверкой.
+SOUNDCLOUD_SEED_KEYS = (
+    "UMY1dzQ68n2QbCuypNe8JOivmV2FO2Ep",
+    "iZIs9mchVcX5lhVR1EzGCddqqBFMG2Gz",
+    "2t9loNUA90tgrUmYD90deLdWICTLKYjx",
+    "bJvN83Fp9oH3vTsmN6nJ0VvYgG83fT4x",
+)
 
 DEFAULT_PORT = 25545
 
@@ -238,6 +249,11 @@ async def handle_health(request: web.Request) -> web.Response:
             # запасного пути в байтах нашего канала, и видеть её надо снаружи,
             # а не догадываться по счёту за трафик.
             "proxy": dict(request.app["proxy_stats"]),
+            # Ключ SoundCloud: есть ли, когда проверен, сколько раз отдан.
+            "soundcloud": {
+                "hasKey": request.app["soundcloud"].current is not None,
+                **request.app["soundcloud"].stats,
+            },
             # Без движка cookies бесполезны: залогиненному запросу YouTube
             # отдаёт зашифрованный параметр, который без JS не развернуть.
             "jsRuntime": (js_runtime() or "").split(":", 1)[0] or None,
@@ -340,6 +356,39 @@ def _identity_status(code: str) -> int:
     # оба означал бы, что клиент разлогинивает человека всякий раз, когда у
     # Discord плохой день.
     return 503 if code == "DISCORD_UNAVAILABLE" else 401
+
+
+async def handle_soundcloud_key(request: web.Request) -> web.Response:
+    """
+    Ключ SoundCloud, один на всех. Подробности — в шапке `soundcloud.py`.
+    503, когда ключа нет: клиент тогда идёт своим запасным путём (вшитые ключи
+    и собственный поиск), а не считает SoundCloud сломанным навсегда.
+    """
+    keeper: SoundCloudKeyKeeper = request.app["soundcloud"]
+    key = await keeper.get(request.app["session"])
+    if key is None:
+        return web.json_response(
+            {"error": "SC_NO_KEY", "detail": "свежий ключ SoundCloud сейчас не найден"}, status=503
+        )
+    return web.json_response(key.as_json())
+
+
+async def handle_soundcloud_key_dead(request: web.Request) -> web.Response:
+    """
+    Клиент сообщает, что ключ не принят. Сервер перепроверяет сам: отказ по
+    одной закрытой загрузке не должен менять ключ всем — ровно на этом уже
+    обжигались в 2.x, когда первый же трек лейбла уводил приложение на другой ключ.
+    """
+    try:
+        body = await request.json()
+    except Exception:  # noqa: BLE001
+        body = {}
+    client_id = str((body or {}).get("clientId") or "").strip()
+    if not re.fullmatch(r"[A-Za-z0-9]{32}", client_id):
+        return web.json_response({"error": "BAD_REQUEST", "detail": "нужен clientId"}, status=400)
+    keeper: SoundCloudKeyKeeper = request.app["soundcloud"]
+    key = await keeper.report_dead(request.app["session"], client_id)
+    return web.json_response({"replaced": key is not None and key.client_id != client_id, "key": key.as_json() if key else None})
 
 
 async def handle_sync_pull(request: web.Request) -> web.Response:
@@ -642,6 +691,7 @@ def create_app(token: Optional[str] = None, *, resolver: Optional[StreamResolver
     app["telemetry"] = TelemetryStore()
     app["proxy_gate"] = asyncio.Semaphore(proxy.MAX_CONCURRENT_STREAMS)
     app["proxy_stats"] = proxy.new_stats()
+    app["soundcloud"] = SoundCloudKeyKeeper(seed=SOUNDCLOUD_SEED_KEYS)
     app["started_at"] = time.monotonic()
 
     app.router.add_get("/health", handle_health)
@@ -658,6 +708,8 @@ def create_app(token: Optional[str] = None, *, resolver: Optional[StreamResolver
     app.router.add_delete("/v1/sync/{kind:playlists|favorites}/{id}", handle_sync_delete)
     app.router.add_get("/mqtt", handle_mqtt)
     app.router.add_post("/v1/telemetry", handle_telemetry)
+    app.router.add_get("/v1/soundcloud/key", handle_soundcloud_key)
+    app.router.add_post("/v1/soundcloud/key/dead", handle_soundcloud_key_dead)
     # Предзапрос приходит на тот же адрес, что и настоящий запрос, а маршрута
     # с методом `OPTIONS` у нас нет — без этой строки aiohttp отвечал бы `405`
     # раньше, чем до дела дошла бы прослойка.

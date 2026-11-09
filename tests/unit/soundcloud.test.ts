@@ -784,3 +784,45 @@ describe('SoundCloud Service & Normalizer', () => {
     });
   });
 });
+
+describe('Ключ с сервера (4.0)', () => {
+  const REMOTE = 'R'.repeat(32);
+
+  it('getClientId спрашивает сервер раньше вшитых ключей и верит его сроку', async () => {
+    const remoteKey = vi.fn().mockResolvedValue({ clientId: REMOTE, expiresAt: Date.now() + 30 * 60 * 1000 });
+    const service = new SoundCloudService({ clientIds: ['builtin_key'], remoteKey });
+
+    expect(await service.getClientId()).toBe(REMOTE);
+    expect(remoteKey).toHaveBeenCalledTimes(1);
+    // Второй раз — из кэша, сервер не дёргается.
+    expect(await service.getClientId()).toBe(REMOTE);
+    expect(remoteKey).toHaveBeenCalledTimes(1);
+  });
+
+  it('без ключа у сервера идёт прежним путём — вшитые ключи', async () => {
+    const remoteKey = vi.fn().mockResolvedValue(null);
+    const service = new SoundCloudService({ clientIds: ['builtin_key'], remoteKey });
+    expect(await service.getClientId()).toBe('builtin_key');
+  });
+
+  it('отказ ключа уходит жалобой на сервер, и следующий запрос снова спрашивает его', async () => {
+    const remoteKey = vi
+      .fn()
+      .mockResolvedValueOnce({ clientId: REMOTE, expiresAt: 0 })
+      .mockResolvedValueOnce({ clientId: 'N'.repeat(32), expiresAt: 0 });
+    const reportRemoteKeyDead = vi.fn().mockResolvedValue(undefined);
+    const service = new SoundCloudService({ clientIds: ['builtin_key'], remoteKey, reportRemoteKeyDead });
+
+    expect(await service.getClientId()).toBe(REMOTE);
+    service.rotateClientId();
+    expect(reportRemoteKeyDead).toHaveBeenCalledWith(REMOTE);
+    // Выдержка между вопросами серверу снята отказом: ключ сменился у всех — берём новый.
+    expect(await service.getClientId()).toBe('N'.repeat(32));
+  });
+
+  it('useRemoteKeys подключает сервер к уже созданному сервису', async () => {
+    const service = new SoundCloudService({ clientIds: ['builtin_key'] });
+    service.useRemoteKeys({ remoteKey: async () => ({ clientId: REMOTE, expiresAt: 0 }) });
+    expect(await service.getClientId()).toBe(REMOTE);
+  });
+});

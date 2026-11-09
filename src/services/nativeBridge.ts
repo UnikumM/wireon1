@@ -34,10 +34,12 @@
  *
  * Чего здесь намеренно нет:
  *
- * - **SoundCloud.** У сервера такой ручки нет и не нужно: `soundcloud.ts` при
- *   отсутствии моста сам ходит запросом, а под Capacitor запрос идёт мимо CORS
- *   через нативный слой. Лишний крюк через наш адрес только добавил бы точку
- *   отказа.
+ * - **SoundCloud.** Звук и поиск `soundcloud.ts` добывает сам: под Capacitor
+ *   запрос идёт мимо CORS через нативный слой, и крюк через наш адрес добавил бы
+ *   только точку отказа. С 4.0 у сервера есть одна ручка — ключ `client_id`
+ *   (`soundcloudKey`): его сервер ищет и проверяет один раз за всех, а телефоны
+ *   перестают грузить сборки soundcloud.com. Без ключа с сервера клиент идёт
+ *   прежним путём.
  * - **Окна, горячие клавиши, мини-плеер, Discord RPC, автообновление.** Это
  *   свойства настольного окружения, а не источника музыки. На телефоне их
  *   вызовы просто не находят моста и ничего не делают — так эти места и
@@ -87,6 +89,14 @@ export interface StreamBridge {
     priority?: 'user' | 'prefetch',
     rejectUrl?: string
   ) => Promise<unknown>;
+  /**
+   * Ключ SoundCloud, который сервер нашёл и проверил за всех (`/v1/soundcloud/key`).
+   * Есть только у серверного моста. `null` — ключа у сервера сейчас нет, клиент
+   * идёт своим запасным путём.
+   */
+  soundcloudKey?: () => Promise<{ clientId: string; expiresAt: number } | null>;
+  /** Сообщить серверу, что ключ не принят: он перепроверит и при нужде сменит. */
+  reportSoundcloudKeyDead?: (clientId: string) => Promise<void>;
 }
 
 export interface ServerConfig {
@@ -443,6 +453,31 @@ export function createServerBridge(
         fetchImpl
       ),
 
+    soundcloudKey: async () => {
+      try {
+        const body = (await request(config, '/v1/soundcloud/key', METADATA_TIMEOUT_MS, fetchImpl)) as {
+          clientId?: unknown;
+          expiresAt?: unknown;
+        };
+        if (typeof body?.clientId !== 'string' || !/^[A-Za-z0-9]{32}$/.test(body.clientId)) return null;
+        return { clientId: body.clientId, expiresAt: typeof body.expiresAt === 'number' ? body.expiresAt : 0 };
+      } catch {
+        // 503 «ключа нет» и любой сбой сети — одно и то же для клиента: берём свой.
+        return null;
+      }
+    },
+
+    reportSoundcloudKeyDead: async (clientId: string) => {
+      try {
+        await fetchImpl(`${config.baseUrl}/v1/soundcloud/key/dead`, {
+          method: 'POST',
+          headers: { 'X-Wireon-Token': config.token, 'Content-Type': 'application/json' },
+          body: JSON.stringify({ clientId })
+        });
+      } catch {
+        // Жалоба — лучшее из возможного, не обязательство: не дошла, и ладно.
+      }
+    }
   };
 }
 

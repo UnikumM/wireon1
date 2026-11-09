@@ -1,5 +1,6 @@
 import { SearchCollection, UnifiedTrack } from '../types/music';
 import { formatDuration } from '../utils/time';
+import { getStreamBridge } from './nativeBridge';
 
 export interface SoundCloudStreamResult {
   streamUrl: string;
@@ -20,6 +21,14 @@ export interface SoundCloudServiceConfig {
    * Только у общего экземпляра: тестовым незачем делить ключ через хранилище.
    */
   persistKey?: string;
+  /**
+   * Ключ с нашего сервера (4.0). Сервер ищет и проверяет его один раз за всех,
+   * а устройства перестают грузить сборки soundcloud.com по мобильной сети.
+   * `null` — у сервера ключа нет, идём своим путём: вшитые ключи и свой поиск.
+   */
+  remoteKey?: () => Promise<{ clientId: string; expiresAt: number } | null>;
+  /** Сообщить серверу, что ключ не принят, чтобы он сменил его для всех. */
+  reportRemoteKeyDead?: (clientId: string) => Promise<void>;
 }
 
 /**
@@ -39,6 +48,9 @@ const DEFAULT_SOUNDCLOUD_CLIENT_IDS = [
   '2t9loNUA90tgrUmYD90deLdWICTLKYjx',
   'bJvN83Fp9oH3vTsmN6nJ0VvYgG83fT4x'
 ];
+
+/** Чаще этого у сервера ключ не спрашиваем. */
+const REMOTE_KEY_ASK_COOLDOWN_MS = 60 * 1000;
 
 /** How long a client_id is trusted before it is re-checked. */
 const CLIENT_ID_TTL_MS = 6 * 3600 * 1000;
@@ -289,13 +301,49 @@ export class SoundCloudService {
   private hlsSupportedOverride?: boolean;
 
   private readonly persistKey?: string;
+  private remoteKey?: SoundCloudServiceConfig['remoteKey'];
+  private reportRemoteKeyDead?: SoundCloudServiceConfig['reportRemoteKeyDead'];
+  /** Не чаще раза в минуту: сервер без ключа отвечает мгновенно, но спрашивать на каждый трек незачем. */
+  private lastRemoteAskAt = 0;
+  /**
+   * Серверный ключ только что отказал. Следующий `getClientId` спросит сервер
+   * снова, даже если в кэше уже стоит вшитый ключ: тот взят на один повтор,
+   * а дальше лучше общий свежий, чем свой стареющий.
+   */
+  private remoteDirty = false;
 
   constructor(config: SoundCloudServiceConfig = {}) {
     this.clientIds = SoundCloudService.dedupe(config.clientIds || DEFAULT_SOUNDCLOUD_CLIENT_IDS);
     this.requestTimeout = config.requestTimeout || 6000;
     this.hlsSupportedOverride = config.hlsSupported;
     this.persistKey = config.persistKey;
+    this.remoteKey = config.remoteKey;
+    this.reportRemoteKeyDead = config.reportRemoteKeyDead;
     this.restoreClientId();
+  }
+
+  /** Подключить сервер как источник ключа после создания — мост собирается позже сервиса. */
+  public useRemoteKeys(config: Pick<SoundCloudServiceConfig, 'remoteKey' | 'reportRemoteKeyDead'>): void {
+    this.remoteKey = config.remoteKey;
+    this.reportRemoteKeyDead = config.reportRemoteKeyDead;
+  }
+
+  /**
+   * Ключ с сервера, если тот есть и недавно не отказывал. Полученный ключ
+   * встаёт в начало набора и кэшируется до срока, который назвал сервер.
+   */
+  private async askRemoteKey(): Promise<string | null> {
+    if (!this.remoteKey) return null;
+    if (!this.remoteDirty && Date.now() - this.lastRemoteAskAt < REMOTE_KEY_ASK_COOLDOWN_MS) return null;
+    this.lastRemoteAskAt = Date.now();
+    this.remoteDirty = false;
+    const remote = await this.remoteKey();
+    if (!remote) return null;
+    this.registerClientId(remote.clientId);
+    this.deadClientIds.delete(remote.clientId);
+    const ttl = remote.expiresAt > Date.now() ? Math.min(remote.expiresAt - Date.now(), CLIENT_ID_TTL_MS) : CLIENT_ID_TTL_MS;
+    this.setClientId(remote.clientId, ttl);
+    return remote.clientId;
   }
 
   /** Поднимает ключ, сработавший в прошлый запуск, если его срок не вышел. */
@@ -399,6 +447,11 @@ export class SoundCloudService {
    */
   public async getClientId(): Promise<string> {
     const cached = this.getCachedClientId();
+    if (cached && !this.isDead(cached) && !this.remoteDirty) return cached;
+
+    // Сначала сервер: его ключ проверен за всех и свежее любого вшитого.
+    const remote = await this.askRemoteKey();
+    if (remote) return remote;
     if (cached && !this.isDead(cached)) return cached;
 
     const known = this.firstLiveClientId();
@@ -544,7 +597,12 @@ export class SoundCloudService {
      * а хуже того — кэшировал его на шесть часов, отключая заодно и поиск.
      */
     const leaving = this.cachedClientId ?? this.clientIds[this.currentClientIdIndex];
-    if (leaving) this.markDead(leaving);
+    if (leaving) {
+      this.markDead(leaving);
+      // Серверу — жалоба: он перепроверит ключ сам и сменит его для всех, если тот мёртв.
+      if (this.remoteKey) this.remoteDirty = true;
+      void this.reportRemoteKeyDead?.(leaving);
+    }
     // Запомненный ключ больше не годится — следующий запуск не должен с него начинать.
     this.persistClientId(null, 0);
 
@@ -1124,3 +1182,19 @@ export class SoundCloudService {
 }
 
 export const soundCloudService = new SoundCloudService({ persistKey: SOUNDCLOUD_CLIENT_ID_STORAGE_KEY });
+
+/*
+ * Сервер как источник ключа — подключается здесь, а не в конструкторе: мост к
+ * серверу собирается из переменных окружения лениво, и на ПК его нет вовсе
+ * (там звук добывает главный процесс). Без моста сервис работает как раньше:
+ * вшитые ключи и собственный поиск.
+ */
+{
+  const bridge = getStreamBridge();
+  if (bridge?.soundcloudKey) {
+    soundCloudService.useRemoteKeys({
+      remoteKey: bridge.soundcloudKey,
+      reportRemoteKeyDead: bridge.reportSoundcloudKeyDead
+    });
+  }
+}
