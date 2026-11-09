@@ -889,6 +889,22 @@ export class SoundCloudService {
   }
 
   /**
+   * Один трек по его ссылке — `soundcloud.com/<кто>/<что>`.
+   *
+   * Тот же `/resolve`, что и у плейлистов: он отдаёт то, на что указывает
+   * адрес, и вид записи говорит сам (`kind`). Плейлист здесь не ответ — у него
+   * своя дорога, `getPlaylistWithTitle`. Не нашли или не трек — `null`.
+   */
+  public async resolveTrackUrl(url: string): Promise<UnifiedTrack | null> {
+    const trimmed = (url || '').trim();
+    if (!trimmed) return null;
+    const data = await this.apiGet('/resolve', { url: trimmed });
+    if (!data || Array.isArray(data) || Array.isArray(data.tracks)) return null;
+    if (typeof data.kind === 'string' && data.kind !== 'track') return null;
+    return this.parseTracksResponse([data], 1)[0] ?? null;
+  }
+
+  /**
    * Normalizes SoundCloud track JSON objects to UnifiedTrack format
    */
   public parseTracksResponse(data: any, limit: number = 20): UnifiedTrack[] {

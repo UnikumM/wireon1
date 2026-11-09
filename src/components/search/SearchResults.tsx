@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { parseCollectionLink } from '../../services/collections';
+import { parseTrackLink, resolveTrackLink, trackSearchQuery } from '../../services/trackLinks';
 import { AlertTriangle, Music2, RotateCcw, Shuffle, Play, X } from 'lucide-react';
 import { AudioSource, SearchCollection, SearchKind, UnifiedTrack } from '../../types/music';
 import { searchAggregator } from '../../services/aggregator';
@@ -103,6 +104,9 @@ export const SearchResults: React.FC<SearchResultsProps> = ({ className = '' }) 
   const [kind, setKind] = useState<SearchKind>('tracks');
   const [collections, setCollections] = useState<SearchCollection[]>([]);
   const [isLoadingCollections, setIsLoadingCollections] = useState(false);
+  /** Трек, открытый по ссылке, и признак, что по ссылке ничего не нашли. */
+  const [linkTrack, setLinkTrack] = useState<UnifiedTrack | null>(null);
+  const [linkMissed, setLinkMissed] = useState(false);
 
   /** Monotonic request id: only the newest search is allowed to commit state. */
   const requestIdRef = useRef(0);
@@ -144,11 +148,17 @@ export const SearchResults: React.FC<SearchResultsProps> = ({ className = '' }) 
       setError(null);
       setSourceErrors({});
       setIsLoading(false);
+      setLinkTrack(null);
+      setLinkMissed(false);
       return;
     }
 
-    // Ссылка на чужой плейлист — не запрос, а адрес: открываем его, как Spotify.
-    const link = parseCollectionLink(trimmed);
+    // Ссылка на трек — не запрос, а адрес: сначала сам трек, под ним поиск по
+    // его названию. Ссылка с `v` и `list` — это трек внутри плейлиста.
+    const trackLink = parseTrackLink(trimmed);
+
+    // Ссылка на чужой плейлист — тоже адрес: открываем его, как Spotify.
+    const link = trackLink ? null : parseCollectionLink(trimmed);
     if (link) {
       setIsLoading(false);
       setSearchQuery('');
@@ -157,16 +167,32 @@ export const SearchResults: React.FC<SearchResultsProps> = ({ className = '' }) 
     }
 
     setIsLoading(true);
+    setLinkTrack(null);
+    setLinkMissed(false);
 
     const run = async () => {
       try {
-        const res = await searchAggregator.search(trimmed, { source: searchFilter, limit: RESULT_LIMIT });
+        let query = trimmed;
+        if (trackLink) {
+          const found = await resolveTrackLink(trackLink);
+          if (cancelled || requestId !== requestIdRef.current) return;
+          if (found) {
+            setLinkTrack(found);
+            query = trackSearchQuery(found) || trimmed;
+          } else {
+            // Не нашли — ищем по тексту ссылки, как раньше, и говорим об этом.
+            setLinkMissed(true);
+          }
+        }
+
+        const res = await searchAggregator.search(query, { source: searchFilter, limit: RESULT_LIMIT });
         if (cancelled || requestId !== requestIdRef.current) return;
 
         setResults(res.results);
         setSourceErrors(res.errors ?? {});
         setError(null);
-        persistRecent(mergeRecent(recentRef.current, trimmed));
+        // Адрес в недавних запросах бесполезен: повторить его можно только вставкой.
+        if (!trackLink) persistRecent(mergeRecent(recentRef.current, trimmed));
       } catch (err) {
         if (cancelled || requestId !== requestIdRef.current) return;
         console.error('[SearchResults] Search failed:', err);
@@ -232,6 +258,8 @@ export const SearchResults: React.FC<SearchResultsProps> = ({ className = '' }) 
     setResults([]);
     setSourceErrors({});
     setError(null);
+    setLinkTrack(null);
+    setLinkMissed(false);
   }, [setSearchQuery]);
 
   const handleSubmit = useCallback(
@@ -249,9 +277,9 @@ export const SearchResults: React.FC<SearchResultsProps> = ({ className = '' }) 
   };
 
   const handlePlayAll = (shuffle: boolean) => {
-    if (results.length === 0) return;
+    if (queue.length === 0) return;
     if (shuffle && !isShuffled) toggleShuffle();
-    void playTrack(results[0], results, 0);
+    void playTrack(queue[0], queue, 0);
   };
 
   /** Arrow-key roving focus across result rows. Rows own Enter/Space. */
@@ -296,8 +324,14 @@ export const SearchResults: React.FC<SearchResultsProps> = ({ className = '' }) 
   const shownCollections =
     kind === 'tracks' ? [] : collections.filter((item) => item.kind === TAB_KIND[kind]);
   const failedSources = Object.keys(sourceErrors);
-  const topMatch = results.length > 0 ? results[0] : null;
-  const restResults = results.slice(1);
+  /**
+   * Очередь экрана. С треком по ссылке он стоит первым, а его же копия из
+   * обычной выдачи убирается: «другие версии» — это другие записи.
+   */
+  const otherResults = linkTrack ? results.filter((t) => t.id !== linkTrack.id) : results;
+  const queue = linkTrack ? [linkTrack, ...otherResults] : results;
+  const topMatch = linkTrack ? null : queue[0] ?? null;
+  const restResults = queue.slice(1);
 
   return (
     <div
@@ -434,6 +468,28 @@ export const SearchResults: React.FC<SearchResultsProps> = ({ className = '' }) 
         </div>
       )}
 
+      {/* Трек по ссылке — показывается сразу, остальное доезжает под ним. */}
+      {kind === 'tracks' && hasQuery && linkTrack && (
+        <section className="stack gap-3" data-testid="search-link-track">
+          <h2 className="m-0 text-xl weight-semibold text-primary leading-xl tracking-xl">
+            Трек по ссылке
+          </h2>
+          <TrackCard
+            track={linkTrack}
+            index={0}
+            layout="hero"
+            heroStacked={isNarrow}
+            contextQueue={queue}
+          />
+        </section>
+      )}
+
+      {kind === 'tracks' && hasQuery && linkMissed && !isLoading && (
+        <p className="m-0 text-sm text-muted" role="status" data-testid="search-link-miss">
+          По ссылке ничего не нашли — показываем обычный поиск.
+        </p>
+      )}
+
       {/* Loading skeletons */}
       {((kind === 'tracks' && isLoading) || (kind !== 'tracks' && isLoadingCollections)) && (
         <div
@@ -442,7 +498,7 @@ export const SearchResults: React.FC<SearchResultsProps> = ({ className = '' }) 
           aria-live="polite"
           data-testid="search-skeletons"
         >
-          <Skeleton height={180} radius="var(--radius-lg)" />
+          {!linkTrack && <Skeleton height={180} radius="var(--radius-lg)" />}
           <Skeleton height={56} count={6} />
         </div>
       )}
@@ -479,7 +535,7 @@ export const SearchResults: React.FC<SearchResultsProps> = ({ className = '' }) 
       )}
 
       {/* Results */}
-      {kind === 'tracks' && !isLoading && !error && hasQuery && results.length > 0 && (
+      {kind === 'tracks' && !isLoading && !error && hasQuery && otherResults.length > 0 && (
         <div className="stack gap-5">
           <div
             className="row gap-3 wrap"
@@ -487,14 +543,15 @@ export const SearchResults: React.FC<SearchResultsProps> = ({ className = '' }) 
             <h2
               className="m-0 text-xl weight-semibold text-primary leading-xl tracking-xl"
             >
-              Найдено
+              {linkTrack ? 'Другие версии' : 'Найдено'}
             </h2>
             <span
               className="text-sm text-muted"
               data-testid="search-result-count"
             >
-              <span data-numeric>{results.length}</span>{' '}
-              {plural(results.length, 'трек', 'трека', 'треков')} по запросу «{searchQuery.trim()}»
+              <span data-numeric>{otherResults.length}</span>{' '}
+              {plural(otherResults.length, 'трек', 'трека', 'треков')}{' '}
+              {linkTrack ? 'по названию' : `по запросу «${searchQuery.trim()}»`}
             </span>
 
             <div className="row-stretch gap-2 ml-auto">
@@ -525,15 +582,17 @@ export const SearchResults: React.FC<SearchResultsProps> = ({ className = '' }) 
               index={0}
               layout="hero"
               heroStacked={isNarrow}
-              contextQueue={results}
+              contextQueue={queue}
             />
           )}
 
           {restResults.length > 0 && (
             <div>
-              <h3 className="section-label mb-3">
-                Остальное
-              </h3>
+              {!linkTrack && (
+                <h3 className="section-label mb-3">
+                  Остальное
+                </h3>
+              )}
               <div
                 role="list"
                 onKeyDown={handleListKeyDown}
@@ -546,7 +605,7 @@ export const SearchResults: React.FC<SearchResultsProps> = ({ className = '' }) 
                     track={t}
                     index={idx + 1}
                     layout="row"
-                    contextQueue={results}
+                    contextQueue={queue}
                   />
                 ))}
               </div>
@@ -560,6 +619,7 @@ export const SearchResults: React.FC<SearchResultsProps> = ({ className = '' }) 
         !isLoading &&
         !error &&
         hasQuery &&
+        !linkTrack &&
         results.length === 0 &&
         failedSources.length === 0 && (
         <EmptyState

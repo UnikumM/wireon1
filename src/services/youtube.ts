@@ -540,6 +540,44 @@ export class YouTubeService {
   }
 
   /**
+   * Одна запись по её идентификатору — для ссылки на трек, вставленной в поиск.
+   *
+   * Отдельного «дай видео по id» у YouTube Music нет, поэтому в три приёма.
+   * Сначала радио от этой песни через мост: ответ `next` начинается с самой
+   * песни-семени, и это единственный путь, где идентификатор совпадает по
+   * построению. Без моста (браузерная сборка) или если радио отказало — поиск
+   * по идентификатору как по строке: среди песен, потом среди клипов. Берётся
+   * только результат с тем же `originalId`: похожее не подходит. Не нашли —
+   * `null`, не бросает.
+   */
+  public async getTrackById(videoId: string): Promise<UnifiedTrack | null> {
+    const id = (videoId || '').trim();
+    if (!id) return null;
+    const same = (tracks: UnifiedTrack[]): UnifiedTrack | null =>
+      tracks.find((track) => track.originalId === id) ?? null;
+
+    const bridge = getElectronBridge();
+    if (bridge && typeof bridge.youtubeRadio === 'function') {
+      try {
+        const seeded = same(this.parseRadioResponse(await bridge.youtubeRadio(id), 50));
+        if (seeded) return seeded;
+      } catch (err) {
+        console.warn('[YouTubeService] Radio lookup by id failed:', err);
+      }
+    }
+
+    for (const lookup of [() => this.search(id, 10), () => this.searchVideos(id, 10)]) {
+      try {
+        const found = same(await lookup());
+        if (found) return found;
+      } catch (err) {
+        console.warn('[YouTubeService] Search by id failed:', err);
+      }
+    }
+    return null;
+  }
+
+  /**
    * Один запрос к InnerTube — через главный процесс, если он есть.
    *
    * Прямой `fetch` из окна к `music.youtube.com` отбивает предзапрос CORS:

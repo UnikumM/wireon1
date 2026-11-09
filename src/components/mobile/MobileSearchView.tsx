@@ -1,10 +1,13 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { parseCollectionLink } from '../../services/collections';
-import { Clock, Loader2, Search as SearchIcon, X } from 'lucide-react';
+import { parseTrackLink, resolveTrackLink, trackSearchQuery } from '../../services/trackLinks';
+import { Clock, Loader2, Play, Search as SearchIcon, X } from 'lucide-react';
 import { useUIStore } from '../../store/useUIStore';
 import { usePlayerStore } from '../../store/usePlayerStore';
 import { searchAggregator } from '../../services/aggregator';
+import { Button } from '../common/Button';
 import { CoverCard } from '../common/CoverCard';
+import { Skeleton } from '../common/Skeleton';
 import { youtubeService } from '../../services/youtube';
 import * as dbService from '../../services/db';
 import { ICON } from '../../styles/icons';
@@ -72,6 +75,9 @@ export const MobileSearchView: React.FC = () => {
   const [isLoading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [recent, setRecent] = useState<string[]>([]);
+  /** Трек, открытый по ссылке, и признак, что по ссылке ничего не нашли. */
+  const [linkTrack, setLinkTrack] = useState<UnifiedTrack | null>(null);
+  const [linkMissed, setLinkMissed] = useState(false);
 
   /** Растущий номер запроса: ответ на устаревший ввод не должен перебить свежий. */
   const requestId = useRef(0);
@@ -112,11 +118,16 @@ export const MobileSearchView: React.FC = () => {
       setResults([]);
       setError(null);
       setLoading(false);
+      setLinkTrack(null);
+      setLinkMissed(false);
       return;
     }
 
+    // Ссылка на трек — сначала сам трек, под ним поиск по его названию.
+    const trackLink = parseTrackLink(trimmed);
+
     // Ссылка на чужой плейлист открывается сразу — слушать и сохранять.
-    const link = parseCollectionLink(trimmed);
+    const link = trackLink ? null : parseCollectionLink(trimmed);
     if (link) {
       setLoading(false);
       setDraft('');
@@ -126,13 +137,27 @@ export const MobileSearchView: React.FC = () => {
     }
 
     setLoading(true);
+    setLinkTrack(null);
+    setLinkMissed(false);
     void (async () => {
       try {
-        const res = await searchAggregator.search(trimmed, { source: searchFilter, limit: RESULT_LIMIT });
+        let query = trimmed;
+        if (trackLink) {
+          const found = await resolveTrackLink(trackLink);
+          if (cancelled || id !== requestId.current) return;
+          if (found) {
+            setLinkTrack(found);
+            query = trackSearchQuery(found) || trimmed;
+          } else {
+            setLinkMissed(true);
+          }
+        }
+        const res = await searchAggregator.search(query, { source: searchFilter, limit: RESULT_LIMIT });
         if (cancelled || id !== requestId.current) return;
         setResults(res.results);
         setError(null);
-        persistRecent(mergeRecent(recentRef.current, trimmed));
+        // Адрес в недавних бесполезен: повторить его можно только вставкой.
+        if (!trackLink) persistRecent(mergeRecent(recentRef.current, trimmed));
       } catch (err) {
         if (cancelled || id !== requestId.current) return;
         console.error('[MobileSearchView] поиск не удался:', err);
@@ -208,6 +233,13 @@ export const MobileSearchView: React.FC = () => {
   }, [draft, setSearchQuery]);
 
   const hasQuery = searchQuery.trim().length > 0;
+  const isLinkQuery = useMemo(() => parseTrackLink(searchQuery) !== null, [searchQuery]);
+  /** Трек по ссылке стоит первым, его копия из обычной выдачи убирается. */
+  const otherResults = useMemo(
+    () => (linkTrack ? results.filter((t) => t.id !== linkTrack.id) : results),
+    [linkTrack, results]
+  );
+  const queue = useMemo(() => (linkTrack ? [linkTrack, ...otherResults] : results), [linkTrack, otherResults, results]);
 
   return (
     <div className="stack gap-4" data-testid="mobile-search">
@@ -331,7 +363,44 @@ export const MobileSearchView: React.FC = () => {
         </>
       )}
 
-      {isLoading && (
+      {/* Трек по ссылке: карточка сразу, остальное доезжает под ней. */}
+      {kind === 'tracks' && linkTrack && (
+        <section className="card stack gap-3 p-3" data-testid="mobile-search-link-track">
+          <SectionTitle>Трек по ссылке</SectionTitle>
+          <TrackRow
+            track={linkTrack}
+            isCurrent={currentTrack?.id === linkTrack.id}
+            onPlay={() => void playTrack(linkTrack, queue, 0)}
+            onOpenActions={() => openTrackActions(linkTrack)}
+            data-testid="mobile-search-link-row"
+          />
+          <Button
+            variant="primary"
+            size="md"
+            icon={<Play size={ICON.md} />}
+            onClick={() => void playTrack(linkTrack, queue, 0)}
+            data-testid="mobile-search-link-play"
+          >
+            Слушать
+          </Button>
+        </section>
+      )}
+
+      {kind === 'tracks' && linkMissed && !isLoading && hasQuery && (
+        <p className="m-0 text-sm text-muted leading-sm" role="status" data-testid="mobile-search-link-miss">
+          По ссылке ничего не нашли — показываем обычный поиск.
+        </p>
+      )}
+
+      {/* Пока трек по ссылке не приехал — скелетон на его месте, а не вертушка. */}
+      {isLoading && isLinkQuery && !linkTrack && (
+        <div className="stack gap-3" aria-busy="true" aria-live="polite" data-testid="mobile-search-link-skeleton">
+          <Skeleton height={132} radius="var(--radius-lg)" />
+          <Skeleton height={72} count={4} />
+        </div>
+      )}
+
+      {isLoading && !(isLinkQuery && !linkTrack) && (
         <div
           className="row justify-center gap-2 text-muted py-6 px-0"
           data-testid="mobile-search-loading"
@@ -358,7 +427,7 @@ export const MobileSearchView: React.FC = () => {
         </div>
       )}
 
-      {kind === 'tracks' && !isLoading && !error && hasQuery && results.length === 0 && (
+      {kind === 'tracks' && !isLoading && !error && hasQuery && !linkTrack && results.length === 0 && (
         <p
           className="m-0 text-sm text-muted py-5 px-0 leading-sm"
           data-testid="mobile-search-empty"
@@ -367,14 +436,15 @@ export const MobileSearchView: React.FC = () => {
         </p>
       )}
 
-      {kind === 'tracks' && results.length > 0 && (
+      {kind === 'tracks' && otherResults.length > 0 && (
         <div>
-          {results.map((track, index) => (
+          {linkTrack && <SectionTitle>Другие версии</SectionTitle>}
+          {otherResults.map((track, index) => (
             <TrackRow
               key={track.id}
               track={track}
               isCurrent={currentTrack?.id === track.id}
-              onPlay={() => void playTrack(track, results, index)}
+              onPlay={() => void playTrack(track, queue, linkTrack ? index + 1 : index)}
               onOpenActions={() => openTrackActions(track)}
               data-testid={`mobile-search-track-${track.id}`}
             />
