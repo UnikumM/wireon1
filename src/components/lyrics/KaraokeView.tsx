@@ -34,6 +34,7 @@ import { Button } from '../common/Button';
 import { Skeleton } from '../common/Skeleton';
 import { EmptyState } from '../common/EmptyState';
 import { ICON } from '../../styles/icons';
+import { AmbientLight } from '../player/core/AmbientLight';
 
 export interface KaraokeViewProps {
   className?: string;
@@ -98,6 +99,7 @@ export const KaraokeView: React.FC<KaraokeViewProps> = ({ className = '', onClos
   const lineRefs = useRef<(HTMLDivElement | null)[]>([]);
 
   const ambientColor = useDominantColor(currentTrack?.artworkUrl);
+  const isPlaying = usePlayerStore((s) => s.isPlaying);
 
   const handleClose = useCallback(() => {
     if (onClose) {
@@ -307,17 +309,8 @@ export const KaraokeView: React.FC<KaraokeViewProps> = ({ className = '', onClos
       }
       data-testid="karaoke-view"
     >
-      {/* Подложка в цвет обложки */}
-      <div
-        aria-hidden="true"
-        style={{
-          position: 'absolute',
-          inset: 0,
-          pointerEvents: 'none',
-          opacity: 0.18,
-          backgroundImage: `radial-gradient(130% 80% at 50% 0%, ${ambientColor} 0%, transparent 68%)`
-        }}
-      />
+      {/* Свет от обложки: тот же слой, что на сцене плеера, — экран текста её продолжение. */}
+      <AmbientLight color={ambientColor} playing={isPlaying} intensity="soft" artworkUrl={currentTrack?.artworkUrl} />
 
       <header
         style={{
@@ -665,11 +658,33 @@ export const KaraokeView: React.FC<KaraokeViewProps> = ({ className = '', onClos
         </section>
       )}
 
+      {/*
+        * Тело. На ПК — две колонки: слева обложка с названием стоит на месте,
+        * справа течёт текст, строки выровнены по левому краю и крупнее.
+        * Так читается взгляд: картинка — якорь, текст — движение. На телефоне
+        * колонка одна, обложка остаётся в шапке.
+        */}
+      <div className={`karaoke-body relative flex-1 min-h-0 ${isMobile ? '' : 'karaoke-body-wide'}`}>
+      {!isMobile && currentTrack && (
+        <aside className="karaoke-side" data-testid="karaoke-side">
+          <div className="karaoke-side-art">
+            {currentTrack.artworkUrl ? (
+              <img src={currentTrack.artworkUrl} alt="" className="fill-cover" />
+            ) : (
+              <Music2 size={ICON.hero} aria-hidden="true" className="text-faint" />
+            )}
+          </div>
+          <div className="stack gap-1 min-0">
+            <div className="type-xl weight-bold text-primary font-sans" title={currentTrack.title}>{currentTrack.title}</div>
+            <div className="type-base text-secondary text-truncate">{currentTrack.artist}</div>
+          </div>
+        </aside>
+      )}
       {/* Сам текст */}
       <div
         ref={scrollContainerRef}
         onScroll={handleScroll}
-        className="scrollbar-thin relative flex-1 stack-center"
+        className={`scrollbar-thin relative flex-1 ${isMobile ? 'stack-center' : 'stack karaoke-scroll-wide'}`}
         style={{ overflowY: 'auto', overflowX: 'hidden', padding: isMobile
             ? 'var(--space-4) var(--space-2) calc(var(--safe-bottom) + var(--space-6))'
             : 'var(--space-8) var(--space-6) var(--space-8)', userSelect: 'none' }}
@@ -740,7 +755,7 @@ export const KaraokeView: React.FC<KaraokeViewProps> = ({ className = '', onClos
 
         {!isLoading && hasLines && lyrics && (
           <div
-            className="w-full stack text-center py-6 px-4" style={{ maxWidth: '740px', gap: lyrics.synced ? 'var(--space-4)' : 'var(--space-3)' }}
+            className={`w-full stack py-6 px-4 ${isMobile ? 'text-center' : 'text-left karaoke-lines-wide'}`} style={{ maxWidth: isMobile ? '740px' : '820px', gap: lyrics.synced ? 'var(--space-4)' : 'var(--space-3)' }}
             data-testid="karaoke-lyrics-list"
           >
             {lyrics.lines.map((line, index) => {
@@ -796,7 +811,7 @@ export const KaraokeView: React.FC<KaraokeViewProps> = ({ className = '', onClos
                     transition:
                       'color var(--dur-fast) var(--ease-out), background-color var(--dur-fast) var(--ease-out), transform var(--dur-normal) var(--ease-out), opacity var(--dur-normal) var(--ease-out)',
                     opacity,
-                    transform: isActive ? 'scale(1.04)' : 'scale(1)',
+                    transform: isActive && isMobile ? 'scale(1.04)' : 'scale(1)',
                     // Цвет, заливка, рамка и тень — в `.karaoke-line`
                     // (global.css §13): инлайном они глушили `.press:hover`, и
                     // строка, по нажатию на которую песня перематывается, ничем
@@ -808,14 +823,17 @@ export const KaraokeView: React.FC<KaraokeViewProps> = ({ className = '', onClos
                     fontSize: isActive
                       ? isMobile
                         ? 'var(--text-xl)'
-                        : 'var(--text-2xl)'
+                        : 'var(--text-3xl)'
                       : isMobile
                         ? 'var(--text-base)'
-                        : 'var(--text-lg)',
-                    fontWeight: isActive ? 'var(--weight-semibold)' : 'var(--weight-normal)',
-                    lineHeight: '1.45',
-                    letterSpacing: isActive ? 'var(--tracking-2xl)' : 'var(--tracking-lg)',
-                    textAlign: 'center'
+                        : 'var(--text-xl)',
+                    fontWeight: isActive ? 'var(--weight-bold)' : 'var(--weight-medium)',
+                    lineHeight: '1.3',
+                    letterSpacing: isActive ? 'var(--tracking-3xl)' : 'var(--tracking-xl)',
+                    textAlign: isMobile ? 'center' : 'left',
+                    // На ПК активная строка не растёт в размере через scale — она и так крупнее кеглем,
+                    // а масштаб по левому краю уводил бы текст за край колонки.
+                    transformOrigin: 'left center'
                   }}
                 >
                   <span>{line.text || '•••'}</span>
@@ -824,6 +842,7 @@ export const KaraokeView: React.FC<KaraokeViewProps> = ({ className = '', onClos
             })}
           </div>
         )}
+      </div>
       </div>
 
       {isUserScrolled && lyrics?.synced && (

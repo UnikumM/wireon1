@@ -80,7 +80,7 @@ const PLAYLISTS = [
 ].map((playlist, i) => ({ ...playlist, createdAt: 1_700_000_000_000 + i, updatedAt: 1_700_000_000_000 + i, isSynced: true }));
 
 /** Экраны: разделы приложения и сцена плеера. */
-const SCREENS = ['search', 'home', 'library', 'foryou', 'settings', 'stage'];
+const SCREENS = ['search', 'home', 'library', 'foryou', 'settings', 'stage', 'lyrics'];
 
 const browser = await chromium.launch();
 let count = 0;
@@ -110,15 +110,21 @@ for (const [size, viewport] of Object.entries(SIZES)) {
       [TRACK, scheme === 'light' ? 'light' : 'night', LIBRARY, PLAYLISTS]
     );
     for (const name of SCREENS) {
-      await page.evaluate((view) => {
+      await page.evaluate(async ([view, t]) => {
         const ui = window.__wireon.useUIStore.getState();
         if (view === 'stage') ui.setFullscreenPlayerOpen(true);
-        else ui.setActiveView(view);
-      }, name);
+        else if (view === 'lyrics') {
+          // Текст без сети: кладём свой, синхронный, чтобы снимок показал подсветку строки.
+          const lines = ['Город гасит фонари один за другим', 'Мы идём туда, где тише', 'И не нужно никуда спешить', 'Свет в окне не гаснет до утра', 'Мы молчим, и это тоже слово', 'Холодный свет над головой', 'Он один остался со мной'];
+          await window.__wireon.lyricsService.setManualLyrics(t, { synced: true, manual: true, confidence: 'high', lines: lines.map((text, i) => ({ time: 60 + i * 8, text })) });
+          ui.setLyricsOpen(true);
+        } else ui.setActiveView(view);
+      }, [name, TRACK]);
       await page.waitForTimeout(900);
       await page.screenshot({ path: path.join(OUT, `${size}-${scheme}-${name}.png`) });
       count++;
       if (name === 'stage') await page.evaluate(() => window.__wireon.useUIStore.getState().setFullscreenPlayerOpen(false));
+      if (name === 'lyrics') await page.evaluate(() => window.__wireon.useUIStore.getState().setLyricsOpen(false));
     }
     if (errors.length) console.error(`[${size}/${scheme}] ошибки страницы:\n  ${errors.slice(0, 5).join('\n  ')}`);
     await ctx.close();

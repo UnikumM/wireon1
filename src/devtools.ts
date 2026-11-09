@@ -3,6 +3,7 @@ import { useUIStore } from './store/useUIStore';
 import { useLibraryStore } from './store/useLibraryStore';
 import { useThemeStore } from './store/useThemeStore';
 import { usePinnedStore } from './store/usePinnedStore';
+import * as lyricsService from './services/lyricsService';
 
 /**
  * Окно отладки — только в dev-сборке.
@@ -19,6 +20,7 @@ export function exposeDevtools(): void {
     useUIStore,
     useLibraryStore,
     useThemeStore,
-    usePinnedStore
+    usePinnedStore,
+    lyricsService
   };
 }
