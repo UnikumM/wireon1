@@ -8,6 +8,7 @@ import { useLibraryStore } from '../../src/store/useLibraryStore';
 import { useUIStore } from '../../src/store/useUIStore';
 import { addToHistory, clearAllData, savePlaylist } from '../../src/services/db';
 import * as db from '../../src/services/db';
+import { dateKey, formatDayLabel } from '../../src/services/listeningCalendar';
 import { streamResolver } from '../../src/services/streamResolver';
 import { UnifiedTrack, Playlist } from '../../src/types/music';
 import { resetPlayerStore, resetLibraryStore, resetUIStore } from '../helpers/testUtils';
@@ -307,5 +308,115 @@ describe('ForYouView (миксы дня и итоги)', () => {
     await waitFor(() => expect(screen.getByTestId('foryou-stats-empty')).toBeInTheDocument());
     expect(screen.queryByTestId('foryou-error')).not.toBeInTheDocument();
     expect(warn).toHaveBeenCalled();
+  });
+
+  /**
+   * Календарь прослушиваний.
+   *
+   * Дни берутся из ленты включений, поэтому включения подкладываются прямо в
+   * базу — в полдень нужного дня, чтобы не упереться в полночь по местному
+   * времени. Подписи сверяются через те же функции сервиса, что и на экране:
+   * тест не должен зависеть от часового пояса машины.
+   */
+  describe('календарь', () => {
+    /** Полдень местного времени `days` дней назад. */
+    function noonDaysAgo(days: number): number {
+      const date = new Date();
+      date.setDate(date.getDate() - days);
+      date.setHours(12, 0, 0, 0);
+      return date.getTime();
+    }
+
+    async function playedAt(t: UnifiedTrack, at: number): Promise<void> {
+      const existing = await db.db.history.get(t.id);
+      await db.db.history.put({
+        id: t.id,
+        track: t,
+        playedAt: Math.max(at, existing?.playedAt ?? 0),
+        playCount: (existing?.playCount ?? 0) + 1
+      });
+      await db.db.plays.add({ trackId: t.id, playedAt: at });
+    }
+
+    it('без истории раздел не рисуется', async () => {
+      render(<ForYouView />);
+
+      await waitFor(() => expect(screen.getByTestId('foryou-stats-empty')).toBeInTheDocument());
+      expect(screen.queryByTestId('history-calendar')).not.toBeInTheDocument();
+    });
+
+    it('клетка дня знает дату и число треков, сегодня выделено рамкой', async () => {
+      const twoDaysAgo = noonDaysAgo(2);
+      await playedAt(artistA[0], twoDaysAgo);
+      await playedAt(artistA[1], twoDaysAgo + 60_000);
+      await playedAt(artistB[0], noonDaysAgo(0));
+
+      render(<ForYouView />);
+
+      await waitFor(() => expect(screen.getByTestId('history-calendar')).toBeInTheDocument());
+
+      const key = dateKey(twoDaysAgo);
+      const cell = screen.getByTestId(`calendar-day-${key}`);
+      expect(cell).toHaveAttribute('aria-label', `${formatDayLabel(key)}: 2 трека`);
+      expect(cell).not.toBeDisabled();
+
+      const today = screen.getByTestId(`calendar-day-${dateKey(Date.now())}`);
+      expect(today).toHaveAttribute('data-today', 'true');
+      expect(today).toHaveAttribute('aria-label', `${formatDayLabel(dateKey(Date.now()))}: 1 трек`);
+
+      // Пустой день назван, но нажать его нельзя.
+      const emptyKey = dateKey(noonDaysAgo(1));
+      const empty = screen.getByTestId(`calendar-day-${emptyKey}`);
+      expect(empty).toBeDisabled();
+      expect(empty).toHaveAttribute('aria-label', `${formatDayLabel(emptyKey)}: ничего не играло`);
+    });
+
+    it('нажатие на день показывает его треки, «Слушать день» ставит их в очередь', async () => {
+      const at = noonDaysAgo(3);
+      await playedAt(artistA[0], at);
+      await playedAt(artistB[0], at + 60_000);
+
+      render(<ForYouView />);
+      await waitFor(() => expect(screen.getByTestId('history-calendar')).toBeInTheDocument());
+
+      expect(screen.queryByTestId('history-calendar-day')).not.toBeInTheDocument();
+
+      const cell = screen.getByTestId(`calendar-day-${dateKey(at)}`);
+      fireEvent.click(cell);
+
+      const day = await screen.findByTestId('history-calendar-day');
+      expect(cell).toHaveAttribute('aria-pressed', 'true');
+      expect(day).toHaveTextContent(formatDayLabel(dateKey(at)));
+      expect(day).toHaveTextContent(artistA[0].title);
+      expect(day).toHaveTextContent(artistB[0].title);
+
+      fireEvent.click(screen.getByTestId('history-calendar-play'));
+
+      await waitFor(() => expect(player().currentTrack?.id).toBe(artistA[0].id));
+      expect(player().sourceQueue.map((t) => t.id)).toEqual([artistA[0].id, artistB[0].id]);
+
+      // Повторное нажатие снимает выбор.
+      fireEvent.click(cell);
+      await waitFor(() => expect(screen.queryByTestId('history-calendar-day')).not.toBeInTheDocument());
+    });
+
+    it('пока лента включений моложе сетки, говорит, что часть дней — по последнему прослушиванию', async () => {
+      await playedAt(artistA[0], noonDaysAgo(1));
+
+      render(<ForYouView />);
+      await waitFor(() => expect(screen.getByTestId('history-calendar')).toBeInTheDocument());
+
+      expect(screen.getByTestId('history-calendar-approximate')).toBeInTheDocument();
+    });
+
+    it('когда события покрывают всю сетку, оговорки нет', async () => {
+      await playedAt(artistA[0], noonDaysAgo(90));
+      await playedAt(artistA[1], noonDaysAgo(1));
+
+      render(<ForYouView />);
+      await waitFor(() => expect(screen.getByTestId('history-calendar')).toBeInTheDocument());
+
+      expect(screen.queryByTestId('history-calendar-approximate')).not.toBeInTheDocument();
+    });
   });
 });

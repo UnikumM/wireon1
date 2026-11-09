@@ -6,6 +6,7 @@ import { Skeleton } from '../common/Skeleton';
 import { SourceBadge } from '../common/SourceBadge';
 import { TrackCard } from '../search/TrackCard';
 import { DailyMixCard } from './DailyMixCard';
+import { HistoryCalendar } from './HistoryCalendar';
 import { useUIStore } from '../../store/useUIStore';
 import { useLibraryStore } from '../../store/useLibraryStore';
 import {
@@ -18,6 +19,7 @@ import {
   PlayEventRecord
 } from '../../services/db';
 import { buildDailyMixes, dailyMixDateKey, DailyMix } from '../../services/dailyMixes';
+import { CALENDAR_WINDOW_MS, calendarWindowStart } from '../../services/listeningCalendar';
 import {
   buildPeriodStats,
   formatListeningTime,
@@ -89,9 +91,8 @@ function buildSummaryCards(stats: ListeningStats, period: StatsPeriod): SummaryC
  * прослушанного.
  *
  * Всё считается на месте из локальной истории — ни один счётчик отсюда никуда
- * не уходит. Из этого же следует и ограничение: база помнит по треку только
- * последнее включение и их число, поэтому графика «по дням» здесь нет и быть
- * не может.
+ * не уходит. Даты для календаря и окон берутся из ленты включений (`plays`):
+ * сама `history` помнит по треку только последнее включение и их число.
  */
 export const ForYouView: React.FC<ForYouViewProps> = ({ className = '' }) => {
   const favorites = useLibraryStore((s) => s.favorites);
@@ -135,9 +136,11 @@ export const ForYouView: React.FC<ForYouViewProps> = ({ className = '' }) => {
     setFailed(false);
     try {
       const readAt = Date.now();
+      // Окно событий — самое длинное из нужных: итоги режут его по периоду
+      // сами, а календарю нужны все двенадцать недель.
       const [history, windowEvents, firstEventAt] = await Promise.all([
         getHistory(HISTORY_DEPTH),
-        getPlayEvents(readAt - STATS_MAX_WINDOW_MS),
+        getPlayEvents(readAt - Math.max(STATS_MAX_WINDOW_MS, CALENDAR_WINDOW_MS)),
         getFirstPlayEventAt()
       ]);
 
@@ -593,6 +596,21 @@ export const ForYouView: React.FC<ForYouViewProps> = ({ className = '' }) => {
           </>
         )}
       </section>
+
+      {/*
+        * Календарь берёт те же записи, что и итоги: страницу истории с добором
+        * по событиям окна. Пометка «по последнему прослушиванию» ставится,
+        * когда лента включений моложе сетки — тогда часть дней посчитана не по
+        * событиям, а по `playedAt`, и об этом полагается сказать.
+        */}
+      {!isLoading && hasHistory && records && (
+        <HistoryCalendar
+          records={windowRecords.length > 0 ? [...records, ...windowRecords] : records}
+          events={events}
+          now={now}
+          approximate={eventsSince === null || eventsSince > calendarWindowStart(now)}
+        />
+      )}
     </div>
   );
 };

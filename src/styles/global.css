@@ -4398,3 +4398,95 @@ h2 {
   text-shadow: var(--text-shadow-sm);
   user-select: none;
 }
+
+/* --- Папки плейлистов (4.0, фича 09) -----------------------------------------
+ *
+ * Ряд папок над сеткой плейлистов. На ПК — сетка карточек, на телефоне — одна
+ * полка с прокруткой вбок (`-compact`): две карточки в ряд на 360 px давали
+ * лишний этаж до первого плейлиста.
+ */
+.folder-shelf {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+  gap: var(--space-4);
+}
+
+.folder-shelf-compact {
+  display: flex;
+  gap: var(--space-3);
+  overflow-x: auto;
+  margin: 0 calc(var(--mobile-content-pad, var(--space-4)) * -1);
+  padding: var(--space-1) var(--mobile-content-pad, var(--space-4));
+}
+
+.folder-shelf-compact > .folder-card {
+  width: 132px;
+}
+
+/* Карточка — кнопка: сброс родного вида даёт `.card-reset`, фон и наведение — `.card-interactive`. */
+.folder-card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  padding: var(--space-3);
+  text-align: left;
+  cursor: pointer;
+  min-width: 0;
+}
+
+/* Четыре мини-обложки 2×2 — как у папки на рабочем столе: видно, что внутри. */
+.folder-card-art {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space-1);
+  aspect-ratio: 1;
+  padding: var(--space-2);
+  margin-bottom: var(--space-2);
+  border-radius: var(--radius-md);
+  background: var(--surface-3);
+}
+
+.folder-card-slot {
+  aspect-ratio: 1;
+  border-radius: var(--radius-sm);
+  background: var(--surface-2);
+}
+
+.folder-card-title {
+  font-size: var(--text-base);
+  line-height: var(--leading-base);
+  font-weight: var(--weight-semibold);
+  color: var(--text-primary);
+}
+
+.folder-card-count {
+  font-size: var(--text-xs);
+  line-height: var(--leading-xs);
+  color: var(--text-muted);
+}
+
+/* Меню «В папку…»: панель в портале, положение приходит инлайном из замера кнопки. */
+.folder-menu {
+  position: fixed;
+  padding: var(--space-1);
+  min-width: 220px;
+  max-height: 320px;
+  overflow-y: auto;
+  z-index: var(--z-menu);
+}
+
+/* Телефон: кнопка «в папку» в углу обложки — у карточки обложки другого места для действий нет. */
+.folder-pick-btn {
+  position: absolute;
+  top: var(--space-2);
+  right: var(--space-2);
+  z-index: 1;
+  display: grid;
+  place-items: center;
+  width: var(--control-md);
+  height: var(--control-md);
+  border-radius: var(--radius-full);
+  background: var(--scrim);
+  /* Белый с прозрачностью, как буква заглушки обложки: на затемнении токен текста темы не читается. */
+  color: rgb(255 255 255 / 0.9);
+}
