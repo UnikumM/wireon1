@@ -1,6 +1,7 @@
 import type React from 'react';
 import type { UnifiedTrack } from '../../../types/music';
 import type { TrackActions } from './useTrackActions';
+import type { HoverPreviewHandle } from '../../../hooks/useHoverPreview';
 
 export interface TrackCardProps {
   track: UnifiedTrack;
@@ -42,6 +43,8 @@ export interface TrackCardViewProps {
   /** Наведение готовит ссылку заранее — см. `useIntentPrefetch`. */
   onIntentStart: () => void;
   onIntentEnd: () => void;
+  /** Превью по наведению на обложку — см. `useHoverPreview`; вид отдаёт его `TrackArtwork`. */
+  preview: HoverPreviewHandle;
   actions: TrackActions;
   /** Кнопка «Слушать» поверх обложки (`TrackPlayOverlay`). */
   playOverlay: React.ReactNode;

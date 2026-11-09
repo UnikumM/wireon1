@@ -2,6 +2,8 @@ import React from 'react';
 import { Music2 } from 'lucide-react';
 import { UnifiedTrack } from '../../../types/music';
 import { ICON } from '../../../styles/icons';
+import type { HoverPreviewHandle } from '../../../hooks/useHoverPreview';
+import { TrackPreviewRing } from './TrackPreviewRing';
 
 export interface TrackArtworkProps {
   track: UnifiedTrack;
@@ -9,6 +11,8 @@ export interface TrackArtworkProps {
   radius: string;
   failed: boolean;
   onFailed: () => void;
+  /** Превью по наведению (`useHoverPreview`); без него обложка просто картинка. */
+  preview?: HoverPreviewHandle;
   children?: React.ReactNode;
 }
 
@@ -18,10 +22,18 @@ export interface TrackArtworkProps {
  *
  * Размер и скругление — из пропов, поэтому они и остаются инлайном: это
  * данные вызывающего, а не оформление.
+ *
+ * Наведение для превью слушает сама обложка, а не вся карточка: превью —
+ * подсказка «что это за запись», и запускаться оно должно от жеста «смотрю на
+ * обложку», а не от любого прохода курсора по строке к кнопке «ещё».
  */
-export const TrackArtwork: React.FC<TrackArtworkProps> = ({ track, size, radius, failed, onFailed, children }) => (
+export const TrackArtwork: React.FC<TrackArtworkProps> = ({ track, size, radius, failed, onFailed, preview, children }) => (
   <div
     className="relative shrink-0 overflow-hidden row justify-center bg-sunken border-subtle" style={{ width: size, height: size, borderRadius: radius }}
+    onPointerEnter={preview?.onPointerEnter}
+    onPointerLeave={preview?.onPointerLeave}
+    data-previewing={preview?.isPreviewing ? 'true' : undefined}
+    data-testid={`track-cover-${track.id}`}
   >
     {failed || !track.artworkUrl ? (
       // Размер по шкале, а не 40% от плитки.
@@ -46,5 +58,6 @@ export const TrackArtwork: React.FC<TrackArtworkProps> = ({ track, size, radius,
       />
     )}
     {children}
+    {preview?.isPreviewing && <TrackPreviewRing progress={preview.progress} size={size} />}
   </div>
 );

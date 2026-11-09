@@ -15,6 +15,7 @@ export const TrackCardGrid: React.FC<TrackCardViewProps> = ({
   onArtworkFailed,
   onIntentStart,
   onIntentEnd,
+  preview,
   actions,
   playOverlay,
   contextMenu,
@@ -33,6 +34,7 @@ export const TrackCardGrid: React.FC<TrackCardViewProps> = ({
       radius="var(--radius-sm)"
       failed={artworkFailed}
       onFailed={onArtworkFailed}
+      preview={preview}
     >
       {playOverlay}
     </TrackArtwork>

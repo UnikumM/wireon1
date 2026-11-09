@@ -35,6 +35,7 @@ export const TrackCardRow: React.FC<TrackCardRowProps> = ({
   onArtworkFailed,
   onIntentStart,
   onIntentEnd,
+  preview,
   actions,
   contextMenu,
 }) => {
@@ -113,6 +114,7 @@ export const TrackCardRow: React.FC<TrackCardRowProps> = ({
         radius="var(--radius-xs)"
         failed={artworkFailed}
         onFailed={onArtworkFailed}
+        preview={preview}
       />
 
       <div className="grow stack gap-px">

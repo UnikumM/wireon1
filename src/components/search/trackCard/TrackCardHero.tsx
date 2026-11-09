@@ -24,6 +24,7 @@ export const TrackCardHero: React.FC<TrackCardHeroProps> = ({
   onArtworkFailed,
   onIntentStart,
   onIntentEnd,
+  preview,
   actions,
   playOverlay,
   contextMenu,
@@ -53,6 +54,7 @@ export const TrackCardHero: React.FC<TrackCardHeroProps> = ({
       radius="var(--radius-md)"
       failed={artworkFailed}
       onFailed={onArtworkFailed}
+      preview={preview}
     >
       {playOverlay}
     </TrackArtwork>

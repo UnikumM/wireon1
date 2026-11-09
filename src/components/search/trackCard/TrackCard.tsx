@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { useUIStore } from '../../../store/useUIStore';
 import { useMobileShell } from '../../../hooks/useMobileShell';
 import { useIntentPrefetch, warmTrack } from '../../../hooks/useIntentPrefetch';
+import { useHoverPreview } from '../../../hooks/useHoverPreview';
 import { useAddToPlaylist } from '../../library/AddToPlaylistModal';
 import { useTrackMenu } from './useTrackMenu';
 import { useTrackActions } from './useTrackActions';
@@ -47,6 +48,9 @@ export const TrackCard: React.FC<TrackCardProps> = ({
   const isMobileShell = useMobileShell();
   // Навёл курсор — ссылка начинает готовиться, к щелчку трек почти готов.
   const { onIntentStart, onIntentEnd } = useIntentPrefetch(track, !isMobileShell);
+  // Задержался на обложке — десять секунд с середины записи (`previewPlayer`).
+  // На телефоне не включается вовсе: там долгое нажатие уже открывает действия.
+  const preview = useHoverPreview(track, !isMobileShell);
 
   // «Лучшее совпадение» — самый вероятный щелчок: его готовим сразу.
   useEffect(() => {
@@ -97,6 +101,7 @@ export const TrackCard: React.FC<TrackCardProps> = ({
     onArtworkFailed: () => setArtworkFailed(true),
     onIntentStart,
     onIntentEnd,
+    preview,
     actions,
     playOverlay,
     contextMenu,
