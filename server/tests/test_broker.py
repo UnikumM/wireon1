@@ -154,6 +154,26 @@ class TestDelivery:
         a.feed(client_publish("wireon/room/AAAA", "x"))
         assert drain(b_queue) == []
 
+    def test_wildcard_subscriptions_are_refused(self):
+        """Токен один на всех, поэтому `wireon/lib/#` открыл бы чужие медиатеки — брокер отказывает."""
+        broker = Broker()
+        a, a_queue = make_handler(broker)
+        spy, spy_queue = make_handler(broker)
+        a.feed(client_connect("a") + client_subscribe("wireon/lib/abc", 1))
+        spy.feed(client_connect("spy"))
+        drain(a_queue)
+        drain(spy_queue)
+        spy.feed(client_subscribe("wireon/lib/#", 7) + client_subscribe("wireon/+/abc", 8))
+        acks = [p for p in drain(spy_queue) if p.type == mqtt.SUBACK]
+        assert len(acks) == 2  # ответ есть на каждый запрос, но подписки не появилось
+        assert broker.clients["spy"].subscriptions == set()
+        a.feed(client_publish("wireon/lib/abc", "secret", retain=True))
+        assert drain(spy_queue) == []
+        # Точная тема по-прежнему работает.
+        spy.feed(client_subscribe("wireon/lib/abc", 9))
+        packets = drain(spy_queue)
+        assert any(p.type == mqtt.PUBLISH and p.payload == b"secret" for p in packets)
+
     def test_suback_answers_every_subscribe(self):
         broker = Broker()
         a, a_queue = make_handler(broker)

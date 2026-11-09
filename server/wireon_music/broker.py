@@ -148,6 +148,13 @@ class Broker:
             if len(client.subscriptions) >= MAX_SUBSCRIPTIONS_PER_CLIENT:
                 granted.append(0x80)  # отказ по этому фильтру
                 continue
+            if "#" in topic or "+" in topic:
+                # Маски запрещены: токен приложения общий на всех, и подписка
+                # `wireon/lib/#` показала бы чужие медиатеки и «что играет» у
+                # каждого. Темы у нас всегда точные, маска нужна только чужому.
+                logger.info("refusing wildcard subscription %r from %s", topic, client.client_id)
+                granted.append(0x80)
+                continue
             client.subscriptions.add(topic)
             granted.append(0)
             for retained_topic, payload in self.retained.items():
