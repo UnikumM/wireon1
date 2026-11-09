@@ -62,10 +62,20 @@ Electron + TS, лицензия некоммерческая — код не б�
 
 ## Аудит багов перед выпуском (копить сюда)
 
-- [ ] Linux: мини-плеер открывается, но окно нельзя перетащить (`MiniWindow`,
-      `-webkit-app-region`, `electron/main.ts` — frameless-окно на Linux).
-- [ ] Linux: автообновление, похоже, не работает (`electron/updater.ts`,
-      AppImage, `APPIMAGE` env, latest-linux.yml в релизе).
+- [x] Linux: мини-плеер не перетаскивался. Причина: `setIgnoreMouseEvents(forward)`,
+      `screen.getCursorScreenPoint()` и `setBounds` на Linux/Wayland не работают или
+      работают наполовину. Исправлено (сессия 1): на Linux окно ловит мышь само, двигает
+      его компоситор через `-webkit-app-region: drag` (`mini.css`, `[data-platform='linux']`),
+      ручной перенос и опрос курсора выключены (`isLinux()` в `main.ts`). Проверить
+      владельцу: перетаскивание на Wayland и X11, наведение и кнопки в мини-окне.
+- [x] Linux: автообновление «вроде не работает». Причина: без `APPIMAGE` в окружении
+      (распакованная копия, `linux-unpacked`, песочница) electron-updater отвечает на
+      проверку `null` без событий, статус висел на «проверяется само». Исправлено: честное
+      «нечему обновляться» (`describeUpdateSupport`), страховка от тихого `null` в `runCheck`,
+      человеческий текст для ошибки про APPIMAGE. Проверить владельцу: Настройки → О
+      программе, запустить сам файл `.AppImage`; `./Wireon-*.AppImage 2>&1 | grep -i updater`.
+      Имена артефактов в latest-linux.yml совпадают, 3.2.0 — последняя версия, так что
+      ответ «установлена последняя» сейчас и есть норма.
 - [ ] Проверить все пути воспроизведения после объединения плеера: ПК, APK,
       узкое окно.
 - [ ] Полный `npm run verify` и `cd server && pytest` перед `publish=true`.

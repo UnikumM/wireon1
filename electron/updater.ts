@@ -83,6 +83,12 @@ export interface UpdateEnvironment {
   feedUrl?: string | null;
   /** Отдельно, чтобы тест не трогал диск. */
   fileExists?: (file: string) => boolean;
+  /** `process.platform`; нужен, чтобы отличить Linux. */
+  platform?: string;
+  /** Путь к запущенной AppImage (`APPIMAGE`), `null` — запущено не как AppImage. */
+  appImagePath?: string | null;
+  /** Сборка из Snap: обновляется сам Snap, а не мы. */
+  snap?: boolean;
 }
 
 /**
@@ -105,6 +111,22 @@ export function describeUpdateSupport(env: UpdateEnvironment): UpdateSupport {
     return {
       supported: false,
       reason: 'Портативная версия не обновляется сама — для автообновлений нужна установленная.'
+    };
+  }
+
+  /*
+   * Linux обновляется только как AppImage, и только если запущен сам файл.
+   * Без `APPIMAGE` в окружении (распакованная копия, `linux-unpacked`,
+   * песочница, стирающая переменные) electron-updater молча отвечает `null`
+   * на проверку — ни события, ни ошибки, — и настройки показывали бы
+   * «проверяется само» вечно. Лучше честное «нечему обновляться».
+   */
+  if (env.platform === 'linux' && !env.appImagePath) {
+    return {
+      supported: false,
+      reason: env.snap
+        ? 'Сборка из Snap обновляется через Snap, а не из приложения.'
+        : 'Запущена распакованная копия, а не файл .AppImage — обновляться нечему. Запустите сам файл Wireon-<версия>.AppImage.'
     };
   }
 
@@ -146,6 +168,9 @@ export function humanizeUpdateError(err: unknown): string {
   }
   if (/EPERM|EACCES|permission/i.test(text)) {
     return 'Не хватило прав, чтобы установить обновление.';
+  }
+  if (/APPIMAGE env is not defined|ERR_UPDATER_OLD_FILE_NOT_FOUND|not an AppImage/i.test(text)) {
+    return 'Приложение запущено не как файл .AppImage — обновляться нечему.';
   }
 
   return `Обновление не удалось: ${text}`;
@@ -328,7 +353,20 @@ export class UpdateService {
 
   private async runCheck(updater: UpdaterLike): Promise<UpdateState> {
     try {
-      await updater.checkForUpdates();
+      const result = await updater.checkForUpdates();
+      /*
+       * `null` без единого события — так electron-updater отвечает, когда
+       * считает себя выключенным (AppImage без `APPIMAGE`, и любой будущий
+       * такой случай). Статус нельзя оставлять «проверяем»/«ещё не спрашивали»:
+       * кнопка в настройках крутилась бы вечно, а человек решал бы, что
+       * обновлений просто нет.
+       */
+      if (result == null && (this.state.status === 'checking' || this.state.status === 'idle')) {
+        this.set({
+          status: 'error',
+          message: 'Модуль обновлений отказался проверять — приложение запущено не как AppImage?'
+        });
+      }
     } catch (err) {
       // Обычно всё уже сказало событие 'error'. Но если его не было, статус
       // нельзя оставлять на «проверяем» — иначе настройки замрут навсегда.
@@ -552,11 +590,18 @@ export interface CreateUpdateServiceOptions {
 export function createUpdateService(options: CreateUpdateServiceOptions): UpdateService {
   const currentVersion = readAppVersion();
   const feedUrl = readFeedUrl();
+  const appImagePath =
+    process.platform === 'linux' && process.env.APPIMAGE && path.isAbsolute(process.env.APPIMAGE)
+      ? process.env.APPIMAGE
+      : null;
   const support = describeUpdateSupport({
     isPackaged: readIsPackaged(),
     portableDir: process.env.PORTABLE_EXECUTABLE_DIR || null,
     configPath: updateConfigPath(),
-    feedUrl
+    feedUrl,
+    platform: process.platform,
+    appImagePath,
+    snap: Boolean(process.env.SNAP)
   });
 
   if (!support.supported) {
@@ -585,11 +630,6 @@ export function createUpdateService(options: CreateUpdateServiceOptions): Update
       console.warn('[Updater] Could not apply WIREON_UPDATE_URL:', err);
     }
   }
-
-  const appImagePath =
-    process.platform === 'linux' && process.env.APPIMAGE && path.isAbsolute(process.env.APPIMAGE)
-      ? process.env.APPIMAGE
-      : null;
 
   return new UpdateService({ updater, currentVersion, support, broadcast: options.broadcast, appImagePath });
 }

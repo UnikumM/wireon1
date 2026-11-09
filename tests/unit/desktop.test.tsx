@@ -45,6 +45,13 @@ const {
       focus: vi.fn(),
       loadURL: vi.fn(),
       loadFile: vi.fn(),
+      // Мини-окно: поверх всех окон, на всех рабочих столах, пропуск кликов.
+      setAlwaysOnTop: vi.fn(),
+      setVisibleOnAllWorkspaces: vi.fn(),
+      setIgnoreMouseEvents: vi.fn(),
+      getBounds: vi.fn().mockReturnValue({ x: 0, y: 0, width: 372, height: 188 }),
+      setBounds: vi.fn(),
+      setPosition: vi.fn(),
       once: vi.fn((event: string, cb: Function) => {
         windowListeners[event] = cb;
       }),
@@ -180,6 +187,8 @@ import {
   buildContentSecurityPolicy,
   buildLoadErrorPage,
   createWindow,
+  createMiniWindow,
+  isLinux,
   deliverDeepLink,
   extractDeepLinkUrl,
   extractCommandLineAction,
@@ -1238,6 +1247,35 @@ describe('Milestone 5: Desktop Packaging & Electron Integration Test Suite', () 
         '*://yt.drgnz.club/*',
         '*://*.invidious.io/*',
       ].forEach((pattern) => expect(targetUrls).toContain(pattern));
+    });
+
+    it('на Linux мини-окно не пропускает клики насквозь — его двигает компоситор', () => {
+      // `setIgnoreMouseEvents(…, { forward })` на Linux не поддерживается: под
+      // X11 окно глохнет к мыши целиком, под Wayland вызов пуст. Там окно
+      // ловит мышь само, а перетаскивание отдано app-region (mini.css).
+      const platform = Object.getOwnPropertyDescriptor(process, 'platform')!;
+      const withPlatform = (value: string, run: () => void) => {
+        Object.defineProperty(process, 'platform', { value, configurable: true });
+        try {
+          run();
+        } finally {
+          Object.defineProperty(process, 'platform', platform);
+        }
+      };
+
+      withPlatform('linux', () => {
+        expect(isLinux()).toBe(true);
+        const win = createMiniWindow() as unknown as { setIgnoreMouseEvents: ReturnType<typeof vi.fn>; windowListeners: Record<string, Function> };
+        expect(win.setIgnoreMouseEvents).not.toHaveBeenCalled();
+        win.windowListeners['closed']?.();
+      });
+
+      withPlatform('win32', () => {
+        expect(isLinux()).toBe(false);
+        const win = createMiniWindow() as unknown as { setIgnoreMouseEvents: ReturnType<typeof vi.fn>; windowListeners: Record<string, Function> };
+        expect(win.setIgnoreMouseEvents).toHaveBeenCalledWith(true, { forward: true });
+        win.windowListeners['closed']?.();
+      });
     });
 
     it('курсор над фигурой считается по её месту в окне, а не по всему окну', () => {

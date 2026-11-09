@@ -614,6 +614,9 @@ export const MiniWindow: React.FC = () => {
     setExpanded(true);
   }, []);
 
+  // Платформа за время жизни окна не меняется; `unknown` — вне Electron (тесты в браузере).
+  const platform = window.electronAPI?.getPlatform?.() ?? 'unknown';
+
   const handleLeave = useCallback(() => {
     if (draggingRef.current) return;
     collapseTimer.current = window.setTimeout(() => {
@@ -657,6 +660,10 @@ export const MiniWindow: React.FC = () => {
     if (event.button !== 0) return;
     const target = event.target as HTMLElement;
     if (target.closest('button, input')) return;
+    // На Linux окно двигает компоситор через `-webkit-app-region: drag`
+    // (mini.css, [data-platform='linux']): ручной перенос через главный процесс
+    // там не работает — `setBounds` на Wayland не двигает окно вовсе.
+    if (platform === 'linux') return;
     draggingRef.current = true;
     event.currentTarget.setPointerCapture?.(event.pointerId);
     window.electronAPI?.miniDragStart?.();
@@ -703,6 +710,7 @@ export const MiniWindow: React.FC = () => {
       }
       data-mini-skin={skinId}
       data-mini-form={formId}
+      data-platform={platform}
       data-playing={state.isPlaying ? 'true' : 'false'}
       data-testid="mini-window"
     >

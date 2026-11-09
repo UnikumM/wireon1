@@ -418,11 +418,18 @@ describe('Автообновление: каналы IPC', () => {
 describe('Автообновление: сборка сервиса под текущую сборку приложения', () => {
   let logs: Array<{ mockRestore: () => void }> = [];
 
+  let previousAppImage: string | undefined;
+
   beforeEach(() => {
     logs = [
       vi.spyOn(console, 'info').mockImplementation(() => {}),
       vi.spyOn(console, 'warn').mockImplementation(() => {})
     ];
+    // Эти тесты — про Windows-путь сборки сервиса. На Linux-машине без
+    // `APPIMAGE` сервис теперь честно отвечает «нечему обновляться», поэтому
+    // здесь изображаем запущенный файл AppImage; на Windows переменная не читается.
+    previousAppImage = process.env.APPIMAGE;
+    process.env.APPIMAGE = '/home/u/Wireon-1.2.3.AppImage';
   });
 
   afterEach(() => {
@@ -430,6 +437,8 @@ describe('Автообновление: сборка сервиса под те�
     electronMock.app.isPackaged = false;
     delete process.env.WIREON_UPDATE_URL;
     delete process.env.PORTABLE_EXECUTABLE_DIR;
+    if (previousAppImage === undefined) delete process.env.APPIMAGE;
+    else process.env.APPIMAGE = previousAppImage;
   });
 
   it('в dev-режиме модуль обновлений даже не загружается', () => {
@@ -587,5 +596,64 @@ describe('3.0.1: перезапуск после обновления на Linux
     expect(
       relaunchArgs(['/x/wireon', '--next', '--remote-debugging-port=9222', 'wireon://auth?code=1', '--no-sandbox'])
     ).toEqual(['--no-sandbox']);
+  });
+});
+
+describe('Автообновление на Linux (4.0)', () => {
+  const linuxEnv = { isPackaged: true, feedUrl: 'https://example.test/updates', platform: 'linux' };
+
+  it('без APPIMAGE в окружении честно говорит, что обновляться нечему', () => {
+    // electron-updater в этом случае отвечает на проверку `null` без единого
+    // события — настройки показывали бы «проверяется само» вечно.
+    const support = describeUpdateSupport({ ...linuxEnv, appImagePath: null });
+    expect(support.supported).toBe(false);
+    expect(support.supported === false && support.reason).toMatch(/AppImage/);
+  });
+
+  it('сборка из Snap отсылает к Snap', () => {
+    const support = describeUpdateSupport({ ...linuxEnv, appImagePath: null, snap: true });
+    expect(support.supported === false && support.reason).toMatch(/Snap/);
+  });
+
+  it('запущенный файл AppImage обновляется, Windows без AppImage — тоже', () => {
+    expect(describeUpdateSupport({ ...linuxEnv, appImagePath: '/home/u/Wireon-3.2.0.AppImage' })).toEqual({ supported: true });
+    expect(describeUpdateSupport({ ...linuxEnv, platform: 'win32', appImagePath: null })).toEqual({ supported: true });
+  });
+
+  it('createUpdateService на Linux без APPIMAGE не грузит модуль и объясняет почему', () => {
+    const platform = Object.getOwnPropertyDescriptor(process, 'platform')!;
+    Object.defineProperty(process, 'platform', { value: 'linux', configurable: true });
+    const previous = process.env.APPIMAGE;
+    delete process.env.APPIMAGE;
+    electronMock.app.isPackaged = true;
+    process.env.WIREON_UPDATE_URL = 'https://example.test/updates';
+    try {
+      const load = vi.fn();
+      const service = createUpdateService({ broadcast: () => {}, loadUpdater: load });
+      expect(load).not.toHaveBeenCalled();
+      expect(service.getState().status).toBe('unsupported');
+      expect(service.getState().message).toMatch(/AppImage/);
+    } finally {
+      Object.defineProperty(process, 'platform', platform);
+      if (previous === undefined) delete process.env.APPIMAGE;
+      else process.env.APPIMAGE = previous;
+      delete process.env.WIREON_UPDATE_URL;
+      electronMock.app.isPackaged = false;
+    }
+  });
+
+  it('тихий null от checkForUpdates не оставляет статус «проверяем»', async () => {
+    const updater = makeUpdater();
+    updater.checkForUpdates = vi.fn(async () => null);
+    const { service } = makeService(updater);
+    const state = await service.check();
+    expect(state.status).toBe('error');
+    expect(state.message).toMatch(/AppImage/);
+  });
+
+  it('ошибка electron-updater про APPIMAGE переводится на человеческий', () => {
+    expect(humanizeUpdateError(new Error('APPIMAGE env is not defined, current application is not an AppImage'))).toMatch(
+      /не как файл \.AppImage/
+    );
   });
 });

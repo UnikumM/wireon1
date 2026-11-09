@@ -189,6 +189,21 @@ html[data-mini-window] #root::after {
   user-select: none;
 }
 
+/*
+ * Linux: окно двигает компоситор. `setBounds` на Wayland не двигает окно, а
+ * опрос курсора главным процессом там недостоверен (см. isLinux() в main.ts),
+ * поэтому фигура объявлена областью перетаскивания, а всё, что нажимается, —
+ * исключено из неё. На Windows этого нет намеренно: там область перетаскивания
+ * глотает наведение, на котором держится раскрытие «Острова».
+ */
+[data-platform='linux'] .mini-shape {
+  -webkit-app-region: drag;
+}
+
+[data-platform='linux'] .mini-shape :is(button, input, a, [role='slider'], [role='button']) {
+  -webkit-app-region: no-drag;
+}
+
 .mini-shape {
   position: relative;
   overflow: hidden;

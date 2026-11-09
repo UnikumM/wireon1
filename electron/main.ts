@@ -114,6 +114,22 @@ export function extractCommandLineAction(argv: ReadonlyArray<string>): MediaKeyA
 }
 
 /** Linux под Wayland — там глобальные сочетания живут по своим правилам. */
+/**
+ * Linux — и X11, и Wayland. Функция, а не константа: тесты подменяют платформу.
+ *
+ * Мини-плеер на Linux живёт иначе, чем на Windows. Три вызова, на которых
+ * держится его поведение там, здесь не работают или работают наполовину:
+ * `setIgnoreMouseEvents(…, { forward })` — только macOS/Windows (на X11 окно
+ * становится глухим к мыши целиком, на Wayland вызов пуст), `screen.getCursorScreenPoint()`
+ * под Wayland не поддерживается, а под XWayland обновляется только над X-окном,
+ * `setBounds`/`setPosition` на Wayland окно не двигают. Отсюда симптом «окно
+ * открылось, но не перетаскивается». На Linux окно всегда ловит мышь, а двигает
+ * его компоситор через `-webkit-app-region: drag` (mini.css).
+ */
+export function isLinux(platform: string = process.platform): boolean {
+  return platform === 'linux';
+}
+
 export function isWaylandSession(env: NodeJS.ProcessEnv = process.env, platform: string = process.platform): boolean {
   if (platform !== 'linux') return false;
   return (env.XDG_SESSION_TYPE || '').toLowerCase() === 'wayland' || Boolean(env.WAYLAND_DISPLAY);
@@ -1221,12 +1237,15 @@ export function setupIpcHandlers(
   ipc.on('mini-drag-start', (event) => {
     const mini = getMiniWindow();
     if (!mini || event.sender !== mini.webContents) return;
+    // На Linux окно двигает компоситор (app-region), а не мы: см. isLinux().
+    if (isLinux()) return;
     startMiniDrag(mini);
   });
 
   ipc.on('mini-drag-end', (event) => {
     const mini = getMiniWindow();
     if (!mini || event.sender !== mini.webContents) return;
+    if (isLinux()) return;
     stopMiniDrag(mini);
   });
 
@@ -1904,7 +1923,9 @@ export function createMiniWindow(): BrowserWindow {
   win.setAlwaysOnTop(true, 'screen-saver');
   win.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true });
   // Пока курсор не вошёл в фигуру, прозрачное поле не перехватывает клики.
-  win.setIgnoreMouseEvents(true, { forward: true });
+  // На Linux — нет: см. isLinux(); окно там ловит мышь целиком, поле вокруг
+  // фигуры в несколько пикселей становится кликабельным, и это приемлемо.
+  if (!isLinux()) win.setIgnoreMouseEvents(true, { forward: true });
 
   win.once('ready-to-show', () => {
     if (!win.isDestroyed()) win.show();
@@ -2044,6 +2065,9 @@ export function cursorOverShape(
 
 function setMiniShapeRect(win: BrowserWindow, rect: Rect): void {
   miniShapeRect = rect;
+  // На Linux опрос курсора недостоверен (см. isLinux()), а наведение окно
+  // получает само — оно не пропускает клики насквозь.
+  if (isLinux()) return;
   if (miniHoverTimer) return;
   miniHoverTimer = setInterval(() => {
     const mini = getMiniWindow();

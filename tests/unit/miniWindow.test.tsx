@@ -456,3 +456,42 @@ describe('Отдельное окно мини-плеера', () => {
     });
   });
 });
+
+describe('Мини-окно на Linux: окно двигает компоситор', () => {
+  let bridge: ReturnType<typeof installBridge>;
+
+  beforeEach(() => {
+    bridge = installBridge();
+    usePlayerStore.setState({ currentTrack: track, isPlaying: false, duration: 200, currentTime: 10 });
+  });
+
+  afterEach(() => {
+    cleanup();
+    bridge.restore();
+  });
+
+  function renderOn(platform: string) {
+    const miniDragStart = vi.fn();
+    Object.assign(bridge.api, { getPlatform: () => platform, miniDragStart, miniDragEnd: vi.fn() });
+    render(<MiniWindow />);
+    const root = screen.getByTestId('mini-window');
+    const shape = root.querySelector('.mini-shape') as HTMLElement;
+    return { root, shape, miniDragStart };
+  }
+
+  it('на Linux ручное перетаскивание через главный процесс не запускается', () => {
+    // `setBounds` на Wayland окно не двигает, а опрос курсора недостоверен:
+    // перетаскивание отдано `-webkit-app-region: drag` (mini.css).
+    const { root, shape, miniDragStart } = renderOn('linux');
+    expect(root).toHaveAttribute('data-platform', 'linux');
+    fireEvent.pointerDown(shape, { button: 0, pointerId: 1 });
+    expect(miniDragStart).not.toHaveBeenCalled();
+  });
+
+  it('на Windows перетаскивание по-прежнему ведёт главный процесс', () => {
+    const { root, shape, miniDragStart } = renderOn('win32');
+    expect(root).toHaveAttribute('data-platform', 'win32');
+    fireEvent.pointerDown(shape, { button: 0, pointerId: 1 });
+    expect(miniDragStart).toHaveBeenCalledTimes(1);
+  });
+});
