@@ -3,6 +3,17 @@ import { UnifiedTrack, RepeatMode, EqSettings } from '../types/music';
 import { VisualizerPreset } from '../types/visualizer';
 import { PlayerStore, PlayerStoreState, QueueMode, WaveMood, WaveConfig, WaveSeedKind } from '../types/store';
 import { setAudioProcessingEnabled } from '../services/audioProcessing';
+import {
+  EqProfile,
+  OutputDevice,
+  EqDeviceSupport,
+  sanitizeEqProfiles,
+  cleanEqProfileName,
+  newEqProfileId,
+  profileForDevice,
+  sameEq,
+  subscribeOutputDevice
+} from '../services/eqProfiles';
 import { detectPlatform } from '../services/nativeBridge';
 import { audioEngine, MIN_PLAYBACK_RATE, MAX_PLAYBACK_RATE } from '../services/audioEngine';
 import { MediaSessionService } from '../services/mediaSession';
@@ -44,6 +55,8 @@ export const PLAYER_SETTING_KEYS = {
   visualizerPreset: 'visualizerPreset',
   autoplayRadio: 'autoplayRadio',
   eq: 'eq',
+  eqProfiles: 'eqProfiles',
+  activeEqProfileId: 'activeEqProfileId',
   mediaKeysEnabled: 'mediaKeysEnabled',
   crossfadeEnabled: 'crossfadeEnabled',
   crossfadeDuration: 'crossfadeDuration',
@@ -436,6 +449,21 @@ function normalizeEq(value: unknown, fallback: EqSettings): EqSettings {
     mid: clampGainDb(partial.mid, fallback.mid),
     treble: clampGainDb(partial.treble, fallback.treble)
   };
+}
+
+/**
+ * Подписка на устройство вывода — одна на приложение.
+ *
+ * Заводится после загрузки настроек, когда профили уже известны, и живёт до
+ * остановки плеера. Хранится вне стора: это не состояние, а ручка.
+ */
+let stopEqDeviceWatch: (() => void) | null = null;
+
+function startEqDeviceWatch(): void {
+  if (stopEqDeviceWatch) return;
+  stopEqDeviceWatch = subscribeOutputDevice((device, support) => {
+    usePlayerStore.getState().noteEqOutputDevice(device, support);
+  });
 }
 
 function finiteDuration(value: number | undefined): number {
@@ -850,6 +878,10 @@ export const usePlayerStore = create<PlayerStore>((set, get) => {
     sleepAtTrackEnd: false,
     autoplayRadio: false,
     eq: { bass: 0, mid: 0, treble: 0 },
+    eqProfiles: [],
+    activeEqProfileId: null,
+    eqOutputDevice: null,
+    eqDeviceSupport: 'unknown',
     crossfadeEnabled: false,
     crossfadeDuration: 3,
     loudnessNormalization: false,
@@ -1783,7 +1815,9 @@ export const usePlayerStore = create<PlayerStore>((set, get) => {
             lastQueue,
             audioBalance,
             audioMono,
-            softResume
+            softResume,
+            eqProfilesRaw,
+            activeEqProfileRaw
           ] = await Promise.all([
             dbService.getSetting<number>(PLAYER_SETTING_KEYS.volume, current.volume),
             dbService.getSetting<boolean>(PLAYER_SETTING_KEYS.isMuted, current.isMuted),
@@ -1810,12 +1844,19 @@ export const usePlayerStore = create<PlayerStore>((set, get) => {
             dbService.getSetting<SavedQueue | null>(PLAYER_SETTING_KEYS.lastQueue, null),
             dbService.getSetting<number>(PLAYER_SETTING_KEYS.audioBalance, current.audioBalance),
             dbService.getSetting<boolean>(PLAYER_SETTING_KEYS.audioMono, current.audioMono),
-            dbService.getSetting<boolean>(PLAYER_SETTING_KEYS.softResume, current.softResume)
+            dbService.getSetting<boolean>(PLAYER_SETTING_KEYS.softResume, current.softResume),
+            dbService.getSetting<unknown>(PLAYER_SETTING_KEYS.eqProfiles, []),
+            dbService.getSetting<unknown>(PLAYER_SETTING_KEYS.activeEqProfileId, null)
           ]);
 
           const nextVolume = typeof volume === 'number' && Number.isFinite(volume) ? clampVolume(volume) : current.volume;
           const nextMuted = typeof isMuted === 'boolean' ? isMuted : nextVolume === 0;
           const nextEq = normalizeEq(eq, current.eq);
+          // Профили из базы чистятся так же, как сами полосы; активный остаётся
+          // активным, только если он существует и его полосы — те, что стоят.
+          const nextProfiles = sanitizeEqProfiles(eqProfilesRaw, normalizeEq);
+          const storedActive = nextProfiles.find((p) => p.id === activeEqProfileRaw);
+          const nextActiveProfileId = storedActive && sameEq(storedActive.eq, nextEq) ? storedActive.id : null;
           const nextMobileFx = typeof mobileAudioFx === 'boolean' ? mobileAudioFx : current.mobileAudioFx;
           const nextPreset = VISUALIZER_PRESETS.includes(visualizerPreset) ? visualizerPreset : current.visualizerPreset;
           const nextCrossfadeEnabled = typeof crossfadeEnabled === 'boolean' ? crossfadeEnabled : current.crossfadeEnabled;
@@ -1857,6 +1898,8 @@ export const usePlayerStore = create<PlayerStore>((set, get) => {
             visualizerPreset: nextPreset,
             autoplayRadio: typeof autoplayRadio === 'boolean' ? autoplayRadio : current.autoplayRadio,
             eq: nextEq,
+            eqProfiles: nextProfiles,
+            activeEqProfileId: nextActiveProfileId,
             crossfadeEnabled: nextCrossfadeEnabled,
             crossfadeDuration: nextCrossfadeDuration,
             loudnessNormalization: nextLoudnessNorm,
@@ -1898,6 +1941,8 @@ export const usePlayerStore = create<PlayerStore>((set, get) => {
 
           forwardMediaKeysPreference(get().mediaKeysEnabled);
           forwardGlobalHotkeys(hotkeysOn, nextHotkeys);
+          // Профили загружены — теперь можно смотреть, какие наушники подключены.
+          startEqDeviceWatch();
 
           // Трек с прошлого запуска — на паузе и на своей секунде. Ничего не
           // загружаем и не играем: человек сам решит, продолжать ли, а поход за
@@ -2013,8 +2058,14 @@ export const usePlayerStore = create<PlayerStore>((set, get) => {
     setEq: (partial: Partial<EqSettings>) => {
       const next = normalizeEq({ ...get().eq, ...partial }, get().eq);
       audioEngine.setEqGains(next);
-      set({ eq: next });
+      // Профиль остаётся активным, пока полосы совпадают с его полосами: чип не
+      // должен гореть под тем, что уже двигали руками.
+      const prevActive = get().activeEqProfileId;
+      const active = get().eqProfiles.find((p) => p.id === prevActive);
+      const nextActive = active && sameEq(active.eq, next) ? active.id : null;
+      set({ eq: next, activeEqProfileId: nextActive });
       persistSetting(PLAYER_SETTING_KEYS.eq, next);
+      if (nextActive !== prevActive) persistSetting(PLAYER_SETTING_KEYS.activeEqProfileId, nextActive);
 
       /*
        * Тронули полосы на телефоне — включаем обработку сами.
@@ -2030,6 +2081,77 @@ export const usePlayerStore = create<PlayerStore>((set, get) => {
       useUIStore
         .getState()
         .showToast('Обработка звука включена — трек открывается заново, чтобы полосы работали', 'info');
+    },
+
+    saveEqProfile: (name: string) => {
+      const clean = cleanEqProfileName(name);
+      if (!clean) return null;
+      const profile: EqProfile = { id: newEqProfileId(), name: clean, eq: { ...get().eq }, deviceId: null };
+      const eqProfiles = [...get().eqProfiles, profile];
+      set({ eqProfiles, activeEqProfileId: profile.id });
+      persistSetting(PLAYER_SETTING_KEYS.eqProfiles, eqProfiles);
+      persistSetting(PLAYER_SETTING_KEYS.activeEqProfileId, profile.id);
+      return profile;
+    },
+
+    applyEqProfile: (id: string) => {
+      const profile = get().eqProfiles.find((p) => p.id === id);
+      if (!profile) return;
+      // Сначала отмечаем профиль, потом ставим полосы через setEq: он и движку
+      // скажет, и обработку на телефоне включит, а совпавший профиль оставит.
+      set({ activeEqProfileId: profile.id });
+      get().setEq(profile.eq);
+      persistSetting(PLAYER_SETTING_KEYS.activeEqProfileId, profile.id);
+    },
+
+    deleteEqProfile: (id: string) => {
+      const eqProfiles = get().eqProfiles.filter((p) => p.id !== id);
+      if (eqProfiles.length === get().eqProfiles.length) return;
+      const activeEqProfileId = get().activeEqProfileId === id ? null : get().activeEqProfileId;
+      // Полосы не трогаем: удалили запись, а не звук, который сейчас играет.
+      set({ eqProfiles, activeEqProfileId });
+      persistSetting(PLAYER_SETTING_KEYS.eqProfiles, eqProfiles);
+      if (activeEqProfileId === null) persistSetting(PLAYER_SETTING_KEYS.activeEqProfileId, null);
+    },
+
+    renameEqProfile: (id: string, name: string) => {
+      const clean = cleanEqProfileName(name);
+      if (!clean || !get().eqProfiles.some((p) => p.id === id)) return;
+      const eqProfiles = get().eqProfiles.map((p) => (p.id === id ? { ...p, name: clean } : p));
+      set({ eqProfiles });
+      persistSetting(PLAYER_SETTING_KEYS.eqProfiles, eqProfiles);
+    },
+
+    bindEqProfileToDevice: (id: string, deviceId: string | null) => {
+      if (!get().eqProfiles.some((p) => p.id === id)) return;
+      const nextDevice = deviceId && deviceId.trim() ? deviceId : null;
+      // Одно устройство — один профиль: иначе при подключении пришлось бы гадать.
+      const eqProfiles = get().eqProfiles.map((p) => {
+        if (p.id === id) return { ...p, deviceId: nextDevice };
+        if (nextDevice && p.deviceId === nextDevice) return { ...p, deviceId: null };
+        return p;
+      });
+      set({ eqProfiles });
+      persistSetting(PLAYER_SETTING_KEYS.eqProfiles, eqProfiles);
+    },
+
+    noteEqOutputDevice: (device: OutputDevice | null, support: EqDeviceSupport) => {
+      const prevId = get().eqOutputDevice?.deviceId ?? null;
+      set({ eqOutputDevice: device, eqDeviceSupport: support });
+      const nextId = device?.deviceId ?? null;
+      if (nextId === prevId) return;
+      /*
+       * Устройство сменилось (или впервые появилось) — включаем его профиль.
+       * Без привязки эквалайзер оставляем как есть: человек мог только что
+       * настроить его руками, и сбрасывать это за него — хуже, чем ничего.
+       * Если профиль уже стоит — молчим, чтобы не повторять тост при каждом
+       * пересчёте списка устройств.
+       */
+      const bound = profileForDevice(get().eqProfiles, nextId);
+      if (!bound) return;
+      if (get().activeEqProfileId === bound.id && sameEq(get().eq, bound.eq)) return;
+      get().applyEqProfile(bound.id);
+      useUIStore.getState().showToast(`Включён профиль «${bound.name}»`, 'info');
     },
 
     setCrossfadeEnabled: (enabled: boolean) => {
@@ -2246,6 +2368,10 @@ function registerMediaSessionHandlers(): void {
 /** Releases timers, the audio graph and the OS session (app teardown). */
 export function destroyPlayerRuntime(): void {
   rememberSession(true);
+  if (stopEqDeviceWatch) {
+    stopEqDeviceWatch();
+    stopEqDeviceWatch = null;
+  }
   void playbackTracker.endPlay();
   clearSleepTimerHandle();
   usePlayerStore.setState({ sleepTimerEndsAt: null });

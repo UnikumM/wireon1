@@ -1,4 +1,5 @@
 import { AudioSource, UnifiedTrack, PlaybackState, RepeatMode, EqSettings, SearchCollection } from './music';
+import type { EqProfile, OutputDevice, EqDeviceSupport } from '../services/eqProfiles';
 import { VisualizerPreset } from './visualizer';
 
 export type QueueMode = 'sequential' | 'track_radio' | 'my_wave';
@@ -109,6 +110,14 @@ export interface PlayerStoreState {
   sleepAtTrackEnd: boolean;
   autoplayRadio: boolean; // continue with related tracks when the queue ends
   eq: EqSettings; // dB, -12..+12
+  /** Сохранённые профили эквалайзера «мои наушники». См. services/eqProfiles.ts. */
+  eqProfiles: EqProfile[];
+  /** Профиль, чьи полосы сейчас стоят; `null`, когда полосы двигали руками или стоит пресет. */
+  activeEqProfileId: string | null;
+  /** Текущее устройство вывода, если система его показывает. */
+  eqOutputDevice: OutputDevice | null;
+  /** Видны ли устройства вывода: от этого зависит, можно ли привязать профиль. */
+  eqDeviceSupport: EqDeviceSupport;
   crossfadeEnabled: boolean;
   crossfadeDuration: number; // 0..12 seconds
   loudnessNormalization: boolean;
@@ -193,6 +202,15 @@ export interface PlayerStoreActions {
   setSleepAtTrackEnd: (enabled: boolean) => void;
   setAutoplayRadio: (enabled: boolean) => void;
   setEq: (partial: Partial<EqSettings>) => void;
+  /** Сохранить текущие полосы профилем с этим именем; `null`, если имя пустое. */
+  saveEqProfile: (name: string) => EqProfile | null;
+  applyEqProfile: (id: string) => void;
+  deleteEqProfile: (id: string) => void;
+  renameEqProfile: (id: string, name: string) => void;
+  /** Привязать к устройству вывода (`null` — отвязать). Одно устройство — один профиль. */
+  bindEqProfileToDevice: (id: string, deviceId: string | null) => void;
+  /** Сообщение от подписки на устройства: обновить текущее и включить привязанный профиль. */
+  noteEqOutputDevice: (device: OutputDevice | null, support: EqDeviceSupport) => void;
   setCrossfadeEnabled: (enabled: boolean) => void;
   setCrossfadeDuration: (seconds: number) => void;
   setLoudnessNormalization: (enabled: boolean) => void;

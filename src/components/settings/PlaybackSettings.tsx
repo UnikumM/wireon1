@@ -1,7 +1,8 @@
 import React, { useEffect, useState } from 'react';
-import { RotateCcw } from 'lucide-react';
+import { RotateCcw, Headphones, Plus, Pencil, Link2, Link2Off, Trash2 } from 'lucide-react';
 import { Button } from '../common/Button';
 import { SettingsSection, SettingRow, SliderSetting, ToggleSetting } from './SettingsPrimitives';
+import { EqProfileNameModal } from './EqProfileNameModal';
 import { usePlayerStore } from '../../store/usePlayerStore';
 import { formatDuration } from '../../utils/time';
 import { EQ_PRESETS, matchEqPreset } from '../../utils/eqPresets';
@@ -59,6 +60,15 @@ export const PlaybackSettings: React.FC = () => {
   const setSleepAtTrackEnd = usePlayerStore((s) => s.setSleepAtTrackEnd);
   const setVolume = usePlayerStore((s) => s.setVolume);
   const setEq = usePlayerStore((s) => s.setEq);
+  const eqProfiles = usePlayerStore((s) => s.eqProfiles);
+  const activeEqProfileId = usePlayerStore((s) => s.activeEqProfileId);
+  const eqOutputDevice = usePlayerStore((s) => s.eqOutputDevice);
+  const eqDeviceSupport = usePlayerStore((s) => s.eqDeviceSupport);
+  const saveEqProfile = usePlayerStore((s) => s.saveEqProfile);
+  const applyEqProfile = usePlayerStore((s) => s.applyEqProfile);
+  const deleteEqProfile = usePlayerStore((s) => s.deleteEqProfile);
+  const renameEqProfile = usePlayerStore((s) => s.renameEqProfile);
+  const bindEqProfileToDevice = usePlayerStore((s) => s.bindEqProfileToDevice);
   const setCrossfadeEnabled = usePlayerStore((s) => s.setCrossfadeEnabled);
   const setCrossfadeDuration = usePlayerStore((s) => s.setCrossfadeDuration);
   const setLoudnessNormalization = usePlayerStore((s) => s.setLoudnessNormalization);
@@ -69,6 +79,26 @@ export const PlaybackSettings: React.FC = () => {
   const remainingSeconds = useSleepRemaining(sleepTimerEndsAt);
   const isEqFlat = eq.bass === 0 && eq.mid === 0 && eq.treble === 0;
   const activePreset = matchEqPreset(eq);
+  const activeProfile = eqProfiles.find((p) => p.id === activeEqProfileId) ?? null;
+
+  // Окно имени одно на сохранение и переименование: `rename` — какой профиль.
+  const [nameModal, setNameModal] = useState<{ mode: 'save' } | { mode: 'rename'; id: string } | null>(null);
+  const canBindDevice = eqDeviceSupport === 'available' && eqOutputDevice !== null;
+  const devicesHidden = eqDeviceSupport === 'hidden' || eqDeviceSupport === 'unsupported';
+  const currentDeviceLabel = eqOutputDevice?.label || 'текущее устройство';
+  const activeBoundHere = Boolean(activeProfile && eqOutputDevice && activeProfile.deviceId === eqOutputDevice.deviceId);
+
+  /** Подпись под рядом чипов: что именно сейчас стоит. */
+  const eqStateText = (() => {
+    if (activePreset) return activePreset.description;
+    if (activeProfile) {
+      if (!activeProfile.deviceId) return `Профиль «${activeProfile.name}» — без привязки к устройству.`;
+      return activeBoundHere
+        ? `Профиль «${activeProfile.name}» — включается с «${currentDeviceLabel}».`
+        : `Профиль «${activeProfile.name}» — включается с другим устройством.`;
+    }
+    return 'Полосы настроены вручную.';
+  })();
 
   // The store only keeps the deadline, so the picker remembers which option
   // produced it and clears itself once the timer fires or is cancelled.
@@ -233,12 +263,106 @@ export const PlaybackSettings: React.FC = () => {
         ))}
       </div>
 
+      <div className="stack gap-2" data-testid="settings-eq-profiles">
+        <p className="m-0 text-xs text-muted leading-xs">Мои</p>
+        <div role="group" aria-label="Мои профили эквалайзера" className="row-stretch wrap gap-2">
+          {eqProfiles.map((profile) => (
+            <button
+              key={profile.id}
+              type="button"
+              className="chip text-xs"
+              aria-pressed={activeProfile?.id === profile.id}
+              title={profile.deviceId ? 'Включается сам с привязанным устройством' : undefined}
+              onClick={() => applyEqProfile(profile.id)}
+              data-testid={`settings-eq-profile-${profile.id}`}
+            >
+              {profile.deviceId && <Headphones size={ICON.xs} aria-hidden="true" />}
+              {profile.name}
+            </button>
+          ))}
+          <Button
+            variant="ghost"
+            size="xs"
+            icon={<Plus size={ICON.sm} />}
+            onClick={() => setNameModal({ mode: 'save' })}
+            data-testid="settings-eq-profile-save"
+          >
+            Сохранить как профиль…
+          </Button>
+        </div>
+
+        {activeProfile && (
+          <div className="row-stretch wrap gap-2" data-testid="settings-eq-profile-actions">
+            <Button
+              variant="ghost"
+              size="xs"
+              icon={<Pencil size={ICON.sm} />}
+              onClick={() => setNameModal({ mode: 'rename', id: activeProfile.id })}
+              data-testid="settings-eq-profile-rename"
+            >
+              Переименовать
+            </Button>
+            {activeProfile.deviceId ? (
+              <Button
+                variant="ghost"
+                size="xs"
+                icon={<Link2Off size={ICON.sm} />}
+                onClick={() => bindEqProfileToDevice(activeProfile.id, null)}
+                data-testid="settings-eq-profile-unbind"
+              >
+                Отвязать
+              </Button>
+            ) : (
+              canBindDevice &&
+              eqOutputDevice && (
+                <Button
+                  variant="ghost"
+                  size="xs"
+                  icon={<Link2 size={ICON.sm} />}
+                  title={eqOutputDevice.label || undefined}
+                  onClick={() => bindEqProfileToDevice(activeProfile.id, eqOutputDevice.deviceId)}
+                  data-testid="settings-eq-profile-bind"
+                >
+                  Привязать к текущему устройству
+                </Button>
+              )
+            )}
+            <Button
+              variant="ghost"
+              size="xs"
+              icon={<Trash2 size={ICON.sm} />}
+              onClick={() => deleteEqProfile(activeProfile.id)}
+              data-testid="settings-eq-profile-delete"
+            >
+              Удалить
+            </Button>
+          </div>
+        )}
+
+        {devicesHidden && (
+          <p className="m-0 text-xs text-muted leading-xs" data-testid="settings-eq-device-note">
+            Устройства вывода здесь не видны, поэтому привязать профиль к наушникам нельзя.
+          </p>
+        )}
+      </div>
+
       <p
         className="m-0 text-xs text-muted leading-xs"
         data-testid="settings-eq-preset-state"
       >
-        {activePreset ? activePreset.description : 'Полосы настроены вручную.'}
+        {eqStateText}
       </p>
+
+      <EqProfileNameModal
+        isOpen={nameModal !== null}
+        initialName={nameModal?.mode === 'rename' ? eqProfiles.find((p) => p.id === nameModal.id)?.name ?? '' : ''}
+        onClose={() => setNameModal(null)}
+        onSubmit={(name) => {
+          if (!nameModal) return;
+          if (nameModal.mode === 'save') saveEqProfile(name);
+          else renameEqProfile(nameModal.id, name);
+        }}
+      />
 
       <div className="divider" role="presentation" />
 
