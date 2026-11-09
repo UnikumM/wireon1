@@ -18,6 +18,7 @@ import { useUIStore } from '../../src/store/useUIStore';
 import { UnifiedTrack } from '../../src/types/music';
 import { resetPlayerStore, resetLibraryStore, resetUIStore, flushAsync } from '../helpers/testUtils';
 import * as discover from '../../src/services/discover';
+import * as dbService from '../../src/services/db';
 import * as subscriptions from '../../src/services/subscriptions';
 
 function track(id: string, title: string): UnifiedTrack {
@@ -147,5 +148,34 @@ describe('Главная', () => {
     expect(screen.queryByTestId('home-daily')).toBeNull();
     expect(screen.getByTestId('home-hero')).toBeInTheDocument();
     expect(screen.getByTestId('home-card-wave')).toBeInTheDocument();
+  });
+});
+
+describe('Главная: «Забытое»', () => {
+  it('показывает любимое, которое не включали полгода, от самого давнего', async () => {
+    const { FORGOTTEN_AFTER_MS } = await import('../../src/components/home/HomeView');
+    resetPlayerStore();
+    resetLibraryStore();
+    resetUIStore();
+    vi.spyOn(discover, 'getNewReleases').mockResolvedValue([]);
+    vi.spyOn(discover, 'getCharts').mockResolvedValue([]);
+    vi.spyOn(subscriptions, 'checkNewReleases').mockResolvedValue([]);
+    const old = track('old', 'Старое любимое');
+    const older = track('older', 'Совсем забытое');
+    const fresh = track('fresh', 'Недавнее любимое');
+    const now = Date.now();
+    vi.spyOn(dbService, 'getHistory').mockResolvedValue([
+      { id: 'old', track: old, playedAt: now - FORGOTTEN_AFTER_MS - 1000, playCount: 3 },
+      { id: 'older', track: older, playedAt: now - FORGOTTEN_AFTER_MS * 2, playCount: 9 },
+      { id: 'fresh', track: fresh, playedAt: now - 1000, playCount: 1 }
+    ] as never);
+    useLibraryStore.setState({ favorites: [old, older, fresh] });
+
+    render(<HomeView />);
+    await flushAsync();
+
+    const shelf = screen.getByTestId('home-forgotten');
+    const titles = [...shelf.querySelectorAll('.cover-card-title')].map((el) => el.textContent);
+    expect(titles).toEqual(['Совсем забытое', 'Старое любимое']);
   });
 });

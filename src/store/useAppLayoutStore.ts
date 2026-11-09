@@ -6,11 +6,11 @@ export type PanelPosition = 'top' | 'bottom' | 'left' | 'right';
 export const PANEL_POSITIONS: PanelPosition[] = ['top', 'bottom', 'left', 'right'];
 export const TAB_IDS = ['home', 'search', 'wave', 'foryou', 'library'] as const;
 export type LayoutTab = typeof TAB_IDS[number];
-export const HOME_BLOCK_IDS = ['hero', 'recent', 'wave', 'stats', 'mixes', 'artists', 'releases', 'discover'] as const;
+export const HOME_BLOCK_IDS = ['hero', 'recent', 'wave', 'stats', 'mixes', 'forgotten', 'artists', 'releases', 'discover'] as const;
 export type HomeBlockId = typeof HOME_BLOCK_IDS[number];
 export const AVAILABLE_HOME_BLOCKS: Record<LayoutPlatform, HomeBlockId[]> = {
   // 4.0: Волна на ПК стоит в герое вместе с «продолжить», отдельного блока нет.
-  desktop: ['hero', 'recent', 'mixes', 'releases', 'discover'],
+  desktop: ['hero', 'recent', 'mixes', 'forgotten', 'releases', 'discover'],
   mobile: ['hero', 'recent', 'wave', 'stats', 'mixes', 'artists']
 };
 export const TAB_LABELS: Record<LayoutTab, string> = {
@@ -18,7 +18,7 @@ export const TAB_LABELS: Record<LayoutTab, string> = {
 };
 export const HOME_BLOCK_LABELS: Record<HomeBlockId, string> = {
   hero: 'Продолжить слушать', recent: 'Недавние треки', wave: 'Поток', stats: 'Итоги прослушанного',
-  mixes: 'Миксы дня', artists: 'Радио по артистам', releases: 'Новое у исполнителей', discover: 'Чарты и новинки'
+  mixes: 'Миксы дня', forgotten: 'Забытое', artists: 'Радио по артистам', releases: 'Новое у исполнителей', discover: 'Чарты и новинки'
 };
 export interface AppLayout {
   navigationPosition: PanelPosition;

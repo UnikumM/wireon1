@@ -4,6 +4,7 @@ import { Music2 } from 'lucide-react';
 import { island } from '../../../styles/motion';
 import { ICON } from '../../../styles/icons';
 import type { UnifiedTrack } from '../../../types/music';
+import { coverGradient, coverInitial } from '../../../utils/coverFallback';
 
 /**
  * Один `layoutId` на все тела плеера. Обложка в плашке, обложка на сцене и
@@ -55,6 +56,12 @@ export const NowPlayingArtwork: React.FC<NowPlayingArtworkProps> = ({
     <>
       {showImage ? (
         <img src={url as string} alt={alt} className="fill-cover block" onError={() => setFailedUrl(url)} />
+      ) : track ? (
+        // Трек без обложки: градиент из названия и буква вместо серого квадрата
+        // со значком (utils/coverFallback). Значение из данных — потому инлайном.
+        <span className="cover-fallback fill-cover row justify-center" style={{ background: coverGradient(track.title, track.artist) }} aria-hidden="true">
+          <span className="cover-fallback-letter">{coverInitial(track.title)}</span>
+        </span>
       ) : (
         <Music2 size={fallbackIcon} className="text-faint" aria-hidden="true" />
       )}

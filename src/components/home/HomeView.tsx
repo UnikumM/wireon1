@@ -28,6 +28,8 @@ import { useAutoMixes } from '../../hooks/useAutoMixes';
 
 /** Столько записей истории хватает и на «продолжить», и на миксы. */
 const HISTORY_DEPTH = 500;
+/** Полгода без прослушивания — трек «забыт». */
+export const FORGOTTEN_AFTER_MS = 180 * 24 * 60 * 60 * 1000;
 
 export const HomeView: React.FC = () => {
   const currentTrack = usePlayerStore((s) => s.currentTrack);
@@ -104,6 +106,24 @@ export const HomeView: React.FC = () => {
     }
     return rows;
   }, [history, currentTrack?.id]);
+
+  /*
+   * «Забытое»: любимые треки, которые давно не включали. Срок — полгода: за
+   * меньший список пестрит тем, что просто не попалось под руку, за больший —
+   * пустеет у всех, кто пользуется приложением меньше года. Порядок — от самого
+   * давнего: то, что забыли сильнее всего, первым.
+   */
+  const forgotten = useMemo<UnifiedTrack[]>(() => {
+    if (!records || favorites.length === 0) return [];
+    const lastPlayed = new Map(records.map((record) => [record.id, record.playedAt]));
+    const threshold = Date.now() - FORGOTTEN_AFTER_MS;
+    return favorites
+      .map((track) => ({ track, at: lastPlayed.get(track.id) ?? 0 }))
+      .filter(({ at }) => at > 0 && at < threshold)
+      .sort((a, b) => a.at - b.at)
+      .slice(0, 8)
+      .map(({ track }) => track);
+  }, [records, favorites]);
 
   /** Герой — то, что играет сейчас, иначе последнее из истории. */
   const heroTrack: UnifiedTrack | null = currentTrack ?? history[0] ?? null;
@@ -219,6 +239,21 @@ export const HomeView: React.FC = () => {
             />
           ))}
       </Shelf>
+      )}
+
+      {forgotten.length > 0 && (
+        <Shelf title="Забытое" note="любили, но давно не включали" testId="home-forgotten" homeBlock="forgotten">
+          {forgotten.map((track) => (
+            <CoverCard
+              key={track.id}
+              title={track.title}
+              subtitle={track.artist}
+              artworkUrl={track.artworkUrl}
+              testId={`home-forgotten-${track.id}`}
+              onClick={() => void playTrack(track, forgotten, forgotten.indexOf(track))}
+            />
+          ))}
+        </Shelf>
       )}
 
       {/* --- Новое у исполнителей ------------------------------------------ */}

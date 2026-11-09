@@ -1,6 +1,7 @@
 import React from 'react';
 import { Play } from 'lucide-react';
 import { ICON } from '../../styles/icons';
+import { coverGradient, coverInitial } from '../../utils/coverFallback';
 
 /**
  * Карточка с обложкой: альбом, плейлист, микс, исполнитель.
@@ -62,7 +63,12 @@ export const CoverCard: React.FC<CoverCardProps> = ({
       {cover ?? (artworkUrl && !broken ? (
         <img src={artworkUrl} alt="" loading="lazy" onError={() => setBroken(true)} />
       ) : (
-        fallbackIcon ?? <span style={{ fontSize: ICON.display }} />
+        fallbackIcon ?? (
+          // Без обложки — градиент из названия, а не пустой квадрат (utils/coverFallback).
+          <span className="cover-fallback fill-cover row justify-center" style={{ background: coverGradient(title, subtitle) }}>
+            <span className="cover-fallback-letter">{coverInitial(title)}</span>
+          </span>
+        )
       ))}
       {/* Кнопка появляется на наведении: обложка остаётся картинкой, пока её не трогают. */}
       <span className="cover-card-play">

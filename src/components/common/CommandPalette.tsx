@@ -3,6 +3,7 @@ import {
   AudioLines,
   Heart,
   Library,
+  Link2,
   ListMusic,
   Maximize2,
   Moon,
@@ -17,6 +18,7 @@ import {
   SkipBack,
   SkipForward,
   Sparkles,
+  UserRound,
   Volume2
 } from 'lucide-react';
 import { useDismissable } from '../../hooks/useDismissable';
@@ -25,7 +27,17 @@ import { useSmartPlaylistStore } from '../../store/useSmartPlaylistStore';
 import { usePlayerStore } from '../../store/usePlayerStore';
 import { useUIStore } from '../../store/useUIStore';
 import { pluralize } from '../../utils/plural';
+import { formatDuration } from '../../utils/time';
 import { ICON } from '../../styles/icons';
+import type { UnifiedTrack } from '../../types/music';
+import {
+  artistKey,
+  collectLibraryTracks,
+  looksLikeUrl,
+  searchArtists,
+  searchPlaylists,
+  searchTracks
+} from './commandPalette/librarySearch';
 
 interface Command {
   id: string;
@@ -297,13 +309,137 @@ function useCommands(): Command[] {
 const LISTBOX_ID = 'command-palette-listbox';
 
 /**
- * `Ctrl/Cmd+K` launcher over navigation, playback toggles and the user's
- * playlists. Cross-platform — nothing in here is Electron-specific.
+ * Строка результата любой природы: команда, трек, плейлист, артист или
+ * действие «искать в сети». `section` — заголовок группы над строкой, `id`
+ * даёт DOM-идентификатор `command-<id>` и testid `command-option-<id>`.
+ */
+interface PaletteItem {
+  id: string;
+  section: string;
+  label: string;
+  hint?: string;
+  icon: React.ReactNode;
+  /** Для трека рисуется обложка и артист вместо значка и подсказки. */
+  track?: UnifiedTrack;
+  run: () => void;
+}
+
+function commandItem(command: Command, section: string): PaletteItem {
+  return {
+    id: command.id,
+    section,
+    label: command.label,
+    hint: command.hint,
+    icon: command.icon,
+    run: command.run
+  };
+}
+
+/** Один переход в поиск: и для ссылки, и для запроса, которого нет в медиатеке. */
+function goSearch(query: string) {
+  const ui = useUIStore.getState();
+  ui.setActivePlaylistId(null);
+  ui.setActiveView('search');
+  ui.setSearchQuery(query);
+}
+
+/**
+ * Собирает список палитры по запросу: без запроса — все команды по своим
+ * группам; с запросом — команды, треки, плейлисты и артисты из медиатеки.
+ * Ссылка открывается в поиске; если ничего не нашлось — предлагается
+ * поискать в сети.
+ */
+function buildItems(
+  commands: Command[],
+  query: string,
+  library: { tracks: UnifiedTrack[]; playlists: ReturnType<typeof useLibraryStore.getState>['playlists'] }
+): PaletteItem[] {
+  const trimmed = query.trim();
+  if (trimmed.length === 0) return commands.map((command) => commandItem(command, command.group));
+
+  if (looksLikeUrl(trimmed)) {
+    return [
+      {
+        id: 'open-link',
+        section: 'Ссылка',
+        label: 'Открыть ссылку в поиске',
+        hint: trimmed,
+        icon: <Link2 size={ICON.md} />,
+        run: () => goSearch(trimmed)
+      }
+    ];
+  }
+
+  const matchedCommands = commands
+    // Плейлисты с запросом ищутся своей группой ниже, иначе один и тот же
+    // плейлист всплывал бы дважды.
+    .filter((command) => !command.id.startsWith('playlist-'))
+    .reduce<ScoredCommand[]>((acc, command) => {
+      const haystack = `${command.label} ${command.group} ${command.keywords ?? ''}`;
+      const score = fuzzyScore(haystack, trimmed);
+      if (score !== null) acc.push({ command, score });
+      return acc;
+    }, [])
+    .sort((a, b) => b.score - a.score)
+    .map((entry) => commandItem(entry.command, 'Команды'));
+
+  const trackItems: PaletteItem[] = searchTracks(library.tracks, trimmed).map((track) => ({
+    id: `track-${track.id}`,
+    section: 'Треки',
+    label: track.title,
+    hint: track.artist,
+    icon: <Music size={ICON.md} />,
+    track,
+    run: () => void usePlayerStore.getState().playTrack(track)
+  }));
+
+  const playlistItems: PaletteItem[] = searchPlaylists(library.playlists, trimmed).map((playlist) => ({
+    id: `playlist-${playlist.id}`,
+    section: 'Плейлисты',
+    label: playlist.title,
+    hint: pluralize(playlist.tracks.length, 'трек', 'трека', 'треков'),
+    icon: <ListMusic size={ICON.md} />,
+    run: () => {
+      const ui = useUIStore.getState();
+      ui.setActivePlaylistId(playlist.id);
+      ui.setActiveView('playlist');
+    }
+  }));
+
+  const artistItems: PaletteItem[] = searchArtists(library.tracks, trimmed).map((name) => ({
+    id: `artist-${artistKey(name)}`,
+    section: 'Артисты',
+    label: name,
+    icon: <UserRound size={ICON.md} />,
+    run: () => useUIStore.getState().openArtist(name)
+  }));
+
+  const items = [...matchedCommands, ...trackItems, ...playlistItems, ...artistItems];
+  if (items.length > 0) return items;
+
+  return [
+    {
+      id: 'search-web',
+      section: 'Поиск',
+      label: `Искать „${trimmed}“ в YouTube и SoundCloud`,
+      icon: <Search size={ICON.md} />,
+      run: () => goSearch(trimmed)
+    }
+  ];
+}
+
+/**
+ * `Ctrl/Cmd+K` — одна строка для всего: команды, разделы, а с запросом ещё
+ * треки, плейлисты и артисты из медиатеки. Кроссплатформенно — ничего
+ * специфичного для Electron здесь нет.
  */
 export const CommandPalette: React.FC = () => {
   const isOpen = useUIStore((s) => s.isCommandPaletteOpen);
   const setCommandPaletteOpen = useUIStore((s) => s.setCommandPaletteOpen);
   const commands = useCommands();
+  const favorites = useLibraryStore((s) => s.favorites);
+  const history = useLibraryStore((s) => s.history);
+  const playlists = useLibraryStore((s) => s.playlists);
 
   const [query, setQuery] = useState('');
   const [activeIndex, setActiveIndex] = useState(0);
@@ -314,20 +450,15 @@ export const CommandPalette: React.FC = () => {
     onDismiss: () => setCommandPaletteOpen(false)
   });
 
-  const results = useMemo(() => {
-    const trimmed = query.trim();
-    if (trimmed.length === 0) return commands;
+  const libraryTracks = useMemo(
+    () => collectLibraryTracks(favorites, history, playlists),
+    [favorites, history, playlists]
+  );
 
-    return commands
-      .reduce<ScoredCommand[]>((acc, command) => {
-        const haystack = `${command.label} ${command.group} ${command.keywords ?? ''}`;
-        const score = fuzzyScore(haystack, trimmed);
-        if (score !== null) acc.push({ command, score });
-        return acc;
-      }, [])
-      .sort((a, b) => b.score - a.score)
-      .map((entry) => entry.command);
-  }, [commands, query]);
+  const results = useMemo(
+    () => buildItems(commands, query, { tracks: libraryTracks, playlists }),
+    [commands, query, libraryTracks, playlists]
+  );
 
   useEffect(() => {
     if (!isOpen) {
@@ -348,10 +479,10 @@ export const CommandPalette: React.FC = () => {
 
   if (!isOpen) return null;
 
-  const activate = (command: Command | undefined) => {
-    if (!command) return;
+  const activate = (item: PaletteItem | undefined) => {
+    if (!item) return;
     setCommandPaletteOpen(false);
-    command.run();
+    item.run();
   };
 
   const handleKeyDown = (event: React.KeyboardEvent<HTMLInputElement>) => {
@@ -383,24 +514,14 @@ export const CommandPalette: React.FC = () => {
     }
   };
 
-  let lastGroup: string | null = null;
+  const trimmedQuery = query.trim();
+  const nothingFound = trimmedQuery.length > 0 && results.length === 1 && results[0].id === 'search-web';
+  let lastSection: string | null = null;
 
   return (
     <div
-      className="animate-fade-in"
+      className="palette-backdrop animate-fade-in"
       {...backdropProps}
-      style={
-        {
-          position: 'fixed',
-          inset: 0,
-          backgroundColor: 'var(--scrim)',
-          display: 'flex',
-          alignItems: 'flex-start',
-          justifyContent: 'center',
-          padding: 'var(--space-8) var(--space-4)',
-          zIndex: 'var(--z-modal)'
-        } as React.CSSProperties
-      }
       data-testid="command-palette-backdrop"
     >
       <div
@@ -411,27 +532,10 @@ export const CommandPalette: React.FC = () => {
         // Палитра висит у верхнего края экрана, и точка роста по умолчанию —
         // `top center` — здесь и нужна: она выпадает сверху, как продолжение
         // нажатия Ctrl+K, а не выныривает снизу мимо своего края.
-        className="animate-drop-in"
-        style={
-          {
-            width: '100%',
-            maxWidth: '560px',
-            backgroundColor: 'var(--surface-4)',
-            border: '1px solid var(--border)',
-            borderRadius: 'var(--radius-xl)',
-            boxShadow: 'var(--shadow-lg)',
-            overflow: 'hidden',
-            display: 'flex',
-            flexDirection: 'column',
-            maxHeight: '60vh',
-            '--ring-offset-color': 'var(--surface-4)'
-          } as React.CSSProperties
-        }
+        className="palette-dialog animate-drop-in"
         data-testid="command-palette"
       >
-        <div
-          className="row gap-3 py-3 px-4 border-b-subtle"
-        >
+        <div className="row gap-3 py-3 px-4 border-b-subtle">
           <Search size={ICON.md} aria-hidden="true" className="text-muted shrink-0" />
           <input
             type="text"
@@ -440,12 +544,12 @@ export const CommandPalette: React.FC = () => {
             aria-controls={LISTBOX_ID}
             aria-autocomplete="list"
             aria-activedescendant={results[activeIndex] ? `command-${results[activeIndex].id}` : undefined}
-            aria-label="Поиск по командам"
-            placeholder="Команды, разделы и плейлисты…"
+            aria-label="Поиск по командам и медиатеке"
+            placeholder="Команды, треки, плейлисты, артисты"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             onKeyDown={handleKeyDown}
-            className="grow text-base text-primary bg-transparent border-none py-1 px-0" style={{ boxShadow: 'none' }}
+            className="palette-input grow text-base text-primary bg-transparent border-none py-1 px-0"
             data-testid="command-palette-input"
           />
           <kbd className="kbd">Esc</kbd>
@@ -455,72 +559,69 @@ export const CommandPalette: React.FC = () => {
           ref={listRef}
           id={LISTBOX_ID}
           role="listbox"
-          aria-label="Команды"
-          className="scrollbar-thin p-2 flex-1 min-h-0"
-          style={{ overflowY: 'auto' }}
+          aria-label="Результаты"
+          className="palette-list scrollbar-thin p-2 flex-1 min-h-0"
         >
-          {results.length === 0 ? (
-            <p
-              className="m-0 text-center text-sm text-muted py-5 px-3"
-              data-testid="command-palette-empty"
-            >
-              Нет команд по запросу «{query}».
+          {nothingFound && (
+            <p className="m-0 text-center text-sm text-muted py-3 px-3" data-testid="command-palette-empty">
+              Ничего не нашлось по запросу «{trimmedQuery}».
             </p>
-          ) : (
-            results.map((command, index) => {
-              const isActive = index === activeIndex;
-              const showGroup = command.group !== lastGroup && query.trim().length === 0;
-              lastGroup = command.group;
-
-              return (
-                <React.Fragment key={command.id}>
-                  {showGroup && (
-                    <div
-                      role="presentation"
-                      className="section-label text-muted"
-                      style={{ padding: 'var(--space-3) var(--space-3) var(--space-1)' }}
-                    >
-                      {command.group}
-                    </div>
-                  )}
-                  <div
-                    id={`command-${command.id}`}
-                    role="option"
-                    aria-selected={isActive}
-                    data-active={isActive}
-                    onMouseMove={() => setActiveIndex(index)}
-                    onClick={() => activate(command)}
-                    style={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: 'var(--space-3)',
-                      padding: 'var(--space-2) var(--space-3)',
-                      borderRadius: 'var(--radius-sm)',
-                      cursor: 'pointer',
-                      backgroundColor: isActive ? 'var(--accent-soft)' : 'transparent',
-                      border: `1px solid ${isActive ? 'var(--border-accent)' : 'transparent'}`,
-                      color: isActive ? 'var(--text-primary)' : 'var(--text-secondary)'
-                    }}
-                    data-testid={`command-option-${command.id}`}
-                  >
-                    <span
-                      className="inline-row shrink-0" style={{ color: isActive ? 'var(--accent)' : 'var(--text-muted)' }}
-                    >
-                      {command.icon}
-                    </span>
-                    <span className="text-truncate flex-1 text-sm">
-                      {command.label}
-                    </span>
-                    {command.hint && (
-                      <span className="text-xs text-muted shrink-0">
-                        {command.hint}
-                      </span>
-                    )}
-                  </div>
-                </React.Fragment>
-              );
-            })
           )}
+          {results.map((item, index) => {
+            const isActive = index === activeIndex;
+            const showSection = item.section !== lastSection;
+            lastSection = item.section;
+
+            return (
+              <React.Fragment key={item.id}>
+                {showSection && (
+                  <div role="presentation" className="palette-group section-label text-muted">
+                    {item.section}
+                  </div>
+                )}
+                <div
+                  id={`command-${item.id}`}
+                  role="option"
+                  aria-selected={isActive}
+                  data-active={isActive}
+                  onMouseMove={() => setActiveIndex(index)}
+                  onClick={() => activate(item)}
+                  className="palette-option"
+                  data-testid={`command-option-${item.id}`}
+                >
+                  {item.track ? (
+                    <>
+                      {item.track.artworkUrl ? (
+                        <img
+                          src={item.track.artworkUrl}
+                          alt=""
+                          loading="lazy"
+                          className="palette-cover fill-cover radius-xs shrink-0"
+                        />
+                      ) : (
+                        <span className="palette-cover palette-option-icon row justify-center bg-surface-2 radius-xs shrink-0">
+                          <Music size={ICON.sm} />
+                        </span>
+                      )}
+                      <span className="grow text-truncate text-sm">
+                        {item.label}
+                        {item.hint && <span className="text-muted"> · {item.hint}</span>}
+                      </span>
+                      <span data-numeric className="text-xs text-muted shrink-0">
+                        {formatDuration(item.track.duration)}
+                      </span>
+                    </>
+                  ) : (
+                    <>
+                      <span className="palette-option-icon inline-row shrink-0">{item.icon}</span>
+                      <span className="text-truncate flex-1 text-sm">{item.label}</span>
+                      {item.hint && <span className="text-xs text-muted text-truncate shrink-0 palette-hint">{item.hint}</span>}
+                    </>
+                  )}
+                </div>
+              </React.Fragment>
+            );
+          })}
         </div>
       </div>
     </div>

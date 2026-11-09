@@ -370,13 +370,16 @@ describe('Interaction layer', () => {
       expect(screen.getAllByRole('option')[0]).toHaveAttribute('id', 'command-toggle-shuffle');
     });
 
-    it('says so when nothing matches, quoting what was typed', () => {
+    it('says so when nothing matches, quoting what was typed, and offers a web search', () => {
       openPalette();
 
       fireEvent.change(screen.getByTestId('command-palette-input'), { target: { value: 'zzqqxx' } });
 
-      expect(screen.getByTestId('command-palette-empty')).toHaveTextContent('Нет команд по запросу «zzqqxx».');
-      expect(screen.queryAllByRole('option')).toHaveLength(0);
+      expect(screen.getByTestId('command-palette-empty')).toHaveTextContent('Ничего не нашлось по запросу «zzqqxx».');
+      // 4.0: пустой результат — не тупик, а переход в поиск по сети.
+      const options = screen.getAllByRole('option');
+      expect(options).toHaveLength(1);
+      expect(options[0]).toHaveAttribute('id', 'command-search-web');
     });
 
     it('walks the list with the arrow keys and wraps at both ends', () => {
