@@ -34,22 +34,17 @@ $headers = @{ Authorization = "Bearer $key"; Accept = 'application/json' }
 $api = "$Panel/api/client/servers/$ServerId"
 $here = Split-Path -Parent $MyInvocation.MyCommand.Path
 
-# Список фиксирован: тесты и smoke в контейнер не едут — там они только занимают
-# место в лимите 1 ГБ и ничего не проверяют без dev-зависимостей.
+# Едут только сам сервер и его зависимости: тесты и smoke в контейнер не нужны — там они
+# занимают место в лимите 1 ГБ и ничего не проверяют без dev-зависимостей. Модули пакета
+# берутся с диска, а не из списка руками: список уже дважды отставал от кода (telemetry,
+# share, soundcloud), и после перезапуска сервер падал бы на ImportError.
 $files = @(
-    @{ local = 'music_hook.py';             remote = '/music_hook.py' }
-    @{ local = 'requirements-music.txt';    remote = '/requirements-music.txt' }
-    @{ local = 'wireon_music\__init__.py';  remote = '/wireon_music/__init__.py' }
-    @{ local = 'wireon_music\__main__.py';  remote = '/wireon_music/__main__.py' }
-    @{ local = 'wireon_music\app.py';       remote = '/wireon_music/app.py' }
-    @{ local = 'wireon_music\broker.py';    remote = '/wireon_music/broker.py' }
-    @{ local = 'wireon_music\identity.py';  remote = '/wireon_music/identity.py' }
-    @{ local = 'wireon_music\innertube.py'; remote = '/wireon_music/innertube.py' }
-    @{ local = 'wireon_music\mqtt.py';      remote = '/wireon_music/mqtt.py' }
-    @{ local = 'wireon_music\proxy.py';     remote = '/wireon_music/proxy.py' }
-    @{ local = 'wireon_music\resolver.py';  remote = '/wireon_music/resolver.py' }
-    @{ local = 'wireon_music\sync.py';      remote = '/wireon_music/sync.py' }
+    @{ local = 'music_hook.py';          remote = '/music_hook.py' }
+    @{ local = 'requirements-music.txt'; remote = '/requirements-music.txt' }
 )
+foreach ($module in Get-ChildItem -Path (Join-Path $here 'wireon_music') -Filter '*.py' -File | Sort-Object Name) {
+    $files += @{ local = "wireon_music\$($module.Name)"; remote = "/wireon_music/$($module.Name)" }
+}
 
 function Invoke-Panel {
     param($Path, $Method = 'GET', $Body = $null, $ContentType = 'application/json')
