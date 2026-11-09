@@ -30,7 +30,7 @@ Matte Slate остаётся основой (поверхности, один а
 | 2 | Инлайн-стили → утилитарные классы и токены (1 359 → 637 `style={{}}`; остаток — значения из данных; designDrift не пускает обратно) | готово |
 | 3 | Один Player: `components/player/Player` (`Player.Bar`/`Player.Stage` по оболочке), ядро `player/core` (хуки транспорта и избранного, обложка с общим `layoutId`, свет от обложки, кнопки). Телефон: `PlayerIsland` + `PlayerStage` с перелётом обложки. ПК: полоса и окно на том же ядре. Мини-окно — отдельное окно Electron, на ядро пока не переведено | в основном готово |
 | 4 | Общие примитивы для ПК и телефона (TrackRow, CoverCard, Sheet, ListHeader…), мобильные экраны собираются из них. Отдельные деревья экранов остаются там, где раскладка действительно разная — решение из `useMobileShell` не отменяется | — |
-| 5 | Разрез гигантов: ImportPlaylistModal (1 330), TrackCard (1 090), ArtistHubView (1 000), usePlayerStore (2 323). Контейнер с логикой + визуальные части, файлы до ~300 строк | — |
+| 5 | Разрез гигантов. Готово: ArtistHubView → `artist/hub/`, ImportPlaylistModal → `modals/importPlaylist/`, TrackCard → `search/trackCard/`. Осталось: usePlayerStore (2 323 строки, один `create` с общими замыканиями) — резать на слайсы transport/queue/wave/settings/runtime отдельной сессией, с прогоном playerStore*.test.ts | частично |
 | 6 | Виртуализация уже есть (`hooks/useVirtualRows`, 8 списков) — TanStack не нужен. Снимки экранов: `npm run shots` (scripts/visual-shots.mjs) кладёт PNG трёх ширин × двух тем в tests/visual/out при запущенном `npm run dev`; состояние сажается через dev-объект `window.__wireon` (src/devtools.ts) | снимки готовы |
 
 ## Экраны (после архитектуры)
