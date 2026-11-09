@@ -112,6 +112,8 @@ export interface PlayerStoreState {
   crossfadeEnabled: boolean;
   crossfadeDuration: number; // 0..12 seconds
   loudnessNormalization: boolean;
+  /** Мягкое возвращение: после долгой паузы трек начинается чуть раньше и входит с тихого. */
+  softResume: boolean;
   /** Баланс −1 (левый) … 1 (правый). */
   audioBalance: number;
   /** Моно: обе стороны звучат одинаково. */
@@ -194,6 +196,7 @@ export interface PlayerStoreActions {
   setCrossfadeEnabled: (enabled: boolean) => void;
   setCrossfadeDuration: (seconds: number) => void;
   setLoudnessNormalization: (enabled: boolean) => void;
+  setSoftResume: (enabled: boolean) => void;
   setAudioBalance: (balance: number) => void;
   setAudioMono: (mono: boolean) => void;
   setMobileAudioFx: (enabled: boolean) => void;

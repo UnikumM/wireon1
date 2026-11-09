@@ -37,6 +37,8 @@ export interface IAudioEngine {
   isCrossfadeEnabled(): boolean;
   getCrossfadeDuration(): number;
   isCrossfadeInProgress(): boolean;
+  setSoftResume(enabled: boolean): void;
+  isSoftResumeEnabled(): boolean;
   setLoudnessNormalization(enabled: boolean): void;
   isLoudnessNormalizationEnabled(): boolean;
   setBalance(balance: number): void;
@@ -64,6 +66,20 @@ export interface IAudioEngine {
 }
 
 const FADE_STEP_MS = 100;
+
+/**
+ * «Мягкое возвращение»: после долгой паузы трек начинается чуть раньше и
+ * входит с тихого — чтобы человек не вздрагивал от звука на полной громкости
+ * и вспомнил, где остановился.
+ *
+ * Полчаса — граница, за которой пауза перестаёт быть «отошёл на минуту»:
+ * короче — люди ждут продолжения ровно с той же ноты, и откат только мешает.
+ * Три секунды — хватает узнать фразу, но не переслушивать куплет. 700 мс
+ * нарастания — заметно мягче щелчка, но не тянется, как таймер сна.
+ */
+export const SOFT_RESUME_PAUSE_MS = 30 * 60 * 1000;
+export const SOFT_RESUME_REWIND_SEC = 3;
+export const SOFT_RESUME_FADE_MS = 700;
 
 /** Speed bounds. Below 0.5 audio turns to mud; above 2.0 it turns to chipmunk. */
 export const MIN_PLAYBACK_RATE = 0.5;
@@ -176,6 +192,15 @@ export class AudioEngine implements IAudioEngine {
   private fadeMultiplier: number = 1;
   private fadeTimer: ReturnType<typeof setInterval> | null = null;
   private fadeToken: number = 0;
+  private softResumeEnabled: boolean = true;
+  /**
+   * Когда человек нажал паузу во время игры (`Date.now()`). `null` — паузы не
+   * было или её уже «погасило» возобновление либо новая загрузка. Только пауза
+   * внутри сессии: «тёплый старт» после перезапуска приложения живёт в сторе.
+   */
+  private pausedAt: number | null = null;
+  /** Идёт нарастание мягкого возвращения — чтобы пауза посреди него не оставила звук приглушённым. */
+  private softRampActive: boolean = false;
   private pendingSeek: number | null = null;
   private hlsHandleA: HlsHandle | null = null;
   private hlsHandleB: HlsHandle | null = null;
@@ -358,6 +383,14 @@ export class AudioEngine implements IAudioEngine {
 
   public getCrossfadeDuration(): number {
     return this.crossfadeDuration;
+  }
+
+  public setSoftResume(enabled: boolean): void {
+    this.softResumeEnabled = Boolean(enabled);
+  }
+
+  public isSoftResumeEnabled(): boolean {
+    return this.softResumeEnabled;
   }
 
   public setCrossfade(enabled: boolean, durationSec: number): void {
@@ -728,6 +761,7 @@ export class AudioEngine implements IAudioEngine {
     this.clearHealthTimer();
     this.currentTrack = { ...track };
     this.pendingSeek = null;
+    this.pausedAt = null; // новый трек — не возвращение, откатывать нечего
     this.retryCount = 0;
     this.isRecovering = false;
     this.lastCurrentTime = -1;
@@ -1069,11 +1103,28 @@ export class AudioEngine implements IAudioEngine {
     if (activeAudio && typeof activeAudio.play === 'function') {
       const currentReqId = ++this.playRequestId;
       const currentLoadId = this.loadRequestId;
+      // Решаем до `play()`: откат и нулевая громкость должны встать раньше,
+      // чем элемент выдаст первый сэмпл, иначе щелчок на полной громкости
+      // успеет прозвучать.
+      const soft = this.beginSoftResume();
       try {
         await activeAudio.play();
-        if (currentReqId !== this.playRequestId || !activeAudio || activeAudio.paused) return;
+        if (currentReqId !== this.playRequestId || !activeAudio || activeAudio.paused) {
+          // Нас перебили — громкость не наша забота, но и нулевой оставлять нельзя.
+          if (soft) this.cancelVolumeFade();
+          return;
+        }
         this.setState('playing');
+        if (soft) {
+          this.softRampActive = true;
+          void this.rampFadeMultiplier(1, SOFT_RESUME_FADE_MS).then(() => {
+            this.softRampActive = false;
+          });
+        }
       } catch (err: unknown) {
+        // Старт не состоялся — громкость возвращаем, иначе следующая удачная
+        // попытка пойдёт с нуля без нарастания.
+        if (soft) this.cancelVolumeFade();
         // Запрос устарел: пока промис play() висел, пришёл новый play/pause или
         // новая загрузка. Ошибка принадлежит проигравшей гонку попытке, а решать
         // судьбу состояния будет та, что победила, — выходим молча.
@@ -1102,6 +1153,15 @@ export class AudioEngine implements IAudioEngine {
    */
   public pause(): void {
     this.playRequestId++;
+    // Только пауза из игры: повторное нажатие или пауза во время загрузки не
+    // должны сдвигать отметку и «продлевать» ожидание.
+    if (this.state === 'playing') this.pausedAt = Date.now();
+    // Пауза посреди нарастания: вернуть полную громкость сейчас, пока тихо, —
+    // иначе короткая пауза возобновилась бы приглушённой до первого касания ползунка.
+    if (this.softRampActive) {
+      this.softRampActive = false;
+      this.cancelVolumeFade();
+    }
     // Снимаем сторож здесь, а не только в обработчике `pause`: если человек
     // остановил именно зависшее включение, элемент может не прислать события, и
     // тогда таймер сработал бы уже по остановленному треку.
@@ -1225,7 +1285,15 @@ export class AudioEngine implements IAudioEngine {
     const clampedTarget = typeof target === 'number' && Number.isFinite(target) ? Math.max(0, Math.min(1, target)) : 0;
     const effectiveVolume = this.volume > 0 ? this.volume : 1;
     const targetMultiplier = Math.min(1, clampedTarget / effectiveVolume);
+    return this.rampFadeMultiplier(targetMultiplier, durationMs);
+  }
 
+  /**
+   * Общий механизм затухания для таймера сна и мягкого возвращения: ведёт
+   * `fadeMultiplier` к цели шагами по {@link FADE_STEP_MS}. Новый вызов
+   * перебивает предыдущий по `fadeToken`, так что два нарастания не спорят.
+   */
+  private rampFadeMultiplier(targetMultiplier: number, durationMs: number): Promise<void> {
     this.clearFadeTimer();
     const token = ++this.fadeToken;
     const startMultiplier = this.fadeMultiplier;
@@ -1264,6 +1332,30 @@ export class AudioEngine implements IAudioEngine {
       clearInterval(this.fadeTimer);
       this.fadeTimer = null;
     }
+  }
+
+  /**
+   * Нужно ли это возобновление делать мягким — и если да, готовит его: трек
+   * отматывается на {@link SOFT_RESUME_REWIND_SEC} назад (не ниже нуля), а
+   * громкость опускается к нулю, чтобы `startPlayback` поднял её после старта.
+   * Отметка паузы гасится в любом случае: следующий `play()` — уже не
+   * возвращение, а обычный старт.
+   */
+  private beginSoftResume(): boolean {
+    const pausedAt = this.pausedAt;
+    this.pausedAt = null;
+    if (!this.softResumeEnabled || pausedAt === null) return false;
+    if (this.state !== 'paused' || !this.currentTrack) return false;
+    if (Date.now() - pausedAt < SOFT_RESUME_PAUSE_MS) return false;
+    // Беззвучие — нечего поднимать, а откат без нарастания только сбил бы с толку.
+    if (this.muted || this.volume <= 0) return false;
+
+    this.seek(Math.max(0, this.getCurrentTime() - SOFT_RESUME_REWIND_SEC));
+    this.fadeToken++;
+    this.clearFadeTimer();
+    this.fadeMultiplier = 0;
+    this.applyGainVolume();
+    return true;
   }
 
   /**
@@ -2009,6 +2101,7 @@ export class AudioEngine implements IAudioEngine {
     this.currentTrack = null;
     this.fadeMultiplier = 1;
     this.pendingSeek = null;
+    this.pausedAt = null;
 
     this.detachAudioListeners(this.audioA);
     this.detachAudioListeners(this.audioB);

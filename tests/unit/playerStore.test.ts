@@ -820,6 +820,31 @@ describe('Player Store (usePlayerStore & 2-Tier Queue)', () => {
       usePlayerStore.getState().setEq({ bass: 99, mid: -99, treble: NaN });
       expect(usePlayerStore.getState().eq).toEqual({ bass: 12, mid: -12, treble: 0 });
     });
+
+    // 4.0, фича 08: «мягкое возвращение» — включено по умолчанию, переключатель
+    // доходит до движка и до базы, при гидратации читается обратно.
+    it('мягкое возвращение: включено по умолчанию, сохраняется и гидратируется', async () => {
+      const engineSpy = vi.spyOn(audioEngine, 'setSoftResume');
+      expect(usePlayerStore.getState().softResume).toBe(true);
+
+      usePlayerStore.getState().setSoftResume(false);
+      await Promise.resolve();
+      expect(usePlayerStore.getState().softResume).toBe(false);
+      expect(engineSpy).toHaveBeenLastCalledWith(false);
+      expect(await dbService.getSetting<boolean>('softResume', true)).toBe(false);
+
+      // Живое состояние «забыли», в базе — выключено: гидратация должна вернуть false.
+      usePlayerStore.setState({ softResume: true, settingsHydrated: false });
+      await usePlayerStore.getState().hydrateSettings();
+      expect(usePlayerStore.getState().softResume).toBe(false);
+      expect(engineSpy).toHaveBeenLastCalledWith(false);
+
+      // Мусор в базе не ломает умолчание.
+      await dbService.setSetting('softResume', 'да' as unknown as boolean);
+      usePlayerStore.setState({ softResume: true, settingsHydrated: false });
+      await usePlayerStore.getState().hydrateSettings();
+      expect(usePlayerStore.getState().softResume).toBe(true);
+    });
   });
 
   describe('Sleep timer & autoplay radio', () => {

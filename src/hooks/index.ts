@@ -6,3 +6,4 @@ export * from './useMediaQuery';
 export * from './useMiniPlayerHost';
 export * from './useSessionWatch';
 export * from './useSwipeDismiss';
+export * from './useTrackQuality';

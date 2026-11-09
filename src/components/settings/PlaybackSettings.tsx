@@ -48,6 +48,7 @@ export const PlaybackSettings: React.FC = () => {
   const crossfadeEnabled = usePlayerStore((s) => s.crossfadeEnabled);
   const crossfadeDuration = usePlayerStore((s) => s.crossfadeDuration);
   const loudnessNormalization = usePlayerStore((s) => s.loudnessNormalization);
+  const softResume = usePlayerStore((s) => s.softResume);
   const audioBalance = usePlayerStore((s) => s.audioBalance);
   const audioMono = usePlayerStore((s) => s.audioMono);
   const setAudioBalance = usePlayerStore((s) => s.setAudioBalance);
@@ -61,6 +62,7 @@ export const PlaybackSettings: React.FC = () => {
   const setCrossfadeEnabled = usePlayerStore((s) => s.setCrossfadeEnabled);
   const setCrossfadeDuration = usePlayerStore((s) => s.setCrossfadeDuration);
   const setLoudnessNormalization = usePlayerStore((s) => s.setLoudnessNormalization);
+  const setSoftResume = usePlayerStore((s) => s.setSoftResume);
   const setAutoplayRadio = usePlayerStore((s) => s.setAutoplayRadio);
   const setSleepTimer = usePlayerStore((s) => s.setSleepTimer);
 
@@ -127,6 +129,14 @@ export const PlaybackSettings: React.FC = () => {
         description="Сглаживает разницу в громкости между записями с разных сервисов, чтобы не тянуться к регулятору на каждом треке."
         checked={loudnessNormalization}
         onChange={setLoudnessNormalization}
+      />
+
+      <ToggleSetting
+        id="setting-soft-resume"
+        label="Мягкое возвращение"
+        description="После долгой паузы трек начинается на три секунды раньше и входит с тихого."
+        checked={softResume}
+        onChange={setSoftResume}
       />
 
       <div className="divider" role="presentation" />

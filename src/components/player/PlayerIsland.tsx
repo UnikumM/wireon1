@@ -4,7 +4,14 @@ import { useUIStore } from '../../store/useUIStore';
 import { ICON } from '../../styles/icons';
 import { SeekBar } from './SeekBar';
 import { VolumeSlider } from '../common/VolumeSlider';
-import { NowPlayingArtwork, NowPlayingTitles, RoundButton, usePlayerTimeline, usePlayerTransport } from './core';
+import {
+  NowPlayingArtwork,
+  NowPlayingTitles,
+  PlaybackErrorPanel,
+  RoundButton,
+  usePlayerTimeline,
+  usePlayerTransport
+} from './core';
 
 /** Порог, за которым в плашке появляются перемотка, соседние треки и громкость. */
 export const ROOMY_ISLAND_WIDTH_PX = 480;
@@ -61,6 +68,8 @@ export const PlayerIsland: React.FC = () => {
 
   return (
     <div ref={rootRef} className="player-island" data-testid="mobile-player-bar">
+      {/* Ошибка — верхним этажом плашки: трек не заиграл, и молчать об этом нельзя. */}
+      <PlaybackErrorPanel variant="compact" />
       <div className="row player-island-row">
         <button
           type="button"

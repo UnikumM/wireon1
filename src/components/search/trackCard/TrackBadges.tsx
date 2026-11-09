@@ -1,6 +1,8 @@
 import React from 'react';
-import { CheckCircle2 } from 'lucide-react';
+import { CheckCircle2, Scissors, SignalLow } from 'lucide-react';
 import { ICON } from '../../../styles/icons';
+import { useTrackQuality } from '../../../hooks/useTrackQuality';
+import { describeQuality } from '../../../services/trackQuality';
 
 export interface OfflineBadgeProps {
   trackId: string;
@@ -50,6 +52,36 @@ export const OfflineBadge: React.FC<OfflineBadgeProps> = ({ trackId, variant }) 
       data-testid={`track-offline-badge-${trackId}`}
     >
       <CheckCircle2 size={ICON.sm} aria-hidden="true" />
+    </span>
+  );
+};
+
+export interface QualityBadgeProps {
+  trackId: string;
+  variant: 'hero' | 'card' | 'row';
+}
+
+/**
+ * Отметка о качестве записи у источника: «отрывок», когда SoundCloud отдаёт
+ * только 30 секунд, «низкое качество» для потока ниже 96 кбит/с. Знание
+ * берётся из `trackQuality` — его оставил прошлый разбор этого трека, — так
+ * что человек видит предупреждение в списке, а не на середине куплета.
+ */
+export const QualityBadge: React.FC<QualityBadgeProps> = ({ trackId, variant }) => {
+  const quality = useTrackQuality(trackId);
+  if (!quality) return null;
+  const { label, title } = describeQuality(quality);
+  const Icon = quality === 'preview' ? Scissors : SignalLow;
+  return (
+    <span
+      title={title}
+      aria-label={title}
+      className="badge track-quality-badge text-warning bg-warning-soft shrink-0"
+      data-quality={quality}
+      data-testid={`${variant}-quality-badge-${trackId}`}
+    >
+      <Icon size={ICON.xs} aria-hidden="true" />
+      {label}
     </span>
   );
 };

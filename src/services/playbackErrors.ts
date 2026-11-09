@@ -169,3 +169,38 @@ export function describePlaybackError(err: unknown, source?: string): PlaybackEr
     : 'Не удалось воспроизвести';
   return notice(`${where}. ${unwrapped}`, true);
 }
+
+/**
+ * Вторая строка панели ошибки: что приложение уже попробовало само.
+ *
+ * Отказ источника доходит до человека только после того, как разборщик
+ * поискал ту же запись у соседа (`streamResolver`: YouTube → SoundCloud и
+ * обратно), поэтому для ошибок этапа разбора это можно сказать честно. Для
+ * сбоев самого проигрывателя (сеть, декодер) попыток не было — строки нет.
+ */
+export function describePlaybackAttempts(
+  detail: string | null | undefined,
+  source?: string | null,
+  substitutedFrom?: string | null
+): string | null {
+  if (substitutedFrom && source && substitutedFrom !== source) {
+    const own = source === 'youtube' ? 'YouTube' : 'SoundCloud';
+    const other = substitutedFrom === 'youtube' ? 'YouTube' : 'SoundCloud';
+    return `${own} эту запись не отдал, играла копия с ${other}.`;
+  }
+  if (!detail) return null;
+  const unwrapped = unwrapErrorMessage(detail);
+  const text = unwrapped.toLowerCase();
+
+  if (unwrapped.startsWith('YT_ALL_ATTEMPTS_FAILED')) {
+    return 'Перепробовали все способы получить аудио с YouTube и поискали эту запись на SoundCloud.';
+  }
+  if (unwrapped.startsWith('YT_BINARY_MISSING') || unwrapped.startsWith('YT_NETWORK')) return null;
+  if (/^YT_[A-Z_]+/.test(unwrapped) || /unable to resolve audio stream/.test(text)) {
+    return 'Поискали эту запись на SoundCloud — подходящей копии нет.';
+  }
+  if (/drm-protected|hls playback unavailable|no transcoding produced a playable url|no transcodings found|no valid stream transcoding/.test(text)) {
+    return 'Поискали эту запись на YouTube — подходящей копии нет.';
+  }
+  return null;
+}

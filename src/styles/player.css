@@ -585,3 +585,66 @@
   /* Строка — левым краем, как читают, а не по центру, как на телефоне. */
   text-align: left;
 }
+
+/* --- Панель ошибки воспроизведения (core/PlaybackErrorPanel) ------------- */
+
+/* Над полосой ПК: лежит на верхней кромке полосы, не раздвигая её. Левая
+ * кромка цветом опасности — чтобы панель читалась как предупреждение, а не
+ * как ещё одна строка метаданных. */
+.playback-error-panel {
+  position: absolute;
+  bottom: 100%;
+  left: 0;
+  right: 0;
+  border-left: 2px solid var(--danger);
+}
+
+/* Значок стоит на уровне первой строки, а не по центру двух. */
+.playback-error-icon {
+  margin-top: 2px;
+}
+
+/* Над плашкой на телефоне: та же плашка, только верхний этаж. */
+.playback-error-panel-compact {
+  border-bottom: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md) var(--radius-md) 0 0;
+  background: var(--surface-2);
+}
+
+/* Бейдж качества в строке и карточке списка: «отрывок», «низкое качество». */
+.track-quality-badge {
+  border: 1px solid var(--border-subtle);
+}
+
+/* --- Волновая дорожка таймлайна (4.0, фича 03) ----------------------------- */
+
+/* SVG растянут на всю ширину без сохранения пропорций: столбики —
+ * прямоугольники, неравномерный масштаб им не вредит, зато контейнер мерить
+ * не нужно. `touch-action: none` — чтобы протаскивание по волне на телефоне
+ * не превращалось в прокрутку. Цвета только токенами: пройденное — акцент,
+ * остальное — сильная граница, столбик под курсором — вторичный текст. */
+.waveform-bar {
+  display: block;
+  width: 100%;
+  height: var(--control-md);
+  cursor: pointer;
+  touch-action: none;
+  user-select: none;
+  border-radius: var(--radius-sm);
+}
+
+.waveform-bar[aria-disabled='true'] {
+  cursor: default;
+}
+
+.waveform-bar-rest {
+  fill: var(--border-strong);
+}
+
+.waveform-bar-played {
+  fill: var(--accent);
+}
+
+.waveform-bar-hover {
+  fill: var(--text-secondary);
+}

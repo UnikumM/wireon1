@@ -13,6 +13,7 @@
 
 import { APP_VERSION } from '../utils/appInfo';
 import { detectPlatform, resolveServerConfig, type ServerConfig } from './nativeBridge';
+import { unwrapErrorMessage } from './playbackErrors';
 
 const INSTALL_KEY = 'wireon_install_id';
 const OFF_KEY = 'wireon_telemetry_off';
@@ -23,7 +24,8 @@ const MAX_BATCH = 100;
 
 export interface TelemetryEvent {
   at: number;
-  kind: 'resolve' | 'playback';
+  /** `report` — отчёт, который человек отправил сам кнопкой в панели ошибки. */
+  kind: 'resolve' | 'playback' | 'report';
   ok: boolean;
   source: string;
   ms: number;
@@ -141,6 +143,20 @@ export async function flushTelemetry(
   if (!config || !isTelemetryEnabled()) return;
 
   const events = queue.splice(0, MAX_BATCH);
+  const sent = await postEvents(events, fetchImpl, config);
+  if (!sent) {
+    // Сервер недоступен — события вернутся в очередь и уйдут со следующей отправкой.
+    queue = [...events, ...queue].slice(-MAX_QUEUE);
+  }
+  if (queue.length > 0 && !flushTimer) flushTimer = setTimeout(() => void flushTelemetry(), FLUSH_DELAY_MS);
+}
+
+/** Одна посылка на сервер; `false` — не дошла. */
+async function postEvents(
+  events: TelemetryEvent[],
+  fetchImpl: typeof fetch,
+  config: ServerConfig
+): Promise<boolean> {
   const user = await discordUser();
   try {
     const response = await fetchImpl(`${config.baseUrl}/v1/telemetry`, {
@@ -155,12 +171,54 @@ export async function flushTelemetry(
         events
       })
     });
-    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+    return response.ok;
   } catch {
-    // Сервер недоступен — события вернутся в очередь и уйдут со следующей отправкой.
-    queue = [...events, ...queue].slice(-MAX_QUEUE);
+    return false;
   }
-  if (queue.length > 0 && !flushTimer) flushTimer = setTimeout(() => void flushTelemetry(), FLUSH_DELAY_MS);
+}
+
+export interface UserReportInput {
+  /** Фраза, которую видел человек. */
+  message: string;
+  /** Техническая причина — текст исходной ошибки. */
+  detail?: string | null;
+  trackId?: string | null;
+  source?: string | null;
+}
+
+/**
+ * Отчёт об ошибке, отправленный человеком кнопкой «Отправить отчёт».
+ *
+ * В отличие от фоновой статистики, идёт сразу и не смотрит на выключатель
+ * «Диагностика»: человек нажал кнопку сам, значит, именно этого и хочет.
+ * Состав тот же — версия, платформа, источник, код, текст без ссылок и адресов,
+ * id трека, — больше серверу знать незачем. Возвращает `true`, если сервер
+ * принял отчёт; без адреса сервера отправлять некуда.
+ */
+export async function sendUserReport(
+  input: UserReportInput,
+  fetchImpl: typeof fetch = fetch,
+  config: ServerConfig | null = resolveServerConfig()
+): Promise<boolean> {
+  if (!config) return false;
+  const detail = scrubDetail([input.message, input.detail].filter(Boolean).join(' | '));
+  return postEvents(
+    [
+      {
+        at: Date.now(),
+        kind: 'report',
+        ok: false,
+        source: input.source || 'unknown',
+        ms: 0,
+        // Код прячется за обёрткой IPC (`Error invoking remote method…`), снимаем её.
+        code: input.detail ? codeOf(unwrapErrorMessage(input.detail)) : undefined,
+        detail,
+        videoId: input.trackId || undefined
+      }
+    ],
+    fetchImpl,
+    config
+  );
 }
 
 /** Отметка «приложение живо» при запуске и раз в шесть часов. */

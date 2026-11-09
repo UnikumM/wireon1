@@ -8,6 +8,7 @@ import { audioEngine, MIN_PLAYBACK_RATE, MAX_PLAYBACK_RATE } from '../services/a
 import { MediaSessionService } from '../services/mediaSession';
 import { streamResolver } from '../services/streamResolver';
 import { describePlaybackError } from '../services/playbackErrors';
+import { noteStreamQuality } from '../services/trackQuality';
 import { recordResolve } from '../services/resolveLog';
 import { trackResolve } from '../services/telemetry';
 import { searchAggregator } from '../services/aggregator';
@@ -47,6 +48,7 @@ export const PLAYER_SETTING_KEYS = {
   crossfadeEnabled: 'crossfadeEnabled',
   crossfadeDuration: 'crossfadeDuration',
   loudnessNormalization: 'loudnessNormalization',
+  softResume: 'softResume',
   audioBalance: 'audioBalance',
   audioMono: 'audioMono',
   mobileAudioFx: 'mobileAudioFx',
@@ -593,6 +595,8 @@ export const usePlayerStore = create<PlayerStore>((set, get) => {
         substitutedFrom: audioEngine.getCurrentTrack()?.substitutedFrom ?? null,
         ...NO_ERROR
       });
+      // Отрывок или низкий битрейт запоминаем по треку: строка списка предупредит заранее.
+      noteStreamQuality(track.id, audioEngine.getCurrentTrack());
       MediaSessionService.updatePlaybackState('playing');
 
       if (addToHistory) {
@@ -849,6 +853,7 @@ export const usePlayerStore = create<PlayerStore>((set, get) => {
     crossfadeEnabled: false,
     crossfadeDuration: 3,
     loudnessNormalization: false,
+    softResume: true,
     audioBalance: 0,
     audioMono: false,
     mobileAudioFx: false,
@@ -1777,7 +1782,8 @@ export const usePlayerStore = create<PlayerStore>((set, get) => {
             mobileAudioFx,
             lastQueue,
             audioBalance,
-            audioMono
+            audioMono,
+            softResume
           ] = await Promise.all([
             dbService.getSetting<number>(PLAYER_SETTING_KEYS.volume, current.volume),
             dbService.getSetting<boolean>(PLAYER_SETTING_KEYS.isMuted, current.isMuted),
@@ -1803,7 +1809,8 @@ export const usePlayerStore = create<PlayerStore>((set, get) => {
             dbService.getSetting<boolean>(PLAYER_SETTING_KEYS.mobileAudioFx, current.mobileAudioFx),
             dbService.getSetting<SavedQueue | null>(PLAYER_SETTING_KEYS.lastQueue, null),
             dbService.getSetting<number>(PLAYER_SETTING_KEYS.audioBalance, current.audioBalance),
-            dbService.getSetting<boolean>(PLAYER_SETTING_KEYS.audioMono, current.audioMono)
+            dbService.getSetting<boolean>(PLAYER_SETTING_KEYS.audioMono, current.audioMono),
+            dbService.getSetting<boolean>(PLAYER_SETTING_KEYS.softResume, current.softResume)
           ]);
 
           const nextVolume = typeof volume === 'number' && Number.isFinite(volume) ? clampVolume(volume) : current.volume;
@@ -1818,6 +1825,7 @@ export const usePlayerStore = create<PlayerStore>((set, get) => {
               : current.crossfadeDuration;
           const nextLoudnessNorm =
             typeof loudnessNormalization === 'boolean' ? loudnessNormalization : current.loudnessNormalization;
+          const nextSoftResume = typeof softResume === 'boolean' ? softResume : current.softResume;
           const nextRate =
             typeof playbackRate === 'number' && Number.isFinite(playbackRate)
               ? clampPlaybackRate(playbackRate)
@@ -1852,6 +1860,7 @@ export const usePlayerStore = create<PlayerStore>((set, get) => {
             crossfadeEnabled: nextCrossfadeEnabled,
             crossfadeDuration: nextCrossfadeDuration,
             loudnessNormalization: nextLoudnessNorm,
+            softResume: nextSoftResume,
             mobileAudioFx: nextMobileFx,
             playbackRate: nextRate,
             preservePitch: nextPreservePitch,
@@ -1870,6 +1879,7 @@ export const usePlayerStore = create<PlayerStore>((set, get) => {
           // Обработку включаем до движка: он читает флаг, решая, строить ли граф.
           setAudioProcessingEnabled(nextMobileFx);
           audioEngine.setLoudnessNormalization(nextLoudnessNorm);
+          audioEngine.setSoftResume(nextSoftResume);
           audioEngine.setPlaybackRate(nextRate, nextPreservePitch);
           const nextBalance =
             typeof audioBalance === 'number' && Number.isFinite(audioBalance)
@@ -2080,6 +2090,12 @@ export const usePlayerStore = create<PlayerStore>((set, get) => {
       set({ loudnessNormalization: enabled });
       audioEngine.setLoudnessNormalization(enabled);
       persistSetting(PLAYER_SETTING_KEYS.loudnessNormalization, enabled);
+    },
+
+    setSoftResume: (enabled: boolean) => {
+      set({ softResume: enabled });
+      audioEngine.setSoftResume(enabled);
+      persistSetting(PLAYER_SETTING_KEYS.softResume, enabled);
     },
 
     setAudioBalance: (balance: number) => {

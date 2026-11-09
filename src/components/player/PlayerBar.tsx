@@ -1,6 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
 import {
-  AlertTriangle,
   Check,
   Heart,
   ListMusic,
@@ -40,7 +39,7 @@ import { TransportControls } from './TransportControls';
 import { TempoControl } from './TempoControl';
 import { focusMenuItem, useCountdown } from './playerHooks';
 import { ICON } from '../../styles/icons';
-import { NowPlayingArtwork, useFavoriteToggle } from './core';
+import { NowPlayingArtwork, PlaybackErrorPanel, useFavoriteToggle } from './core';
 
 const SLEEP_TIMER_OPTIONS = [15, 30, 45, 60, 90];
 
@@ -64,8 +63,6 @@ export const PlayerBar: React.FC<PlayerBarProps> = ({ className = '' }) => {
   // человека, а не по ходу трека, в отличие от времени выше.
   const isPlaying = usePlayerStore((s) => s.isPlaying);
   const isMuted = usePlayerStore((s) => s.isMuted);
-  const error = usePlayerStore((s) => s.error);
-  const errorDetail = usePlayerStore((s) => s.errorDetail);
   const isPreviewStream = usePlayerStore((s) => s.isPreviewStream);
   const substitutedFrom = usePlayerStore((s) => s.substitutedFrom);
   const clearPlayback = usePlayerStore((s) => s.clearPlayback);
@@ -119,9 +116,6 @@ export const PlayerBar: React.FC<PlayerBarProps> = ({ className = '' }) => {
   const openArtist = useUIStore((s) => s.openArtist);
 
   const [isMenuOpen, setIsMenuOpen] = useState(false);
-  // The store owns `error` and has no clear action, so dismissal is local: the
-  // banner hides until the message changes (loading a track resets it to null).
-  const [dismissedError, setDismissedError] = useState<string | null>(null);
   // Only the deadline is stored, so the chosen duration is remembered here to
   // keep the radio group in sync with what the user picked.
   const [sleepMinutes, setSleepMinutes] = useState<number | null>(null);
@@ -158,10 +152,6 @@ export const PlayerBar: React.FC<PlayerBarProps> = ({ className = '' }) => {
     return () => document.removeEventListener('pointerdown', onPointerDown, true);
   }, [isMenuOpen]);
 
-  useEffect(() => {
-    if (error === null) setDismissedError(null);
-  }, [error]);
-
   // Разметку читает полоса, а не корень приложения: она монтируется вместе с
   // окном и живёт всё время, а стор сам защищён флагом «уже прочитано», так что
   // второй плеер (мини-режим) базу не перечитает.
@@ -172,8 +162,6 @@ export const PlayerBar: React.FC<PlayerBarProps> = ({ className = '' }) => {
   useEffect(() => {
     if (sleepTimerEndsAt === null) setSleepMinutes(null);
   }, [sleepTimerEndsAt]);
-
-  const showError = error !== null && error !== dismissedError;
 
   /*
    * Правый край собран в три группы, и каждая из них должна уметь не появляться
@@ -266,37 +254,9 @@ export const PlayerBar: React.FC<PlayerBarProps> = ({ className = '' }) => {
   /*
    * Полоса ошибки. Переменной, потому что разметок у полосы две — обычная и
    * узкая, — а сообщение о том, что трек не заиграл, одинаково важно в обеих.
-   * Две копии этого блока разошлись бы при первой же правке текста.
+   * Сама панель общая с телефоном — `core/PlaybackErrorPanel`.
    */
-  const errorBanner = showError ? (
-      <div
-        role="alert"
-        className="row gap-2 text-danger text-sm py-2 px-5 bg-surface-2 border-t-subtle border-b-subtle" style={{ position: 'absolute', bottom: '100%', left: 0, right: 0, borderLeft: '2px solid var(--danger)' }}
-        data-testid="player-error"
-      >
-        <AlertTriangle size={ICON.sm} aria-hidden="true" className="shrink-0" />
-        <span
-          className="text-truncate grow"
-          // The copy is a sentence; the thrown message is the tooltip, so the
-          // transcoding, status code and video id stay one hover away.
-          title={errorDetail ?? undefined}
-          data-testid="player-error-message"
-        >
-          {error}
-        </span>
-        <Button
-          variant="ghost"
-          size="icon"
-          onClick={() => setDismissedError(error)}
-          aria-label="Скрыть ошибку"
-          title="Скрыть"
-          className="control-sm text-muted"
-          data-testid="player-error-dismiss"
-        >
-          <X size={ICON.sm} />
-        </Button>
-      </div>
-  ) : null;
+  const errorBanner = <PlaybackErrorPanel variant="bar" />;
 
   /*
    * Разметка на телефоне: обложка, название и три кнопки транспорта.

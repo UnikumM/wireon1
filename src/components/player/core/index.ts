@@ -5,3 +5,4 @@ export { NowPlayingTitles } from './NowPlayingTitles';
 export { AmbientLight } from './AmbientLight';
 export { RoundButton, LabelledButton } from './IconButton';
 export { useAudioEnergy } from './useAudioEnergy';
+export { PlaybackErrorPanel } from './PlaybackErrorPanel';
