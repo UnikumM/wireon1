@@ -73,7 +73,8 @@ const RuleValue: React.FC<{ rule: SmartRule; onChange: (value: SmartRule['value'
   index
 }) => {
   if (rule.op === 'never') return <span style={VALUE_FLEX} />;
-  if (rule.field === 'favorite') {
+  // «Сохранён офлайн» — такое же да/нет, как «в избранном».
+  if (rule.field === 'favorite' || rule.field === 'offline') {
     return (
       <select
         value={rule.value ? 'yes' : 'no'}

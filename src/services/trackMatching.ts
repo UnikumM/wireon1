@@ -504,3 +504,100 @@ export function rankCandidates(
     candidates.map((candidate) => scoreCandidate(target, candidate))
   ).sort((a, b) => b.score - a.score);
 }
+
+// ---------------------------------------------------------------------------
+// Одна песня с двух площадок (фича 11 плана 4.0)
+// ---------------------------------------------------------------------------
+
+export interface DuplicatePair {
+  youtube: UnifiedTrack;
+  soundcloud: UnifiedTrack;
+}
+
+/** Разброс длительностей, при котором две записи ещё считаются одной. */
+export const DUPLICATE_DURATION_TOLERANCE_S = 3;
+
+/**
+ * Хвосты у имени канала, которых у исполнителя нет: «Radiohead - Topic»,
+ * «RadioheadVEVO». Без этого та же песня с автоканала YouTube никогда не
+ * сошлась бы с профилем исполнителя на SoundCloud.
+ */
+const CHANNEL_SUFFIX = /\s*-\s*topic$|vevo$|\s+official$/i;
+
+/**
+ * Ключ строгого совпадения: название без украшений загрузки и исполнитель,
+ * оба сведены к буквам и цифрам. Пустое название ключа не даёт — такие записи
+ * в пары не попадают вовсе.
+ */
+export function duplicateKey(track: Pick<UnifiedTrack, 'title' | 'artist'>): string | null {
+  const title = normalizeForMatch(stripNoise(splitCatalogTitle(track.title).base));
+  if (!title) return null;
+  const artist = normalizeForMatch((track.artist || '').replace(CHANNEL_SUFFIX, ''));
+  return `${title}|${artist}`;
+}
+
+/**
+ * Пары «тот же трек с YouTube и с SoundCloud» среди переданных записей.
+ *
+ * Отбор нарочно строгий — совпадение нормализованных названия и исполнителя
+ * плюс длительность в пределах ±{@link DUPLICATE_DURATION_TOLERANCE_S} с.
+ * Мягкий `scoreCandidate` здесь не годится: он подбирает *замену*, а тут
+ * предлагают *удалить* одну из двух записей, и ложная пара стоит дороже
+ * пропущенной. Запись без длительности в пары не попадает: без неё ремикс
+ * на семь минут не отличить от трёхминутного оригинала.
+ */
+export function findDuplicatePairs(tracks: ReadonlyArray<UnifiedTrack>): DuplicatePair[] {
+  const soundcloudByKey = new Map<string, UnifiedTrack[]>();
+  for (const track of tracks) {
+    if (track?.source !== 'soundcloud') continue;
+    const key = duplicateKey(track);
+    if (!key) continue;
+    const bucket = soundcloudByKey.get(key);
+    if (bucket) bucket.push(track);
+    else soundcloudByKey.set(key, [track]);
+  }
+
+  const pairs: DuplicatePair[] = [];
+  const taken = new Set<string>();
+  for (const track of tracks) {
+    if (track?.source !== 'youtube') continue;
+    const key = duplicateKey(track);
+    if (!key) continue;
+    const candidates = soundcloudByKey.get(key);
+    if (!candidates) continue;
+    const duration = track.duration;
+    if (!duration || duration <= 0) continue;
+    // Из нескольких подходящих — ближайшая по длительности, и каждая только раз.
+    let best: UnifiedTrack | null = null;
+    let bestGap = Infinity;
+    for (const candidate of candidates) {
+      if (taken.has(candidate.id) || !candidate.duration || candidate.duration <= 0) continue;
+      const gap = Math.abs(candidate.duration - duration);
+      if (gap <= DUPLICATE_DURATION_TOLERANCE_S && gap < bestGap) {
+        best = candidate;
+        bestGap = gap;
+      }
+    }
+    if (!best) continue;
+    taken.add(best.id);
+    pairs.push({ youtube: track, soundcloud: best });
+  }
+  return pairs;
+}
+
+/**
+ * Какую запись из пары оставить, если выбирать не глядя.
+ *
+ * Хуже та, у которой стоит пометка качества (отрывок или низкий битрейт):
+ * оставляем вторую. Пометок нет или есть у обеих — YouTube: у него нет
+ * 30-секундных отрывков, а запасной источник в плеере и так ведёт туда.
+ */
+export function chooseBetterDuplicate(
+  pair: DuplicatePair,
+  quality: (trackId: string) => 'preview' | 'low' | null
+): { keep: UnifiedTrack; drop: UnifiedTrack } {
+  const ytBad = quality(pair.youtube.id) !== null;
+  const scBad = quality(pair.soundcloud.id) !== null;
+  if (ytBad && !scBad) return { keep: pair.soundcloud, drop: pair.youtube };
+  return { keep: pair.youtube, drop: pair.soundcloud };
+}

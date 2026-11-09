@@ -4568,3 +4568,45 @@ h2 {
     flex-wrap: wrap;
   }
 }
+
+/* Живые фильтры медиатеки и пары дублей (фичи 10–11 плана 4.0). */
+.library-filter-divider {
+  align-self: stretch;
+  width: 1px;
+  margin: var(--space-1) 0;
+  background: var(--border-subtle);
+}
+
+.duplicates-banner {
+  padding: var(--space-3) var(--space-4);
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--border-subtle);
+  background: var(--surface-1);
+}
+
+.duplicates-banner-icon {
+  width: var(--control-md);
+  height: var(--control-md);
+  border-radius: var(--radius-sm);
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+
+.duplicate-pair {
+  padding: var(--space-3);
+  border-radius: var(--radius-md);
+  background: var(--surface-2);
+}
+
+/* Две записи рядом; в узком окне — одна под другой, иначе названиям не хватает места. */
+.duplicate-pair-sides {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: var(--space-3);
+}
+
+.duplicate-art {
+  width: var(--control-lg);
+  height: var(--control-lg);
+  object-fit: cover;
+}

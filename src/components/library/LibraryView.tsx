@@ -32,6 +32,9 @@ import { FolderNameModal } from './FolderNameModal';
 import { PlaylistFolderMenu } from './PlaylistFolderMenu';
 import { useFolderStore, groupByFolders, folderOfPlaylist, PlaylistFolder } from '../../store/useFolderStore';
 import { OfflineSection } from './OfflineSection';
+import { LibraryFilterChips } from './LibraryFilterChips';
+import { DuplicatesBanner } from './DuplicatesBanner';
+import { useLibraryFilters } from './useLibraryFilters';
 import { offlineStorage } from '../../services/offlineStorage';
 import { UnifiedTrack } from '../../types/music';
 import { describeTrackTotals, dedupeHistory } from './trackSummary';
@@ -209,11 +212,22 @@ export const LibraryView: React.FC<LibraryViewProps> = ({
 
   const needle = query.trim().toLowerCase();
 
+  /*
+   * Чипы-фильтры общие для «Недавних» и «Избранного»: набор переживает
+   * переключение закладки, как и строка поиска, — человек, выбравший «SoundCloud»,
+   * ожидает увидеть SoundCloud и на соседней закладке.
+   */
+  const libraryFilters = useLibraryFilters();
+
   const recentlyPlayed = useMemo(() => dedupeHistory(history), [history]);
 
   const visibleHistory = useMemo(
-    () => sortTracks(recentlyPlayed.filter((t) => matchesQuery(t, needle)), sortMode),
-    [recentlyPlayed, needle, sortMode]
+    () =>
+      sortTracks(
+        libraryFilters.apply(recentlyPlayed.filter((t) => matchesQuery(t, needle)), { allowStale: false }),
+        sortMode
+      ),
+    [recentlyPlayed, needle, sortMode, libraryFilters]
   );
 
   // История копится годами — в DOM держим только видимую часть.
@@ -223,8 +237,8 @@ export const LibraryView: React.FC<LibraryViewProps> = ({
   });
 
   const visibleFavorites = useMemo(
-    () => sortTracks(favorites.filter((t) => matchesQuery(t, needle)), sortMode),
-    [favorites, needle, sortMode]
+    () => sortTracks(libraryFilters.apply(favorites.filter((t) => matchesQuery(t, needle))), sortMode),
+    [favorites, needle, sortMode, libraryFilters]
   );
 
   const pinnedIds = usePinnedStore((s) => s.pinnedIds);
@@ -585,6 +599,17 @@ export const LibraryView: React.FC<LibraryViewProps> = ({
               ) : null
             )}
 
+            {/* Фильтровать пустую историю нечего — чипы только при треках. */}
+            {recentlyPlayed.length > 0 && (
+              <LibraryFilterChips
+                filters={libraryFilters.filters}
+                onChange={libraryFilters.setFilters}
+                count={visibleHistory.length}
+                scope="recent"
+                showStale={false}
+              />
+            )}
+
             {isLoading ? (
               <Skeleton count={5} height={54} radius="var(--radius-sm)" />
             ) : recentlyPlayed.length === 0 ? (
@@ -603,7 +628,11 @@ export const LibraryView: React.FC<LibraryViewProps> = ({
               <EmptyState
                 icon={<Clock size={ICON.display} />}
                 title="Ничего не нашлось"
-                description={`Среди прослушанного нет ничего по запросу «${query}».`}
+                description={
+                  needle
+                    ? `Среди прослушанного нет ничего по запросу «${query}».`
+                    : 'Под выбранные фильтры не подошёл ни один трек.'
+                }
                 data-testid="history-no-matches"
               />
             ) : (
@@ -672,7 +701,20 @@ export const LibraryView: React.FC<LibraryViewProps> = ({
               totalCount={favorites.length}
               query={query}
               isLoading={isLoading}
-              toolbar={toolbar}
+              toolbar={
+                <>
+                  {toolbar}
+                  {favorites.length > 0 && (
+                    <LibraryFilterChips
+                      filters={libraryFilters.filters}
+                      onChange={libraryFilters.setFilters}
+                      count={visibleFavorites.length}
+                      scope="favorites"
+                    />
+                  )}
+                  <DuplicatesBanner tracks={favorites} />
+                </>
+              }
             />
           </div>
         )}

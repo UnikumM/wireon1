@@ -3,6 +3,7 @@ import { getAllHistory, HistoryRecord } from '../services/db';
 import { collectTrackFacts, evaluateSmartPlaylist, SmartPlaylist, SmartTrackFacts } from '../services/smartPlaylists';
 import { useLibraryStore } from '../store/useLibraryStore';
 import { useSmartPlaylistStore } from '../store/useSmartPlaylistStore';
+import { useOfflineIds } from '../components/library/useLibraryFilters';
 
 /**
  * Всё, что известно о треках на устройстве, — для проверки правил.
@@ -16,6 +17,8 @@ export function useTrackFacts(): SmartTrackFacts[] | null {
   const playlists = useLibraryStore((s) => s.playlists);
   const recent = useLibraryStore((s) => s.history);
   const [history, setHistory] = useState<HistoryRecord[] | null>(null);
+  // Правило «сохранён офлайн» сверяется с хранилищем, а не с полем трека.
+  const offlineIds = useOfflineIds();
 
   useEffect(() => {
     void useSmartPlaylistStore.getState().hydrate();
@@ -38,9 +41,10 @@ export function useTrackFacts(): SmartTrackFacts[] | null {
     return collectTrackFacts({
       favorites,
       playlistTracks: playlists.flatMap((p) => p.tracks || []),
-      history
+      history,
+      offlineIds
     });
-  }, [favorites, playlists, history]);
+  }, [favorites, playlists, history, offlineIds]);
 }
 
 /** Треки одного умного плейлиста; `null` — ещё считаем. */

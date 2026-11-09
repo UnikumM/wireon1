@@ -37,6 +37,7 @@ const facts = (track: UnifiedTrack, patch: Partial<SmartTrackFacts> = {}): Smart
   lastPlayed: null,
   added: null,
   favorite: false,
+  offline: false,
   ...patch
 });
 

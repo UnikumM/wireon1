@@ -24,7 +24,8 @@ export type SmartField =
   | 'lastPlayed'
   | 'added'
   | 'duration'
-  | 'favorite';
+  | 'favorite'
+  | 'offline';
 
 export type SmartOp =
   | 'contains'
@@ -67,6 +68,12 @@ export interface SmartTrackFacts {
   /** Когда положили в медиатеку (избранное или плейлист); `null` — неизвестно. */
   added: number | null;
   favorite: boolean;
+  /**
+   * Файл лежит на устройстве. Поле появилось вместе с фильтром «только офлайн»
+   * в медиатеке: набор чипов сохраняется умным плейлистом, и без этого поля
+   * один из чипов было бы некуда записать.
+   */
+  offline: boolean;
 }
 
 export const SMART_FIELD_LABELS: Record<SmartField, string> = {
@@ -78,7 +85,8 @@ export const SMART_FIELD_LABELS: Record<SmartField, string> = {
   lastPlayed: 'Последнее прослушивание',
   added: 'Добавлен',
   duration: 'Длительность, мин',
-  favorite: 'В избранном'
+  favorite: 'В избранном',
+  offline: 'Сохранён офлайн'
 };
 
 export const SMART_OP_LABELS: Record<SmartOp, string> = {
@@ -103,7 +111,8 @@ export const SMART_FIELD_OPS: Record<SmartField, SmartOp[]> = {
   lastPlayed: ['within_days', 'not_within_days', 'never'],
   added: ['within_days', 'not_within_days'],
   duration: ['gte', 'lte'],
-  favorite: ['is']
+  favorite: ['is'],
+  offline: ['is']
 };
 
 export const SMART_SORT_LABELS: Record<SmartSort, string> = {
@@ -132,6 +141,7 @@ export function defaultRule(field: SmartField): SmartRule {
     case 'duration':
       return { field, op: 'lte', value: 4 };
     case 'favorite':
+    case 'offline':
       return { field, op, value: true };
     default:
       return { field, op, value: '' };
@@ -189,6 +199,8 @@ export function matchesRule(facts: SmartTrackFacts, rule: SmartRule, now: number
     }
     case 'favorite':
       return facts.favorite === Boolean(rule.value);
+    case 'offline':
+      return facts.offline === Boolean(rule.value);
     default:
       return true;
   }
@@ -209,12 +221,23 @@ export function collectTrackFacts(input: {
   favorites: ReadonlyArray<UnifiedTrack>;
   playlistTracks: ReadonlyArray<UnifiedTrack>;
   history: ReadonlyArray<HistoryRecord>;
+  /** Id треков, лежащих офлайн. Не передали — считаем, что офлайн ничего нет. */
+  offlineIds?: ReadonlySet<string>;
 }): SmartTrackFacts[] {
   const map = new Map<string, SmartTrackFacts>();
+  const offlineIds = input.offlineIds;
   const ensure = (track: UnifiedTrack): SmartTrackFacts => {
     let facts = map.get(track.id);
     if (!facts) {
-      facts = { track, plays: 0, skips: 0, lastPlayed: null, added: null, favorite: false };
+      facts = {
+        track,
+        plays: 0,
+        skips: 0,
+        lastPlayed: null,
+        added: null,
+        favorite: false,
+        offline: offlineIds?.has(track.id) ?? false
+      };
       map.set(track.id, facts);
     }
     return facts;
@@ -314,6 +337,7 @@ export function describeRules(playlist: Pick<SmartPlaylist, 'rules' | 'match'>):
   const parts = playlist.rules.map((rule) => {
     const field = SMART_FIELD_LABELS[rule.field].toLowerCase();
     if (rule.field === 'favorite') return rule.value ? 'в избранном' : 'не в избранном';
+    if (rule.field === 'offline') return rule.value ? 'сохранены офлайн' : 'не сохранены офлайн';
     if (rule.op === 'never') return 'ни разу не слушали';
     if (rule.field === 'source') {
       const name = rule.value === 'soundcloud' ? 'SoundCloud' : 'YouTube';

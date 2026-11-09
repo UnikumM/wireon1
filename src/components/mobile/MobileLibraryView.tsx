@@ -23,6 +23,9 @@ import { usePlayerStore } from '../../store/usePlayerStore';
 import { refusedForAccount, useUIStore } from '../../store/useUIStore';
 import { offlineStorage } from '../../services/offlineStorage';
 import { dedupeHistory } from '../library/trackSummary';
+import { LibraryFilterChips } from '../library/LibraryFilterChips';
+import { DuplicatesBanner } from '../library/DuplicatesBanner';
+import { useLibraryFilters } from '../library/useLibraryFilters';
 import { useVirtualRows, TRACK_ROW_PITCH } from '../../hooks/useVirtualRows';
 import { ICON } from '../../styles/icons';
 import { pluralize } from '../../utils/plural';
@@ -144,11 +147,18 @@ export const MobileLibraryView: React.FC<MobileLibraryViewProps> = ({ onCreatePl
 
   const recent = useMemo(() => dedupeHistory(history), [history]);
 
+  // Те же чипы, что на компьютере; «Офлайн» и «Плейлисты» их не получают.
+  const libraryFilters = useLibraryFilters();
+  const showFilters = (tab === 'favorites' && favorites.length > 0) || (tab === 'recent' && recent.length > 0);
+
   const tracks = useMemo(() => {
     const source =
       tab === 'favorites' ? favorites : tab === 'offline' ? offlineTracks : recent;
-    return source.filter((track) => matchesQuery(track, needle));
-  }, [favorites, needle, offlineTracks, recent, tab]);
+    const found = source.filter((track) => matchesQuery(track, needle));
+    if (tab === 'favorites') return libraryFilters.apply(found);
+    if (tab === 'recent') return libraryFilters.apply(found, { allowStale: false });
+    return found;
+  }, [favorites, needle, offlineTracks, recent, tab, libraryFilters]);
 
   const pinnedIds = usePinnedStore((s) => s.pinnedIds);
   useEffect(() => {
@@ -452,6 +462,18 @@ export const MobileLibraryView: React.FC<MobileLibraryViewProps> = ({ onCreatePl
             : [])
         ]}
       />
+
+      {showFilters && (
+        <LibraryFilterChips
+          filters={libraryFilters.filters}
+          onChange={libraryFilters.setFilters}
+          count={tracks.length}
+          scope={tab === 'favorites' ? 'favorites' : 'recent'}
+          showStale={tab === 'favorites'}
+        />
+      )}
+
+      {tab === 'favorites' && <DuplicatesBanner tracks={favorites} />}
 
       {tab === 'playlists' && !needle && (
         <div className="mb-5">
