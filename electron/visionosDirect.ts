@@ -38,12 +38,26 @@ export function resetVisionosVisitor(): void {
 
 async function visitorData(fetchImpl: typeof fetch, now: number): Promise<string> {
   if (visitor && now - visitor.at < VISITOR_TTL_MS) return visitor.value;
-  const page = await fetchImpl('https://www.youtube.com/', {
-    headers: { 'User-Agent': CLIENT.userAgent, 'Accept-Language': 'en-US,en;q=0.9' },
+  /*
+   * Не главная страница: с 30.10.2026 она отдаёт ~19 КБ заголовков, а Node в
+   * Electron принимает не больше 16 КБ и рвёт запрос (`UND_ERR_HEADERS_OVERFLOW`,
+   * в журнале — «fetch failed»). Ступень молча выпала у всех на ПК, звук шёл
+   * через yt-dlp за 8 секунд. У `visitor_id` заголовки маленькие, ответ — JSON.
+   */
+  const response = await fetchImpl('https://www.youtube.com/youtubei/v1/visitor_id?prettyPrint=false', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'User-Agent': CLIENT.userAgent,
+      'X-YouTube-Client-Name': CLIENT_ID,
+      'X-YouTube-Client-Version': CLIENT.clientVersion,
+      Origin: 'https://www.youtube.com'
+    },
+    body: JSON.stringify({ context: { client: CLIENT } }),
     signal: AbortSignal.timeout(10000)
   });
-  const value = (await page.text()).match(/"VISITOR_DATA":"([^"]+)"/)?.[1];
-  if (!value) throw new Error('visionos: на главной YouTube нет VISITOR_DATA');
+  const value = ((await response.json()) as any)?.responseContext?.visitorData;
+  if (typeof value !== 'string' || !value) throw new Error('visionos: YouTube не выдал visitorData');
   visitor = { value, at: now };
   return value;
 }

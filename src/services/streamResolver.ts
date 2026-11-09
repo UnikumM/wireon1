@@ -7,7 +7,7 @@ import { findLink, forgetLink, rememberLink } from './matchLinks';
 import { detectPlatform } from './nativeBridge';
 import { recordResolve } from './resolveLog';
 import { trackResolve } from './telemetry';
-import { objectUrlFor, trackFileUrl } from './offlineFiles';
+import { deleteTrackFile, isPlaylistSavedAsAudio, objectUrlFor, revokeObjectUrl, trackFileUrl } from './offlineFiles';
 import { needsLocalSource } from './audioProcessing';
 import { cachePathFromUrl, cachedStreamExists, cacheStreamToFile, deleteCachedStream } from './streamCache';
 
@@ -307,7 +307,16 @@ export class StreamResolver {
     // 1. Check if track is available in offline storage
     try {
       if (db && db.offlineTracks) {
-        const offlineRecord = await db.offlineTracks.get(track.id);
+        let offlineRecord = await db.offlineTracks.get(track.id);
+        // Плейлист вместо звука (сохранения до 4.0.1) не сыграет никогда —
+        // выбрасываем копию и идём за живым потоком.
+        if (offlineRecord && (await isPlaylistSavedAsAudio(offlineRecord))) {
+          console.info(`[StreamResolver] Офлайн-копия «${track.title || track.id}» оказалась плейлистом — удалена`);
+          revokeObjectUrl(track.id);
+          await deleteTrackFile(offlineRecord.filePath);
+          await db.offlineTracks.delete(track.id);
+          offlineRecord = undefined;
+        }
         // Две формы хранения: файл на телефоне и `Blob` в базе на десктопе (а
         // на телефоне — у записей, скачанных до перехода на файлы).
         const fileUrl = offlineRecord?.filePath

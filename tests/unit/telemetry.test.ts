@@ -43,6 +43,16 @@ describe('telemetry', () => {
     expect(pendingTelemetryForTests()[0]).toMatchObject({ code: 'YT_BOT_CHECK', videoId: 'kJQP7kiw5Fk' });
   });
 
+  it('код виден и за обёрткой IPC — иначе половина отказов в сводке без причины', () => {
+    trackResolve({
+      ok: false,
+      source: 'youtube',
+      ms: 9000,
+      detail: "Error invoking remote method 'resolve-youtube-stream': Error: YT_AGE_RESTRICTED: Sign in to confirm your age"
+    });
+    expect(pendingTelemetryForTests()[0]).toMatchObject({ code: 'YT_AGE_RESTRICTED' });
+  });
+
   it('выключенная статистика ничего не копит и не шлёт', async () => {
     setTelemetryEnabled(false);
     trackResolve({ ok: false, source: 'youtube', ms: 1, detail: 'X_Y: z' });

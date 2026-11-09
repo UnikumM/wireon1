@@ -1,6 +1,7 @@
 import { db, OfflineTrackRecord } from './db';
 import { UnifiedTrack } from '../types/music';
 import { streamResolver } from './streamResolver';
+import { downloadHlsAudio, isHlsPlaylistText } from './hlsDownload';
 import {
   clearTrackFiles,
   deleteTrackFile,
@@ -218,9 +219,20 @@ class OfflineStorageService {
       const totalBytes = contentLengthHeader ? parseInt(contentLengthHeader, 10) : 0;
       const contentType = response.headers?.get?.('content-type') || null;
       let blob: Blob;
+      /** Формат собранного HLS-потока; пусто — обычный файл. */
+      let hlsFormat: 'm4a' | 'mp3' | null = null;
 
-      // 3. Process stream chunks if readable body is available
-      if (
+      // 2.5. HLS — это плейлист, а не звук: собираем файл из его кусков.
+      if (streamInfo.format === 'hls' || /mpegurl/i.test(contentType || '')) {
+        const playlist = await response.text();
+        if (!isHlsPlaylistText(playlist)) {
+          throw new Error(`«${track.title || track.id}»: вместо плейлиста HLS пришло что-то другое`);
+        }
+        blob = await downloadHlsAudio(streamInfo.streamUrl, playlist, controller.signal, (done, total) =>
+          reportProgress(15 + Math.round((75 * done) / total))
+        );
+        hlsFormat = blob.type.includes('mp4') ? 'm4a' : 'mp3';
+      } else if (
         response.body &&
         typeof response.body.getReader === 'function' &&
         totalBytes > 0
@@ -254,11 +266,12 @@ class OfflineStorageService {
       }
 
       // 3.5. Сжать, если попросили и есть чем
-      let format = track.format || streamInfo.format;
+      // У собранного HLS формат — по факту файла: `hls` в записи означал бы «это плейлист».
+      let format = hlsFormat || track.format || streamInfo.format;
       let bitrate = track.bitrate || streamInfo.bitrate;
       const wantedBitrate = options?.compressBitrateKbps || 0;
       if (wantedBitrate > 0) {
-        const compressed = await this.compress(blob, wantedBitrate, guessSourceExt(contentType, track));
+        const compressed = await this.compress(blob, wantedBitrate, hlsFormat || guessSourceExt(contentType, track));
         if (compressed) {
           blob = compressed;
           // Формат записывается по факту: от него зависит и MIME при

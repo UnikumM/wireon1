@@ -161,6 +161,29 @@ export async function requestPersistentStorage(): Promise<boolean> {
  */
 const objectUrls = new Map<string, string>();
 
+/**
+ * Сохранённая «копия» — на деле HLS-плейлист, а не звук.
+ *
+ * До 4.0.1 офлайн клал на диск плейлист записей, у которых нет прямого файла.
+ * Сыграть его нельзя, а запись при этом перехватывала воспроизведение у живого
+ * потока, и трек не играл вовсе. Такие записи узнаём по первым байтам; у файла
+ * на телефоне читать нечего дёшево, там примета — формат `hls` в самой записи.
+ */
+export async function isPlaylistSavedAsAudio(record: {
+  blob?: Blob;
+  filePath?: string;
+  track?: { format?: string };
+}): Promise<boolean> {
+  if (record.blob) {
+    try {
+      return (await record.blob.slice(0, 7).text()) === '#EXTM3U';
+    } catch {
+      return false;
+    }
+  }
+  return Boolean(record.filePath) && record.track?.format === 'hls';
+}
+
 /** Ссылка на `Blob`, одна и та же при повторных включениях. */
 export function objectUrlFor(trackId: string, blob: Blob): string {
   const cached = objectUrls.get(trackId);

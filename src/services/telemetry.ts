@@ -114,7 +114,7 @@ export function trackResolve(event: {
     ok: event.ok,
     source: event.source,
     ms: Math.max(0, Math.round(event.ms)),
-    code: detail ? codeOf(detail) : undefined,
+    code: detail ? codeOf(unwrapErrorMessage(detail)) : undefined,
     detail,
     videoId: event.ok ? undefined : event.videoId
   });

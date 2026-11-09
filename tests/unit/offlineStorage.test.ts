@@ -166,6 +166,39 @@ describe('Milestone 3 — In-App Desktop Offline Storage & Downloads', () => {
       expect(await isDownloaded(mockTrack1.id)).toBe(false);
     });
 
+    it('HLS-трек сохраняется звуком из кусков, а не текстом плейлиста', async () => {
+      // До 4.0.1 на диск ложился сам плейлист: «копия» не играла и перехватывала поток.
+      const manifest = 'https://playback.media-streaming.soundcloud.cloud/t/aac_160k/playlist.m3u8?sig=1';
+      vi.spyOn(streamResolver, 'resolve').mockResolvedValue({
+        streamUrl: manifest,
+        format: 'hls',
+        bitrate: 128,
+        expiresAt: Date.now() + 3600000,
+        cached: false
+      });
+      const bodies: Record<string, string> = { 'init.mp4': 'INIT', 'seg1.m4s': '-ONE', 'seg2.m4s': '-TWO' };
+      global.fetch = vi.fn().mockImplementation(async (url: string) => {
+        if (url === manifest) {
+          return new Response(
+            '#EXTM3U\n#EXT-X-MAP:URI="init.mp4"\n#EXTINF:10,\nseg1.m4s?s=1\n#EXTINF:10,\nseg2.m4s?s=2\n#EXT-X-ENDLIST\n',
+            { headers: { 'content-type': 'application/vnd.apple.mpegurl' } }
+          );
+        }
+        const name = new URL(url).pathname.split('/').pop() as string;
+        return new Response(bodies[name]);
+      }) as unknown as typeof fetch;
+
+      // Blob из fake-indexeddb обратно не читается, поэтому запись ловим на входе в put().
+      const putSpy = vi.spyOn(db.offlineTracks, 'put');
+
+      await downloadTrack(mockTrack1);
+
+      const record = putSpy.mock.calls[0][0] as OfflineTrackRecord;
+      expect(await record.blob!.text()).toBe('INIT-ONE-TWO');
+      expect(record.blob!.type).toBe('audio/mp4');
+      expect(record.track.format).toBe('m4a');
+    });
+
     it('checks isDownloaded correctly for missing and existing tracks', async () => {
       expect(await isDownloaded('yt_nonexistent')).toBe(false);
       expect(await isDownloaded('')).toBe(false);
@@ -317,6 +350,35 @@ describe('Milestone 3 — In-App Desktop Offline Storage & Downloads', () => {
       // Verify 0 remote network calls were made
       expect(ytSpy).not.toHaveBeenCalled();
       expect(scSpy).not.toHaveBeenCalled();
+    });
+
+    it('копию-плейлист из старых версий выбрасывает и играет потоком', async () => {
+      const ytSpy = vi.spyOn(youtubeService, 'resolveStreamUrl').mockResolvedValue({
+        streamUrl: 'https://googlevideo.com/live-stream',
+        format: 'm4a',
+        bitrate: 128,
+        expiresAt: Date.now() + 3600000
+      });
+      const playlist = new Blob(['#EXTM3U\n#EXTINF:10,\nhttps://expired.example/seg1.m4s\n'], {
+        type: 'application/vnd.apple.mpegurl'
+      });
+      const broken: OfflineTrackRecord = {
+        id: mockTrack1.id,
+        track: { ...mockTrack1, format: 'hls' },
+        blob: playlist,
+        sizeBytes: playlist.size,
+        downloadedAt: Date.now()
+      };
+      await db.offlineTracks.put(broken);
+      // fake-indexeddb вернул бы вместо Blob пустой объект — отдаём запись как в настоящей базе.
+      vi.spyOn(db.offlineTracks, 'get').mockResolvedValueOnce(broken);
+
+      const streamInfo = await streamResolver.resolve(mockTrack1);
+
+      expect(streamInfo.streamUrl).toBe('https://googlevideo.com/live-stream');
+      expect(ytSpy).toHaveBeenCalledTimes(1);
+      vi.mocked(db.offlineTracks.get).mockRestore();
+      expect(await db.offlineTracks.get(mockTrack1.id)).toBeUndefined();
     });
 
     it('falls back to remote resolution when track is not in offline storage', async () => {

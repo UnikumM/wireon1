@@ -14,11 +14,14 @@ import { StreamResolver } from '../../electron/streamResolver';
 
 const VIDEO_ID = 'dQw4w9WgXcQ';
 
+/** visitorData берётся отдельным запросом `visitor_id`, а не с главной: её заголовки не влезают в лимит Node. */
+const isVisitorCall = (call: { url: string }) => call.url.includes('/youtubei/v1/visitor_id');
+
 function youtube(player: unknown) {
   const calls: Array<{ url: string; init?: RequestInit }> = [];
   const fetchImpl = vi.fn(async (url: string, init?: RequestInit) => {
     calls.push({ url, init });
-    if (!init?.method) return new Response('<script>{"VISITOR_DATA":"vis42"}</script>');
+    if (isVisitorCall({ url })) return new Response(JSON.stringify({ responseContext: { visitorData: 'vis42' } }));
     return new Response(JSON.stringify(player));
   }) as unknown as typeof fetch;
   return { fetchImpl, calls };
@@ -44,7 +47,7 @@ describe('visionosDirect', () => {
     expect(info.formats).toEqual([
       { url: 'https://a.m4a', ext: 'm4a', abr: 130, acodec: 'mp4a.40.2', vcodec: 'none', protocol: 'https' }
     ]);
-    const player = calls.find((c) => c.init?.method === 'POST')!;
+    const player = calls.find((c) => !isVisitorCall(c))!;
     expect((player.init!.headers as Record<string, string>)['X-Goog-Visitor-Id']).toBe('vis42');
     expect(JSON.parse(String(player.init!.body)).context.client.clientName).toBe('VISIONOS');
   });
@@ -53,7 +56,7 @@ describe('visionosDirect', () => {
     const { fetchImpl, calls } = youtube({ playabilityStatus: { status: 'OK' }, streamingData: {} });
     await resolveVisionos(VIDEO_ID, fetchImpl, 0);
     await resolveVisionos(VIDEO_ID, fetchImpl, 1000);
-    expect(calls.filter((c) => !c.init?.method)).toHaveLength(1);
+    expect(calls.filter(isVisitorCall)).toHaveLength(1);
   });
 
   it('«вы не робот» — текстом yt-dlp и со свежим visitorData в следующий раз', async () => {
@@ -62,7 +65,7 @@ describe('visionosDirect', () => {
     });
     await expect(resolveVisionos(VIDEO_ID, fetchImpl, 0)).rejects.toThrow(/^ERROR: \[youtube\] .*not a bot/);
     await expect(resolveVisionos(VIDEO_ID, fetchImpl, 1)).rejects.toThrow();
-    expect(calls.filter((c) => !c.init?.method)).toHaveLength(2);
+    expect(calls.filter(isVisitorCall)).toHaveLength(2);
   });
 });
 
@@ -102,7 +105,7 @@ describe('лестница десктопа с быстрой ступенью',
 
   it('её отказ — не конец лестницы', async () => {
     const ytdl = vi.fn().mockResolvedValue(info('https://slow.m4a'));
-    const direct = vi.fn().mockRejectedValue(new Error('visionos: на главной YouTube нет VISITOR_DATA'));
+    const direct = vi.fn().mockRejectedValue(new Error('visionos: YouTube не выдал visitorData'));
     const fetchImpl = vi.fn().mockResolvedValue({ status: 206, body: null }) as unknown as typeof fetch;
 
     const stream = await new StreamResolver({ ytdl, direct, fetchImpl, stateDir }).resolve(VIDEO_ID);
