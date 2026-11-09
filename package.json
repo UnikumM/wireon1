@@ -22,6 +22,7 @@
     "electron:build": "npm run gen:icon && tsc && vite build && tsc -p tsconfig.electron.json && node scripts/build-preload.mjs",
     "smoke:build": "node scripts/smoke-build.mjs",
     "smoke:boot": "node scripts/smoke-boot.mjs",
+    "shots": "node scripts/visual-shots.mjs",
     "smoke:sources": "node scripts/smoke-sources.mjs",
     "verify": "npm run typecheck:all && npm run test:coverage && npm run electron:build && npm run smoke:build && npm run smoke:boot",
     "release:prepare": "node scripts/release-prepare.mjs",

@@ -1261,6 +1261,7 @@ svg.lucide[width='48'] {
 .radius-full { border-radius: var(--radius-full); }
 .pointer { cursor: pointer; }
 .no-events { pointer-events: none; }
+.invisible { visibility: hidden; }
 .list-none { list-style: none; }
 .min-h-0 { min-height: 0; }
 .max-w-full { max-width: 100%; }
@@ -2850,16 +2851,18 @@ svg.lucide[width='48'] {
   from {
     opacity: 0;
     filter: blur(10px);
-    transform: translateY(18px) scale(0.97);
+    /* Сдвига и масштаба нет намеренно: внутри слоя обложка едет морфом из
+     * полосы (`layoutId`), и она меряет свои границы в первом кадре. Любой
+     * transform на предке в этот момент сдвигает цель морфа, и в конце
+     * обложка прыгает на разницу. Наводка на резкость читается сама. */
   }
   to {
     opacity: 1;
-    /* `none`, а не `blur(0)` / `scale(1)`: класс объявлен с `both`, последний
-     * кадр остаётся на элементе после анимации, и ненулевой filter вместе с
-     * transform держали бы на слое во весь экран постоянный буфер композитора —
-     * поверх которого во весь экран же рисуется визуализатор. */
+    /* `none`, а не `blur(0)`: класс объявлен с `both`, последний кадр остаётся
+     * на элементе после анимации, и ненулевой filter держал бы на слое во весь
+     * экран постоянный буфер композитора — поверх которого во весь экран же
+     * рисуется визуализатор. */
     filter: none;
-    transform: none;
   }
 }
 

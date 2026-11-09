@@ -17,6 +17,7 @@ import { IntroSplash } from './components/common/IntroSplash';
 import { handleAuthCallbackPage } from './services/discordAuth';
 import { useThemeStore } from './store/useThemeStore';
 import { usePlayerLayoutStore } from './store/usePlayerLayoutStore';
+import { exposeDevtools } from './devtools';
 
 /**
  * Three documents share this bundle: the app, the OAuth callback popup and the
@@ -37,6 +38,7 @@ function renderRoot(): void {
   // bar reads it on mount, and the mini player never mounts the bar. Both calls
   // are guarded, so whichever runs second is a no-op.
   void usePlayerLayoutStore.getState().hydratePlayerLayout();
+  exposeDevtools();
 
   if (window.electronAPI?.isMiniWindow) {
     // Прозрачный документ: форма мини-плеера рисуется фигурой, а не окном (mini.css).

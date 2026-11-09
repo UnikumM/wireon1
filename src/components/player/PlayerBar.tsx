@@ -23,9 +23,8 @@ import {
   DENSITY_METRICS,
   PROGRESS_STYLE_VARS
 } from '../../store/usePlayerLayoutStore';
-import { useLibraryStore } from '../../store/useLibraryStore';
 import { playerSkinControls, playerSkinVars } from '../../styles/playerSkins';
-import { useUIStore, refusedForAccount } from '../../store/useUIStore';
+import { useUIStore } from '../../store/useUIStore';
 import { useDismissable } from '../../hooks';
 import { useMediaQuery } from '../../hooks/useMediaQuery';
 import { Button } from '../common/Button';
@@ -41,6 +40,7 @@ import { TransportControls } from './TransportControls';
 import { TempoControl } from './TempoControl';
 import { focusMenuItem, useCountdown } from './playerHooks';
 import { ICON } from '../../styles/icons';
+import { NowPlayingArtwork, useFavoriteToggle } from './core';
 
 const SLEEP_TIMER_OPTIONS = [15, 30, 45, 60, 90];
 
@@ -84,8 +84,7 @@ export const PlayerBar: React.FC<PlayerBarProps> = ({ className = '' }) => {
   const setAutoplayRadio = usePlayerStore((s) => s.setAutoplayRadio);
   const setVisualizerEnabled = usePlayerStore((s) => s.setVisualizerEnabled);
 
-  const isFavorite = useLibraryStore((s) => (currentTrack ? s.isFavorite(currentTrack.id) : false));
-  const toggleFavorite = useLibraryStore((s) => s.toggleFavorite);
+  const favorite = useFavoriteToggle(currentTrack);
 
   // Разметка полосы. `layoutHydrated` здесь не читается намеренно: это внутренний
   // флаг стора, и подписка на него добавила бы полосе лишний рендер сразу после
@@ -118,7 +117,6 @@ export const PlayerBar: React.FC<PlayerBarProps> = ({ className = '' }) => {
   const toggleFullscreenPlayer = useUIStore((s) => s.toggleFullscreenPlayer);
   const toggleMiniPlayer = useUIStore((s) => s.toggleMiniPlayer);
   const openArtist = useUIStore((s) => s.openArtist);
-  const showToast = useUIStore((s) => s.showToast);
 
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   // The store owns `error` and has no clear action, so dismissal is local: the
@@ -207,41 +205,19 @@ export const PlayerBar: React.FC<PlayerBarProps> = ({ className = '' }) => {
     height: metrics.artworkSize,
     flexShrink: 0,
     padding: 0,
-    overflow: 'hidden',
+    // Обрезки нет намеренно: обложка внутри летит в окно и обратно через
+    // transform (`layoutId`), и `overflow: hidden` рамки прятал бы полёт.
+    // Свои углы обложка скругляет сама.
     borderRadius: artworkRadius
     // Фон, рамка и наведение — в `.artwork-press` (global.css §14):
     // подсвечивать фон под обложкой бессмысленно, она его закрывает.
   };
 
+  // Обложка — общая часть ядра: тот же `layoutId`, что на сцене и в окне, так
+  // что при раскрытии она перелетает, а не появляется заново.
   const artworkContent = currentTrack ? (
-    currentTrack.artworkUrl ? (
-      <img
-        src={currentTrack.artworkUrl}
-        alt=""
-        className="fill-cover block"
-        onError={(event) => {
-          event.currentTarget.style.display = 'none';
-        }}
-      />
-    ) : (
-      <Music2 size={ICON.xl} aria-hidden="true" className="text-faint" />
-    )
+    <NowPlayingArtwork track={currentTrack} className="w-full h-full" fallbackIcon={ICON.xl} style={{ borderRadius: artworkRadius }} />
   ) : null;
-
-  const handleFavoriteClick = async () => {
-    if (!currentTrack) return;
-    const wasFavorite = isFavorite;
-    const ok = await toggleFavorite(currentTrack);
-    if (!ok) {
-      if (refusedForAccount()) return;
-      showToast('Не удалось обновить избранное', 'error');
-      return;
-    }
-    showToast(
-      wasFavorite ? `«${currentTrack.title}» убрана из избранного` : `«${currentTrack.title}» добавлена в избранное`,
-      'success'
-    );
-  };
 
   const handleArtistClick = () => {
     if (!currentTrack || !currentTrack.artist) return;
@@ -602,14 +578,14 @@ export const PlayerBar: React.FC<PlayerBarProps> = ({ className = '' }) => {
               <Button
                 variant="ghost"
                 size="icon"
-                onClick={handleFavoriteClick}
-                title={isFavorite ? 'Убрать из избранного' : 'Добавить в избранное'}
-                aria-label={isFavorite ? 'Убрать из избранного' : 'Добавить в избранное'}
-                aria-pressed={isFavorite}
-                className="control-md shrink-0" style={{ color: isFavorite ? 'var(--accent)' : 'var(--text-muted)' }}
+                onClick={() => void favorite.toggle()}
+                title={favorite.label}
+                aria-label={favorite.label}
+                aria-pressed={favorite.isFavorite}
+                className={`control-md shrink-0 ${favorite.isFavorite ? 'text-accent' : 'text-muted'}`}
                 data-testid="player-fav-btn"
               >
-                <Heart size={ICON.md} fill={isFavorite ? 'currentColor' : 'none'} />
+                <Heart size={ICON.md} fill={favorite.isFavorite ? 'currentColor' : 'none'} />
               </Button>
             )}
           </>

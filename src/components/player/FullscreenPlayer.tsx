@@ -7,7 +7,6 @@ import {
   FULLSCREEN_ARTWORK_RADIUS,
   PROGRESS_STYLE_VARS
 } from '../../store/usePlayerLayoutStore';
-import { useLibraryStore } from '../../store/useLibraryStore';
 import { useDismissable, useDominantColor, useSwipeDismiss } from '../../hooks';
 import { useMediaQuery } from '../../hooks/useMediaQuery';
 import { AudioVisualizer } from './AudioVisualizer';
@@ -22,6 +21,7 @@ import { EmptyState } from '../common/EmptyState';
 import { formatDuration } from '../../utils/time';
 import { UnifiedTrack } from '../../types/music';
 import { ICON } from '../../styles/icons';
+import { AmbientLight, NowPlayingArtwork, useFavoriteToggle } from './core';
 
 const PEEK_LIMIT = 6;
 
@@ -42,7 +42,6 @@ export const FullscreenPlayer: React.FC<FullscreenPlayerProps> = ({ className = 
   const isLyricsOpen = useUIStore((s) => s.isLyricsOpen);
   const toggleLyrics = useUIStore((s) => s.toggleLyrics);
   const openArtist = useUIStore((s) => s.openArtist);
-  const showToast = useUIStore((s) => s.showToast);
 
   const currentTrack = usePlayerStore((s) => s.currentTrack);
   // Время читает <PlayerProgress>, а не этот компонент: иначе четыре тика в
@@ -68,8 +67,7 @@ export const FullscreenPlayer: React.FC<FullscreenPlayerProps> = ({ className = 
   const jumpToUserQueueTrack = usePlayerStore((s) => s.jumpToUserQueueTrack);
   const playTrack = usePlayerStore((s) => s.playTrack);
 
-  const isFavorite = useLibraryStore((s) => (currentTrack ? s.isFavorite(currentTrack.id) : false));
-  const toggleFavorite = useLibraryStore((s) => s.toggleFavorite);
+  const favorite = useFavoriteToggle(currentTrack);
 
   // Разметка приходит из «Настройки → Плеер». Гидратацию запускает полоса плеера:
   // она в приложении всегда смонтирована, а этот оверлей — нет.
@@ -132,22 +130,6 @@ export const FullscreenPlayer: React.FC<FullscreenPlayerProps> = ({ className = 
   }, [sourceQueue, currentIndex, isShuffled, shuffleOrder]);
 
   if (!isFullscreenPlayerOpen) return null;
-
-  const handleFavoriteClick = async () => {
-    if (!currentTrack) return;
-    const wasFavorite = isFavorite;
-    const ok = await toggleFavorite(currentTrack);
-    if (!ok) {
-      showToast('Не удалось изменить избранное', 'error');
-      return;
-    }
-    showToast(
-      wasFavorite
-        ? `«${currentTrack.title}» убрано из избранного`
-        : `«${currentTrack.title}» добавлено в избранное`,
-      'success'
-    );
-  };
 
   const peekFromUser = userQueue.slice(0, PEEK_LIMIT);
   const peekRows: { key: string; track: UnifiedTrack; play: () => void }[] =
@@ -223,51 +205,8 @@ export const FullscreenPlayer: React.FC<FullscreenPlayerProps> = ({ className = 
       }
       data-testid="fullscreen-player"
     >
-      {/* Background sampled from the artwork. Two washes drift against each
-          other while the track plays and settle when it is paused, so the
-          screen is alive without anything blinking. */}
-      <div
-        aria-hidden="true"
-        className="no-events overflow-hidden" style={{ position: 'absolute', inset: 0 }}
-        data-testid="fullscreen-ambient"
-      >
-        <div
-          className={isPlaying ? 'ambient-wash-a' : undefined}
-          style={{
-            position: 'absolute',
-            inset: '-20%',
-            backgroundImage: `radial-gradient(closest-side, ${wash(46)} 0%, transparent 100%)`,
-            transform: 'translate3d(-4%, -3%, 0) scale(1.08)',
-            // Пауза снимает класс, и слой без перехода прыгал бы к базовому
-            // положению одним кадром — вспышка на весь экран, притом что обложка
-            // рядом ту же смену состояния проезжает плавно. `willChange` тоже
-            // условный: два слоя больше вьюпорта незачем держать отдельными
-            // текстурами композитора, пока они стоят.
-            transition: 'transform var(--dur-slow) var(--ease-out)',
-            willChange: isPlaying ? 'transform' : 'auto'
-          }}
-        />
-        <div
-          className={isPlaying ? 'ambient-wash-b' : undefined}
-          style={{
-            position: 'absolute',
-            inset: '-10% -20% -30%',
-            backgroundImage: `radial-gradient(closest-side, ${wash(28)} 0%, transparent 100%)`,
-            transform: 'translate3d(4%, 5%, 0) scale(1.14)',
-            transition: 'transform var(--dur-slow) var(--ease-out)',
-            willChange: isPlaying ? 'transform' : 'auto'
-          }}
-        />
-        {/* Keeps text contrast fixed no matter how bright the artwork is. */}
-        <div
-          style={{
-            position: 'absolute',
-            inset: 0,
-            backgroundImage:
-              'linear-gradient(to bottom, color-mix(in srgb, var(--bg-base) 55%, transparent) 0%, var(--bg-base) 82%)'
-          }}
-        />
-      </div>
+      {/* Свет от обложки: два пятна её цвета дрейфуют, пока играет, и замирают на паузе. */}
+      <AmbientLight color={ambientColor} playing={isPlaying} intensity="strong" data-testid="fullscreen-ambient" />
 
       {/*
         * Полоска сверху — единственное, что говорит о жесте.
@@ -388,46 +327,22 @@ export const FullscreenPlayer: React.FC<FullscreenPlayerProps> = ({ className = 
             >
               {fullscreenModules.artwork && (
                 <div
+                  className="fullscreen-artwork-frame"
                   style={{
-                    /*
-                     * Размер задан высотой, ширина идёт за ней через
-                     * `aspectRatio` — иначе квадрат перестаёт быть квадратом,
-                     * когда его ужимает потолок по ширине. `88vw` держит поля
-                     * на телефоне, `maxHeight` — обещание не вылезти за область,
-                     * а `flex: 0 1 auto` даёт это обещание исполнить.
-                     */
-                    height: 'min(46vh, 88vw, 360px)',
-                    width: 'auto',
-                    maxHeight: '100%',
-                    aspectRatio: '1 / 1',
-                    flex: '0 1 auto',
-                    minHeight: 0,
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    overflow: 'hidden',
                     borderRadius: FULLSCREEN_ARTWORK_RADIUS[artworkShape],
-                    border: '1px solid var(--border)',
-                    backgroundColor: 'var(--surface-2)',
-                    // Grounds the artwork in its own colour rather than in black.
-                    boxShadow: `0 24px 60px -24px ${wash(55)}, var(--shadow-lg)`,
-                    transform: isPlaying ? 'scale(1)' : 'scale(0.965)',
-                    transition: 'transform var(--dur-slow) var(--ease-out)'
+                    // Обложка стоит в собственном цвете, а не в чёрном.
+                    boxShadow: `0 24px 60px -24px ${wash(55)}, var(--shadow-lg)`
                   }}
-                  data-testid="fullscreen-artwork"
+                  data-playing={isPlaying ? 'true' : 'false'}
                 >
-                  {currentTrack.artworkUrl ? (
-                    <img
-                      src={currentTrack.artworkUrl}
-                      alt={`Обложка «${currentTrack.title}»`}
-                      className="fill-cover"
-                      onError={(event) => {
-                        event.currentTarget.style.display = 'none';
-                      }}
-                    />
-                  ) : (
-                    <Music2 size={ICON.hero} aria-hidden="true" className="text-faint" />
-                  )}
+                  <NowPlayingArtwork
+                    track={currentTrack}
+                    className="w-full h-full"
+                    style={{ borderRadius: FULLSCREEN_ARTWORK_RADIUS[artworkShape] }}
+                    fallbackIcon={ICON.hero}
+                    alt={`Обложка «${currentTrack.title}»`}
+                    data-testid="fullscreen-artwork"
+                  />
                 </div>
               )}
 
@@ -579,14 +494,14 @@ export const FullscreenPlayer: React.FC<FullscreenPlayerProps> = ({ className = 
               <Button
                 variant="ghost"
                 size="icon"
-                onClick={handleFavoriteClick}
-                title={isFavorite ? 'Убрать из избранного' : 'В избранное'}
-                aria-label={isFavorite ? 'Убрать из избранного' : 'В избранное'}
-                aria-pressed={isFavorite}
-                className="control-lg" style={{ color: isFavorite ? 'var(--accent)' : 'var(--text-muted)' }}
+                onClick={() => void favorite.toggle()}
+                title={favorite.label}
+                aria-label={favorite.label}
+                aria-pressed={favorite.isFavorite}
+                className={`control-lg ${favorite.isFavorite ? 'text-accent' : 'text-muted'}`}
                 data-testid="fullscreen-fav-btn"
               >
-                <Heart size={ICON.lg} fill={isFavorite ? 'currentColor' : 'none'} />
+                <Heart size={ICON.lg} fill={favorite.isFavorite ? 'currentColor' : 'none'} />
               </Button>
             </div>
 

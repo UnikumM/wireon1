@@ -26,12 +26,12 @@ Matte Slate остаётся основой (поверхности, один а
 
 | # | Шаг | Статус |
 |---|-----|--------|
-| 1 | Слой движения: `motion` (shared layout для островков), пресеты пяти глаголов в `src/styles/motion.ts` поверх токенов `--dur-*`/`--ease-*` | в работе |
-| 2 | Инлайн-стили → утилитарные классы и токены (было 1 423 `style={{}}` в `src/components`) | в работе |
-| 3 | Один Player: PlayerBar + FullscreenPlayer + MiniWindow + MobilePlayerBar → `components/player/Player` с режимами mini/bar/stage | — |
+| 1 | Слой движения: `motion` (shared layout для островков), пресеты пяти глаголов в `src/styles/motion.ts` поверх токенов `--dur-*`/`--ease-*` | готово |
+| 2 | Инлайн-стили → утилитарные классы и токены (1 359 → 637 `style={{}}`; остаток — значения из данных; designDrift не пускает обратно) | готово |
+| 3 | Один Player: `components/player/Player` (`Player.Bar`/`Player.Stage` по оболочке), ядро `player/core` (хуки транспорта и избранного, обложка с общим `layoutId`, свет от обложки, кнопки). Телефон: `PlayerIsland` + `PlayerStage` с перелётом обложки. ПК: полоса и окно на том же ядре. Мини-окно — отдельное окно Electron, на ядро пока не переведено | в основном готово |
 | 4 | Общие примитивы для ПК и телефона (TrackRow, CoverCard, Sheet, ListHeader…), мобильные экраны собираются из них. Отдельные деревья экранов остаются там, где раскладка действительно разная — решение из `useMobileShell` не отменяется | — |
 | 5 | Разрез гигантов: ImportPlaylistModal (1 330), TrackCard (1 090), ArtistHubView (1 000), usePlayerStore (2 323). Контейнер с логикой + визуальные части, файлы до ~300 строк | — |
-| 6 | Виртуализация длинных списков (TanStack Virtual), скриншот-тесты Playwright в трёх ширинах и двух темах | — |
+| 6 | Виртуализация уже есть (`hooks/useVirtualRows`, 8 списков) — TanStack не нужен. Снимки экранов: `npm run shots` (scripts/visual-shots.mjs) кладёт PNG трёх ширин × двух тем в tests/visual/out при запущенном `npm run dev`; состояние сажается через dev-объект `window.__wireon` (src/devtools.ts) | снимки готовы |
 
 ## Экраны (после архитектуры)
 

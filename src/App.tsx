@@ -14,9 +14,8 @@ import { HomeView } from './components/home/HomeView';
 import { ForYouView } from './components/foryou/ForYouView';
 import { CollectionView } from './components/collection/CollectionView';
 import { ArtistHubView } from './components/artist/ArtistHubView';
-import { PlayerBar } from './components/player/PlayerBar';
+import { Player } from './components/player/Player';
 import { QueueDrawer } from './components/player/QueueDrawer';
-import { FullscreenPlayer } from './components/player/FullscreenPlayer';
 import { MiniPlayerView } from './components/player/mini';
 import { WelcomeGate } from './components/auth/WelcomeGate';
 import { AccountPrompt } from './components/auth/AccountPrompt';
@@ -228,9 +227,9 @@ export const App: React.FC = () => {
   return (
     <ErrorBoundary>
       <AppShell
-        playerBarSlot={<PlayerBar />}
+        playerBarSlot={<Player.Bar shell="desktop" />}
         queueDrawerSlot={<QueueDrawer />}
-        fullscreenPlayerSlot={<FullscreenPlayer />}
+        fullscreenPlayerSlot={<Player.Stage shell="desktop" />}
         modalSlot={
           <>
             <CreatePlaylistModal isOpen={isCreatePlaylistOpen} onClose={() => setIsCreatePlaylistOpen(false)} />

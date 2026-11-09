@@ -249,3 +249,261 @@
     transition: none;
   }
 }
+
+/* ==========================================================================
+   4.0 — ядро плеера: обложка, свет, кнопки телефона, островок и сцена
+
+   Один плеер в трёх телах. Геометрия задана здесь классами, а не инлайном:
+   тема, медиа-запросы и «меньше движения» должны доставать до каждого из них.
+   Инлайном остаются только значения из данных — цвет обложки и радиус, который
+   человек выбрал в настройках плеера.
+   ========================================================================== */
+
+.now-playing-artwork {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  overflow: hidden;
+  background: var(--surface-sunken);
+}
+
+/* --- Свет от обложки ----------------------------------------------------- */
+
+.ambient-light {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.ambient-light-wash {
+  position: absolute;
+  /* Пауза снимает дрейф, и слой без перехода прыгал бы к базовому положению
+   * одним кадром — вспышка на весь экран. */
+  transition: transform var(--dur-slow) var(--ease-out);
+  will-change: auto;
+}
+
+.ambient-light-wash[data-playing='true'] {
+  will-change: transform;
+}
+
+.ambient-light-wash-a {
+  inset: -20%;
+  transform: translate3d(-4%, -3%, 0) scale(1.08);
+}
+
+.ambient-light-wash-b {
+  inset: -10% -20% -30%;
+  transform: translate3d(4%, 5%, 0) scale(1.14);
+}
+
+/* Держит контраст текста при любой яркости обложки. */
+.ambient-light-scrim {
+  position: absolute;
+  inset: 0;
+  background-image: linear-gradient(
+    to bottom,
+    color-mix(in srgb, var(--bg-base) 55%, transparent) 0%,
+    var(--bg-base) 82%
+  );
+}
+
+/* --- Кнопки телефона ------------------------------------------------------ */
+
+.player-round {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  border-radius: var(--radius-pill);
+  color: var(--text-secondary);
+  cursor: pointer;
+}
+
+.player-round-md {
+  width: var(--control-lg);
+  height: var(--control-lg);
+}
+
+.player-round-lg {
+  width: var(--control-xl);
+  height: var(--control-xl);
+}
+
+.player-round[data-active='true'],
+.player-labelled[data-active='true'] {
+  color: var(--accent);
+}
+
+.player-labelled {
+  min-height: 44px;
+  padding: 0 var(--space-3);
+  border-radius: var(--radius-pill);
+  color: var(--text-secondary);
+}
+
+/* --- Островок: плашка играющего трека на телефоне ------------------------ */
+
+.player-island {
+  position: relative;
+  flex-shrink: 0;
+  margin: 0 var(--space-2) var(--space-2);
+  border-radius: var(--radius-md);
+  /* Без `overflow: hidden` намеренно: обложка внутри летит на сцену и
+   * обратно через transform, и обрезка родителя прятала бы весь полёт. */
+  background: var(--surface-3);
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow-md);
+}
+
+.player-island-row {
+  height: 56px;
+}
+
+.player-island-open {
+  height: 100%;
+  padding: 0 var(--space-2);
+  text-align: left;
+  cursor: pointer;
+}
+
+.player-island-artwork {
+  width: 44px;
+  height: 44px;
+  border-radius: var(--radius-xs);
+}
+
+.player-island-play {
+  width: var(--control-xl);
+  height: var(--control-xl);
+  border-radius: var(--radius-pill);
+  color: var(--text-primary);
+}
+
+.player-island-seek {
+  padding: 0 var(--space-3) var(--space-2);
+}
+
+/* Волосяная линия прогресса: отвечает «сколько ещё», но пальцем в неё не попасть. */
+.player-island-hairline {
+  height: 2px;
+  background: var(--bg-lift);
+  border-radius: 0 0 var(--radius-md) var(--radius-md);
+  overflow: hidden;
+}
+
+.player-island-hairline > span {
+  display: block;
+  height: 100%;
+  background: var(--accent);
+}
+
+/* --- Сцена: плеер на весь экран телефона --------------------------------- */
+
+.player-stage-host {
+  position: fixed;
+  inset: 0;
+  z-index: var(--z-overlay);
+}
+
+.player-stage {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  touch-action: pan-y;
+  padding-top: calc(var(--safe-top) + var(--space-2));
+  padding-bottom: calc(var(--safe-bottom) + var(--space-4));
+  padding-left: calc(var(--safe-left) + var(--space-5));
+  padding-right: calc(var(--safe-right) + var(--space-5));
+}
+
+.player-stage[data-dragging='true'] {
+  touch-action: none;
+}
+
+.player-stage > * {
+  position: relative;
+}
+
+.player-stage-grab {
+  touch-action: none;
+}
+
+.player-stage-grabber {
+  width: 36px;
+  height: 4px;
+  border-radius: var(--radius-pill);
+  background: var(--border-strong);
+}
+
+/* Обложка забирает остаток высоты, но не больше квадрата по меньшей оси окна.
+ * `min-height: 0` обязателен: без него колонка не даёт ей сжаться, и на
+ * невысоком экране низ с кнопками уезжает за край. */
+.player-stage-art-slot {
+  flex: 1 0 auto;
+  min-height: 0;
+}
+
+.player-stage-artwork {
+  width: min(82vw, 40vh);
+  height: min(82vw, 40vh);
+  border-radius: var(--radius-lg);
+  background: var(--surface-2);
+  box-shadow: var(--shadow-lg);
+}
+
+.player-stage-play {
+  width: var(--control-2xl);
+  height: var(--control-2xl);
+  border-radius: var(--radius-pill);
+}
+
+.player-stage-sheet-body {
+  padding: 0 var(--space-4) var(--space-2);
+}
+
+/* --- Окно на ПК: рамка обложки ------------------------------------------- */
+
+/* Размер задан высотой, ширина идёт за ней через `aspect-ratio` — иначе квадрат
+ * перестаёт быть квадратом, когда его ужимает потолок по ширине. `88vw` держит
+ * поля на телефоне, `max-height` — обещание не вылезти за область, а
+ * `flex: 0 1 auto` даёт это обещание исполнить. Масштаб на паузе — на рамке,
+ * а не на обложке: transform обложки принадлежит морфу. */
+.fullscreen-artwork-frame {
+  height: min(46vh, 88vw, 360px);
+  width: auto;
+  max-height: 100%;
+  aspect-ratio: 1 / 1;
+  flex: 0 1 auto;
+  min-height: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--border);
+  background-color: var(--surface-2);
+  transform: scale(0.965);
+  transition: transform var(--dur-slow) var(--ease-out);
+}
+
+.fullscreen-artwork-frame[data-playing='true'] {
+  transform: scale(1);
+}
+
+/* Подложка сцены — отдельный слой, чтобы гаснуть независимо от обложки:
+ * фон здесь, а не на самой сцене, иначе при закрытии экран чернел бы до
+ * конца полёта обложки. */
+.player-stage-backdrop {
+  position: absolute;
+  inset: 0;
+  background: var(--bg-base);
+}
+
+.player-stage-backdrop + * {
+  position: relative;
+}

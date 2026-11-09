@@ -18,9 +18,8 @@ import { MobileSearchView } from './MobileSearchView';
 import { MobilePlaylistView } from './MobilePlaylistView';
 import { MobileSettingsView } from './MobileSettingsView';
 import { MobileWaveView } from './MobileWaveView';
-import { MobileFullscreenPlayer } from './MobileFullscreenPlayer';
 import { MobileNavBar } from './MobileNavBar';
-import { MobilePlayerBar } from './MobilePlayerBar';
+import { Player } from '../player/Player';
 import { TrackActionsSheet } from './TrackActionsSheet';
 import { checkForUpdate } from '../../services/androidUpdater';
 import { useAppLayoutStore } from '../../store/useAppLayoutStore';
@@ -120,7 +119,7 @@ export const MobileApp: React.FC = () => {
       data-testid="mobile-app"
     >
       <CustomAppFrame layout={layout} platform="mobile" navigation={<MobileNavBar />}
-        player={sidePlayer ? <SidePlayer /> : <MobilePlayerBar />}>
+        player={sidePlayer ? <SidePlayer /> : <Player.Bar shell="mobile" />}>
       <main
         style={{
           flex: 1,
@@ -148,7 +147,7 @@ export const MobileApp: React.FC = () => {
         * виртуализированном списке исчезал бы вместе с уехавшей строкой.
         */}
       <TrackActionsSheet track={actionsTrack} onClose={closeTrackActions} />
-      <MobileFullscreenPlayer />
+      <Player.Stage shell="mobile" />
       <QueueDrawer />
       <CreatePlaylistModal isOpen={isCreatePlaylistOpen} onClose={() => setIsCreatePlaylistOpen(false)} />
       {/*
