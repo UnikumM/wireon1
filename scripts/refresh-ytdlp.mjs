@@ -18,13 +18,19 @@
  *   zipapp «в себя же» нельзя: yt-dlp обновляется в свою разновидность, а нам
  *   нужна другая.
  *
- * Скрипт не обязателен: нет сети или GitHub недоступен — сборка идёт дальше на
- * том, что есть. Падать из-за этого нельзя, иначе релиз нельзя выпустить офлайн.
+ * Если бинарника нет вовсе (`npm ci` с `YOUTUBE_DL_SKIP_DOWNLOAD=true` — так на
+ * раннерах GitHub, где postinstall пакета упирается в лимит API без токена),
+ * скрипт качает самодостаточную сборку под систему прямой ссылкой, без API:
+ * на Windows это `yt-dlp.exe`, на Linux и macOS — те же standalone-сборки.
+ *
+ * Скрипт не обязателен, когда бинарник уже есть: нет сети или GitHub
+ * недоступен — сборка идёт дальше на том, что есть. Без бинарника же собирать
+ * нечего, и тогда падение честное.
  *
  *     npm run refresh:ytdlp
  */
 import { execFileSync } from 'child_process';
-import { chmodSync, existsSync, renameSync, rmSync, statSync, writeFileSync } from 'fs';
+import { chmodSync, existsSync, mkdirSync, renameSync, rmSync, statSync, writeFileSync } from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
 
@@ -42,7 +48,7 @@ const BINARY = path.join(
 const NIGHTLY_REPO = 'https://github.com/yt-dlp/yt-dlp-nightly-builds';
 
 /** Самодостаточная сборка под систему — та, которой не нужен python3. */
-const STANDALONE_ASSET = process.platform === 'darwin' ? 'yt-dlp_macos' : 'yt-dlp_linux';
+const STANDALONE_ASSET = IS_WINDOWS ? 'yt-dlp.exe' : process.platform === 'darwin' ? 'yt-dlp_macos' : 'yt-dlp_linux';
 
 /** Пол размера: страница ошибки GitHub весит килобайты, настоящая сборка — мегабайты. */
 const MIN_BINARY_BYTES = 1024 * 1024;
@@ -81,6 +87,7 @@ async function downloadStandalone() {
 
   // Сначала рядом, потом на место: оборванная закачка не должна оставить
   // сборку без работающего извлекателя.
+  mkdirSync(path.dirname(BINARY), { recursive: true });
   const part = `${BINARY}.part`;
   writeFileSync(part, bytes);
   chmodSync(part, 0o755);
@@ -94,8 +101,18 @@ async function downloadStandalone() {
 }
 
 if (!existsSync(BINARY)) {
-  console.log(`[yt-dlp] Бинарника нет (${BINARY}) — пропускаю обновление.`);
-  process.exit(0);
+  // Postinstall пакета пропущен — качаем сборку сами. Без неё установщик
+  // уедет без извлекателя, поэтому здесь неудача останавливает сборку.
+  console.log(`[yt-dlp] Бинарника нет (${BINARY}) — качаю прямой ссылкой.`);
+  try {
+    await downloadStandalone();
+  } catch (err) {
+    console.error(`[yt-dlp] Скачать не удалось: ${err instanceof Error ? err.message : err}`);
+    process.exit(1);
+  }
+  const fresh = version();
+  console.log(`[yt-dlp] В сборке: ${fresh ?? 'не удалось спросить'}`);
+  process.exit(fresh ? 0 : 1);
 }
 
 const before = version();
