@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { HardDriveDownload, Trash2, WifiOff } from 'lucide-react';
+import { HardDriveDownload, Heart, Trash2, WifiOff } from 'lucide-react';
 import { Button } from '../common/Button';
 import { ConfirmDialog } from '../common/ConfirmDialog';
 import { SettingsSection, SettingRow, InfoRow, ToggleSetting } from './SettingsPrimitives';
@@ -14,6 +14,13 @@ import {
   DEFAULT_OFFLINE_BITRATE_KBPS,
   type OfflineModeState
 } from '../../services/offlineMode';
+import {
+  offlineAutoDownload,
+  FAVORITES_LIMIT_OPTIONS,
+  DEFAULT_FAVORITES_LIMIT_BYTES,
+  formatRuBytes,
+  type OfflineAutoDownloadState
+} from '../../services/offlineAutoDownload';
 import { ICON } from '../../styles/icons';
 
 const EMPTY_USAGE: StorageUsage = { count: 0, trackCount: 0, totalBytes: 0, formattedSize: '0 B' };
@@ -28,6 +35,7 @@ export const OfflineSettings: React.FC = () => {
   const showToast = useUIStore((s) => s.showToast);
 
   const [state, setState] = useState<OfflineModeState>(() => offlineMode.getState());
+  const [favState, setFavState] = useState<OfflineAutoDownloadState>(() => offlineAutoDownload.getState());
   const [usage, setUsage] = useState<StorageUsage>(EMPTY_USAGE);
   const [confirmClearOpen, setConfirmClearOpen] = useState(false);
   const [isClearing, setIsClearing] = useState(false);
@@ -43,6 +51,9 @@ export const OfflineSettings: React.FC = () => {
   useEffect(() => {
     void offlineMode.init();
     const unsubscribeMode = offlineMode.subscribe(setState);
+    // Цифры «42 из 118» честные и при выключенной службе: считаем при открытии.
+    void offlineAutoDownload.init().then(() => offlineAutoDownload.refreshStats());
+    const unsubscribeFavorites = offlineAutoDownload.subscribe(setFavState);
     // Каждое сохранение и удаление меняет занятое место, поэтому цифра
     // пересчитывается по событию, а не по таймеру.
     const unsubscribeStorage = offlineStorage.subscribe(() => {
@@ -51,6 +62,7 @@ export const OfflineSettings: React.FC = () => {
     void refreshUsage();
     return () => {
       unsubscribeMode();
+      unsubscribeFavorites();
       unsubscribeStorage();
     };
   }, [refreshUsage]);
@@ -84,6 +96,33 @@ export const OfflineSettings: React.FC = () => {
     void offlineMode.setBitrateKbps(Number.isFinite(kbps) ? kbps : DEFAULT_OFFLINE_BITRATE_KBPS);
   }, []);
 
+  const handleFavoritesToggle = useCallback(
+    (enabled: boolean) => {
+      void offlineAutoDownload.setEnabled(enabled).then(() => {
+        showToast(
+          enabled
+            ? 'Избранное будет скачиваться само, по одному треку в фоне'
+            : 'Автозагрузка избранного выключена. Скачанное осталось на месте',
+          'success'
+        );
+      });
+    },
+    [showToast]
+  );
+
+  const handleFavoritesWifiOnly = useCallback((wifiOnly: boolean) => {
+    void offlineAutoDownload.setWifiOnly(wifiOnly);
+  }, []);
+
+  const handleFavoritesLimitChange = useCallback((raw: string) => {
+    const bytes = Number(raw);
+    void offlineAutoDownload.setLimitBytes(Number.isFinite(bytes) ? bytes : DEFAULT_FAVORITES_LIMIT_BYTES);
+  }, []);
+
+  const handleDownloadNow = useCallback(() => {
+    void offlineAutoDownload.runNow();
+  }, []);
+
   const handleClear = useCallback(async () => {    setConfirmClearOpen(false);
     setIsClearing(true);
     try {
@@ -103,6 +142,25 @@ export const OfflineSettings: React.FC = () => {
 
   const bitrateHint =
     OFFLINE_BITRATE_OPTIONS.find((option) => option.kbps === state.bitrateKbps)?.hint ?? '';
+
+  const favLimitLabel =
+    FAVORITES_LIMIT_OPTIONS.find((option) => option.bytes === favState.limitBytes)?.label ?? formatRuBytes(favState.limitBytes);
+  // «1,3 ГБ из 5 ГБ»; без лимита вторая половина фразы не нужна.
+  const favUsageText =
+    favState.limitBytes > 0
+      ? `${formatRuBytes(favState.usedBytes)} из ${favLimitLabel}`
+      : formatRuBytes(favState.usedBytes);
+  const favStatusDescription = favState.storageFull
+    ? 'Место кончилось: остались только треки из избранного, их мы не удаляем. Поднимите лимит или уберите лишнее из избранного.'
+    : favState.waitingForWifi
+      ? 'Ждём Wi‑Fi: по сотовой сети избранное не качается.'
+      : favState.downloadingTrackId
+        ? `Сохраняется трек, в очереди ещё ${favState.queued}.`
+        : favState.queued > 0
+          ? `В очереди ${pluralize(favState.queued, 'трек', 'трека', 'треков')}.`
+          : favState.favoritesTotal > 0
+            ? 'Всё избранное уже на устройстве.'
+            : 'В избранном пока пусто.';
 
   return (
     <SettingsSection
@@ -167,6 +225,97 @@ export const OfflineSettings: React.FC = () => {
             </option>
           ))}
         </select>
+      </SettingRow>
+
+      <div className="divider" />
+
+      {/*
+        * Офлайн 2.0: не «что слушал», а «что отметил». Блок живёт в том же
+        * разделе, потому что место на диске у них общее — лимит избранного
+        * считается по всему офлайн-кэшу.
+        */}
+      <ToggleSetting
+        id="offline-favorites-auto"
+        label="Скачивать избранное само"
+        description="Всё с сердечком появляется на устройстве — по одному треку, в фоне."
+        checked={favState.enabled}
+        onChange={handleFavoritesToggle}
+      />
+
+      {favState.wifiOnlyApplies && (
+        <ToggleSetting
+          id="offline-favorites-wifi"
+          label="Только по Wi‑Fi"
+          description="По сотовой сети очередь ждёт."
+          checked={favState.wifiOnly}
+          onChange={handleFavoritesWifiOnly}
+        />
+      )}
+
+      <SettingRow
+        label="Лимит места"
+        controlId="offline-favorites-limit"
+        description="Когда места нет, первыми уходят давно не слушанные треки не из избранного."
+      >
+        <select
+          id="offline-favorites-limit"
+          value={String(favState.limitBytes)}
+          onChange={(e) => handleFavoritesLimitChange(e.target.value)}
+          data-testid="offline-favorites-limit"
+          style={{ minWidth: '150px' }}
+        >
+          {FAVORITES_LIMIT_OPTIONS.map((option) => (
+            <option key={option.label} value={String(option.bytes)}>
+              {option.label}
+            </option>
+          ))}
+        </select>
+      </SettingRow>
+
+      <InfoRow label="Избранное офлайн" description={favStatusDescription}>
+        <span
+          data-numeric
+          data-testid="offline-favorites-status"
+          className={`text-sm inline-row gap-2 ${favState.storageFull ? 'text-warning' : 'text-secondary'}`}
+        >
+          {favState.downloadingTrackId ? (
+            <HardDriveDownload size={ICON.sm} aria-hidden="true" />
+          ) : (
+            <Heart size={ICON.sm} aria-hidden="true" />
+          )}
+          {favState.favoritesOffline} из {favState.favoritesTotal} · {favUsageText}
+          {favState.downloadingTrackId ? ` · ${favState.downloadingProgress}%` : ''}
+        </span>
+      </InfoRow>
+
+      {favState.lastError && (
+        <div
+          role="status"
+          data-testid="offline-favorites-error"
+          className="row gap-2 radius-sm text-xs text-secondary py-2 px-3 bg-surface-2 border-subtle"
+        >
+          <WifiOff size={ICON.sm} aria-hidden="true" className="shrink-0" />
+          <span>Последняя проблема: {favState.lastError}</span>
+        </div>
+      )}
+
+      <SettingRow
+        label="Скачать сейчас"
+        controlId="offline-favorites-download"
+        description="Не ждать фона: пройти по избранному прямо сейчас."
+      >
+        <Button
+          id="offline-favorites-download"
+          variant="secondary"
+          size="sm"
+          icon={<HardDriveDownload size={ICON.sm} />}
+          isLoading={favState.downloadingTrackId !== null}
+          disabled={favState.queued === 0 && favState.downloadingTrackId === null}
+          onClick={handleDownloadNow}
+          data-testid="offline-favorites-download"
+        >
+          Скачать сейчас
+        </Button>
       </SettingRow>
 
       <div className="divider" />
