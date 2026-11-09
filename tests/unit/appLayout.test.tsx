@@ -25,7 +25,7 @@ describe('App layout', () => {
 
   it('keeps separate device preferences and resets only the chosen device', () => {
     useAppLayoutStore.getState().update('mobile', { navigationPosition: 'left', playerPosition: 'top' });
-    expect(useAppLayoutStore.getState().desktop.navigationPosition).toBe('top');
+    expect(useAppLayoutStore.getState().desktop.navigationPosition).toBe('left');
     useAppLayoutStore.getState().update('desktop', { navigationPosition: 'right' });
     useAppLayoutStore.getState().reset('desktop');
     expect(useAppLayoutStore.getState().mobile.playerPosition).toBe('top');

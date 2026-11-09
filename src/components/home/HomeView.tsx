@@ -30,8 +30,6 @@ import { useAutoMixes } from '../../hooks/useAutoMixes';
 /** Столько записей истории хватает и на «продолжить», и на миксы. */
 const HISTORY_DEPTH = 500;
 
-const HERO_ART = 300;
-
 export const HomeView: React.FC = () => {
   const currentTrack = usePlayerStore((s) => s.currentTrack);
   const resumePosition = usePlayerStore((s) => s.resumePosition);
@@ -96,6 +94,20 @@ export const HomeView: React.FC = () => {
     };
   }, []);
 
+  // Недавнее — без повторов и без того, что уже в герое: ряд показывает, куда
+  // вернуться, а не то, что и так на экране.
+  const recent = useMemo<UnifiedTrack[]>(() => {
+    const seen = new Set<string>();
+    const rows: UnifiedTrack[] = [];
+    for (const track of history) {
+      if (seen.has(track.id) || track.id === currentTrack?.id) continue;
+      seen.add(track.id);
+      rows.push(track);
+      if (rows.length >= 8) break;
+    }
+    return rows;
+  }, [history, currentTrack?.id]);
+
   /** Герой — то, что играет сейчас, иначе последнее из истории. */
   const heroTrack: UnifiedTrack | null = currentTrack ?? history[0] ?? null;
 
@@ -121,6 +133,13 @@ export const HomeView: React.FC = () => {
     ? [heroTrack.artist, heroTrack.album].filter(Boolean).join(' · ')
     : 'Здесь появится то, на чём вы остановитесь';
 
+  // Доля прослушанного — для полоски в карточке «продолжить». Нужны и позиция,
+  // и длительность трека; без длительности полоска обещала бы то, чего не знает.
+  const resumeProgress =
+    heroTrack && resumePosition && resumePosition > 1 && heroTrack.duration > 0
+      ? Math.min(100, Math.round((resumePosition / heroTrack.duration) * 100))
+      : null;
+
   const heroKicker =
     resumePosition && resumePosition > 1
       ? `Остановились на ${formatDuration(resumePosition)}`
@@ -132,47 +151,43 @@ export const HomeView: React.FC = () => {
 
   return (
     <HomeLayout platform="desktop" testId="home-view">
-      {/* --- Герой: продолжить слушать ------------------------------------ */}
-      <section data-home-block="hero" className="row-stretch items-stretch gap-7">
-        <div
-          className="shrink-0 overflow-hidden row justify-center bg-surface-2" style={{ width: HERO_ART, height: HERO_ART, borderRadius: 'var(--radius-xl)', boxShadow: 'var(--shadow-lg)' }}
-          data-testid="home-hero-art"
-        >
-          {heroTrack?.artworkUrl && !heroArtFailed ? (
-            <img
-              src={heroTrack.artworkUrl}
-              alt=""
-              onError={() => setHeroArtFailed(true)}
-              className="fill-cover"
-            />
-          ) : (
-            // Без обложки квадрат был пустым и читался как недогруженный.
-            <Music2 size={ICON.display} aria-hidden="true" className="text-faint" />
-          )}
-        </div>
+      {/* --- Герой: Волна и «продолжить» ---------------------------------- */}
+      <section data-home-block="hero" className="home-hero" data-testid="home-hero">
+        <WaveCard
+          favorites={favorites.length}
+          onStart={() => {
+            setActiveView('wave');
+            void startMyWave();
+          }}
+        />
 
-        <div
-          className="grow stack justify-center gap-4"
-        >
-          <div
-            className="text-xs weight-semibold" style={{ letterSpacing: '0.14em', textTransform: 'uppercase', color: 'var(--info)' }}
-          >
-            {heroKicker}
+        <div className="resume-card" data-testid="home-resume">
+          <div className="resume-card-art" data-testid="home-hero-art">
+            {heroTrack?.artworkUrl && !heroArtFailed ? (
+              <img src={heroTrack.artworkUrl} alt="" onError={() => setHeroArtFailed(true)} className="fill-cover" />
+            ) : (
+              // Без обложки квадрат был пустым и читался как недогруженный.
+              <Music2 size={ICON.xl} aria-hidden="true" className="text-faint" />
+            )}
           </div>
 
-          <h1
-            className="m-0 weight-semibold text-primary" style={{ fontFamily: 'var(--font-display)', fontSize: 'var(--text-4xl)', lineHeight: 'var(--leading-4xl)', letterSpacing: 'var(--tracking-4xl)', overflowWrap: 'anywhere' }}
-            data-testid="home-hero-title"
-          >
-            {heroTrack?.title ?? 'Wireon'}
-          </h1>
+          <div className="stack grow gap-1 min-0">
+            <div className="home-eyebrow">{heroKicker}</div>
+            <h3 className="m-0 text-truncate type-lg weight-semibold text-primary font-sans" data-testid="home-hero-title">
+              {heroTrack?.title ?? 'Wireon'}
+            </h3>
+            <div className="text-truncate type-sm text-secondary">{heroSubtitle}</div>
+            {resumeProgress !== null && (
+              <div className="resume-card-bar" aria-hidden="true">
+                <span style={{ width: `${resumeProgress}%` }} />
+              </div>
+            )}
+          </div>
 
-          <div className="text-xl text-secondary">{heroSubtitle}</div>
-
-          <div className="row gap-3 mt-2">
+          <div className="row gap-2 shrink-0 resume-card-actions">
             <button
               type="button"
-              className="focus-ring row gap-2 text-base weight-semibold border-none"
+              className="focus-ring press home-btn home-btn-primary"
               onClick={() => {
                 if (!heroTrack) return;
                 // Трек с прошлого запуска уже стоит в плеере на паузе: ему нужен
@@ -182,41 +197,42 @@ export const HomeView: React.FC = () => {
               }}
               disabled={!heroTrack}
               data-testid="home-hero-play"
-              style={{ padding: '14px 28px', borderRadius: 'var(--radius-pill)', background: 'var(--text-primary)', color: 'var(--bg-base)', cursor: heroTrack ? 'pointer' : 'default', opacity: heroTrack ? 1 : 0.5 }}
             >
-              <Play size={ICON.sm} fill="currentColor" />
+              <Play size={ICON.sm} fill="currentColor" aria-hidden="true" />
               {resumePosition && resumePosition > 1 ? 'Продолжить' : 'Слушать'}
             </button>
-
             <button
               type="button"
-              className="focus-ring row gap-2 text-primary text-base weight-medium border-strong bg-transparent"
+              className="focus-ring press home-btn"
               onClick={() => heroTrack && void startTrackRadio(heroTrack)}
               disabled={!heroTrack}
+              aria-label="Радио по треку"
+              title="Радио по треку"
               data-testid="home-hero-radio"
-              style={{ padding: '14px 24px', borderRadius: 'var(--radius-pill)', cursor: heroTrack ? 'pointer' : 'default', opacity: heroTrack ? 1 : 0.5 }}
             >
-              <Radio size={ICON.sm} />
-              Радио по треку
+              <Radio size={ICON.sm} aria-hidden="true" />
             </button>
           </div>
         </div>
       </section>
 
       {/* --- Собрано для тебя --------------------------------------------- */}
-      <Shelf title="Поток" testId="home-wave" homeBlock="wave">
-          <CoverCard
-            title="Поток"
-            subtitle="бесконечный подбор"
-            fallbackIcon={<Radio size={ICON.display} />}
-            testId="home-card-wave"
-            onClick={() => {
-              setActiveView('wave');
-              void startMyWave();
-            }}
-          />
+      {recent.length > 0 && (
+        <Shelf title="Недавно слушали" testId="home-recent" homeBlock="recent">
+          {recent.map((track) => (
+            <CoverCard
+              key={track.id}
+              title={track.title}
+              subtitle={track.artist}
+              artworkUrl={track.artworkUrl}
+              testId={`home-recent-${track.id}`}
+              onClick={() => void playTrack(track, recent, recent.indexOf(track))}
+            />
+          ))}
+        </Shelf>
+      )}
 
-      </Shelf>
+      {(autoMixes.length > 0 || mixes.length > 0) && (
       <Shelf title="Собрано для тебя" note="обновляется каждый день" testId="home-daily" homeBlock="mixes">
           {/* Живые подборки — первыми: «Под это время» меняется вместе с днём. */}
           {autoMixes.map((mix) => (
@@ -244,6 +260,7 @@ export const HomeView: React.FC = () => {
             />
           ))}
       </Shelf>
+      )}
 
       {/* --- Новое у исполнителей ------------------------------------------ */}
       {releases.length > 0 && (
@@ -290,6 +307,52 @@ export const HomeView: React.FC = () => {
   );
 };
 
+/** Время суток — для подписи Волны. Границы грубые нарочно: это настроение, а не расписание. */
+function dayPart(hour: number): { eyebrow: string; title: string; note: string } {
+  if (hour >= 5 && hour < 12) return { eyebrow: 'Волна · утро', title: 'Разогнаться мягко', note: 'Знакомое и светлое, чтобы день начался без рывка.' };
+  if (hour >= 12 && hour < 18) return { eyebrow: 'Волна · день', title: 'В ритме дня', note: 'Поток из того, что вы любите, и того, что рядом с ним.' };
+  if (hour >= 18 && hour < 23) return { eyebrow: 'Волна · вечер', title: 'Потише, поглубже', note: 'Медленнее, чем днём, с тем, что вы слушали в последние недели.' };
+  return { eyebrow: 'Волна · ночь', title: 'Ночная смена', note: 'Тихое и длинное — для часов, когда никто не торопит.' };
+}
+
+function plural(n: number, forms: [string, string, string]): string {
+  const mod10 = n % 10;
+  const mod100 = n % 100;
+  if (mod10 === 1 && mod100 !== 11) return forms[0];
+  if (mod10 >= 2 && mod10 <= 4 && (mod100 < 10 || mod100 >= 20)) return forms[1];
+  return forms[2];
+}
+
+interface WaveCardProps {
+  favorites: number;
+  onStart: () => void;
+}
+
+/**
+ * Волна — главное действие на главной.
+ *
+ * Карточка, а не строка в ряду: бесконечный поток — это то, ради чего человек
+ * открывает приложение, не зная, что хочет слушать. Подпись меняется со временем
+ * суток, чтобы карточка читалась живой, а не вывеской.
+ */
+const WaveCard: React.FC<WaveCardProps> = ({ favorites, onStart }) => {
+  const part = dayPart(new Date().getHours());
+  return (
+    <button type="button" className="wave-card focus-ring" onClick={onStart} data-testid="home-card-wave" aria-label={`Включить Волну: ${part.title}`}>
+      <span className="wave-orb" aria-hidden="true" />
+      <span className="home-eyebrow">{part.eyebrow}</span>
+      <span className="wave-card-title">{part.title}</span>
+      <span className="wave-card-note">
+        {part.note}
+        {favorites > 0 ? ` Опирается на ${favorites} ${plural(favorites, ['любимый трек', 'любимых трека', 'любимых треков'])}.` : ''}
+      </span>
+      <span className="wave-card-play" aria-hidden="true">
+        <Play size={ICON.md} fill="currentColor" />
+      </span>
+    </button>
+  );
+};
+
 interface ShelfProps {
   homeBlock?: HomeBlockId;
   title: string;
@@ -310,9 +373,7 @@ const Shelf: React.FC<ShelfProps> = ({ title, note, testId, children }) => (
     data-testid={testId}
   >
     <div className="row-stretch items-baseline gap-4">
-      <h2
-        className="m-0 weight-medium text-primary text-2xl" style={{ fontFamily: 'var(--font-display)', letterSpacing: '-0.02em' }}
-      >
+      <h2 className="m-0 text-primary type-2xl">
         {title}
       </h2>
       {note && <span className="text-sm text-faint">{note}</span>}

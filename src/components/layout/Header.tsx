@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Activity, Command, Minus, Radio, Settings, Square, X } from 'lucide-react';
+import { Activity, Command, Minus, Radio, Search, Settings, Square, X } from 'lucide-react';
 import { useUIStore } from '../../store/useUIStore';
 import { usePlayerStore } from '../../store/usePlayerStore';
 import { useGroupListenStore } from '../../store/useGroupListenStore';
@@ -145,8 +145,10 @@ export const Header: React.FC<HeaderProps> = ({ className = '', showNavigation =
           alignItems: 'center',
           justifyContent: 'space-between',
           gap: 'var(--space-3)',
-          backgroundColor: 'var(--surface-1)',
-          borderBottom: '1px solid var(--border-subtle)',
+          // При рейке шапка — часть сцены, а не отдельная полоса: тот же фон,
+          // что у содержимого, без черты снизу. С верхней навигацией — как прежде.
+          backgroundColor: showNavigation ? 'var(--surface-1)' : 'var(--bg-base)',
+          borderBottom: showNavigation ? '1px solid var(--border-subtle)' : 'none',
           userSelect: 'none',
           flexShrink: 0,
           zIndex: 'var(--z-header)',
@@ -164,7 +166,25 @@ export const Header: React.FC<HeaderProps> = ({ className = '', showNavigation =
         */}
       <div className="row grow" style={noDragRegion}>
         <div className="hide-on-mobile min-0 w-full">
-          {showNavigation ? <TopNav /> : <button className="chip" onClick={() => setActiveView('home')}>Wireon</button>}
+          {showNavigation ? (
+            <TopNav />
+          ) : (
+            /*
+             * 4.0: разделы в рейке слева, верх отдан поиску. Пилюля ведёт в
+             * раздел поиска — туда же, куда ведёт пункт рейки, но из любого
+             * места окна одним щелчком, как строка адреса в браузере.
+             */
+            <button
+              type="button"
+              className="header-search focus-ring"
+              onClick={() => setActiveView('search')}
+              aria-label="Поиск треков, артистов и ссылок"
+              data-testid="header-search"
+            >
+              <Search size={ICON.sm} aria-hidden="true" />
+              <span className="header-search-hint">Треки, артисты, ссылки</span>
+            </button>
+          )}
         </div>
         <h2
           className="text-truncate show-on-mobile m-0 text-lg weight-semibold text-primary leading-lg tracking-lg"
@@ -265,17 +285,20 @@ export const Header: React.FC<HeaderProps> = ({ className = '', showNavigation =
           * она была девятым пунктом, из-за которого ряд переставал влезать в
           * окно 1440 px и подпись обрезалась на «Нас». У аккаунта ей и место.
           */}
-        <Button
-          variant={activeView === 'settings' ? 'secondary' : 'ghost'}
-          size="sm"
-          isActive={activeView === 'settings'}
-          icon={<Settings size={ICON.sm} />}
-          onClick={() => setActiveView('settings')}
-          aria-label="Настройки"
-          aria-pressed={activeView === 'settings'}
-          title="Настройки"
-          data-testid="header-settings"
-        />
+        {/* При рейке настройки стоят в её подвале — второй вход в шапке лишний. */}
+        {showNavigation && (
+          <Button
+            variant={activeView === 'settings' ? 'secondary' : 'ghost'}
+            size="sm"
+            isActive={activeView === 'settings'}
+            icon={<Settings size={ICON.sm} />}
+            onClick={() => setActiveView('settings')}
+            aria-label="Настройки"
+            aria-pressed={activeView === 'settings'}
+            title="Настройки"
+            data-testid="header-settings"
+          />
+        )}
 
         {/*
           * Вход в аккаунт.

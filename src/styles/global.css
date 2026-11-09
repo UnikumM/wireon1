@@ -2442,6 +2442,31 @@ svg.lucide[width='48'] {
   transform: scale(var(--press-scale));
 }
 
+.cover-card-play {
+  position: absolute;
+  right: var(--space-2);
+  bottom: var(--space-2);
+  display: grid;
+  place-items: center;
+  width: var(--control-lg);
+  height: var(--control-lg);
+  border-radius: 50%;
+  background: var(--accent);
+  color: var(--text-on-accent);
+  box-shadow: var(--shadow-md);
+  opacity: 0;
+  transform: translateY(6px);
+  transition:
+    opacity var(--dur-fast) var(--ease-out),
+    transform var(--dur-normal) var(--ease-out);
+}
+
+.cover-card:hover .cover-card-play,
+.cover-card:focus-visible .cover-card-play {
+  opacity: 1;
+  transform: none;
+}
+
 .cover-card-text {
   min-width: 0;
   /* Явная ширина: растягивание по поперечной оси кнопку не сжимает. */
@@ -3723,4 +3748,389 @@ svg.lucide[width='48'] {
   .show-on-mobile {
     display: var(--show-on-mobile-display, block);
   }
+}
+
+/* ==========================================================================
+   4.0 — Рейка (навигация ПК слева) и свет от обложки на весь экран
+   ========================================================================== */
+
+.wireon-rail {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  height: 100%;
+  min-height: 0;
+  padding: var(--space-3) var(--space-2);
+}
+
+.rail-brand {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-3);
+  margin-bottom: var(--space-3);
+  border-radius: var(--radius-sm);
+  color: var(--text-primary);
+  font-family: var(--font-display);
+  font-size: var(--text-base);
+  font-weight: var(--weight-medium);
+  letter-spacing: 0.04em;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.rail-group {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.rail-pinned {
+  margin-top: var(--space-4);
+}
+
+.rail-caption {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-1) var(--space-3) var(--space-2);
+  font-size: var(--text-xs);
+  line-height: var(--leading-xs);
+  letter-spacing: var(--tracking-xs);
+  color: var(--text-faint);
+}
+
+.rail-item {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  min-height: 40px;
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-sm);
+  color: var(--text-secondary);
+  font-size: var(--text-sm);
+  line-height: var(--leading-sm);
+  letter-spacing: var(--tracking-sm);
+  cursor: pointer;
+  white-space: nowrap;
+  min-width: 0;
+  text-align: left;
+  transition:
+    background-color var(--dur-fast) var(--ease-out),
+    color var(--dur-fast) var(--ease-out);
+}
+
+.rail-item:hover {
+  background: var(--surface-hover);
+  color: var(--text-primary);
+}
+
+.rail-item[aria-current='page'] {
+  background: var(--surface-3);
+  color: var(--text-primary);
+}
+
+.rail-item[aria-current='page'] .rail-icon {
+  color: var(--accent);
+}
+
+.rail-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--control-xs);
+  height: var(--control-xs);
+  flex-shrink: 0;
+}
+
+.rail-playlist .rail-label {
+  color: var(--text-secondary);
+}
+
+.rail-foot {
+  margin-top: auto;
+  padding-top: var(--space-3);
+}
+
+/* Среднее окно: подписи уходят, остаётся колонка значков (ширину ставит appLayout.css). */
+@media (max-width: 1050px) {
+  .rail-label {
+    display: none;
+  }
+
+  .rail-item,
+  .rail-brand {
+    justify-content: center;
+    padding-left: 0;
+    padding-right: 0;
+  }
+
+  .rail-pinned .rail-caption {
+    display: none;
+  }
+}
+
+/*
+ * Свет от обложки. Цвет играющего трека (`--ambient`, ставит AppShell из
+ * useDominantColor) ложится мягким пятном в верхний левый угол окна. Это
+ * освещение, а не раскраска: насыщенность низкая, поверхности под ним остаются
+ * матовыми. Смена трека — как смена света на сцене, за секунду с лишним.
+ */
+.shell-light {
+  position: absolute;
+  inset: -20% -10% auto;
+  height: 75%;
+  pointer-events: none;
+  z-index: 0;
+  background: radial-gradient(
+    55% 60% at 22% 8%,
+    color-mix(in srgb, var(--ambient, var(--accent)) 34%, transparent),
+    transparent 70%
+  );
+  /* Вдвое дольше превращений: это смена света на сцене, а не отклик на нажатие. */
+  transition: background calc(var(--dur-morph) * 2) var(--ease-out);
+}
+
+.wireon-app-shell[data-ambient='off'] .shell-light {
+  display: none;
+}
+
+/* Имена разделов и экранов (h2) — дисплейным шрифтом. h1 остаётся основным:
+ * это названия треков в герое и на сцене, а широкий дисплейный на длинном
+ * названии занимает полтора экрана. */
+h2 {
+  font-family: var(--font-display);
+  font-weight: var(--weight-medium);
+}
+
+.font-sans {
+  font-family: var(--font-sans);
+}
+
+/* Пилюля поиска в шапке (при рейке). Выглядит как поле, работает как кнопка. */
+.header-search {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  width: min(100%, 440px);
+  min-height: var(--control-md);
+  padding: 0 var(--space-3);
+  border-radius: var(--radius-pill);
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  color: var(--text-muted);
+  font-size: var(--text-sm);
+  line-height: var(--leading-sm);
+  cursor: text;
+  text-align: left;
+  transition:
+    background-color var(--dur-fast) var(--ease-out),
+    border-color var(--dur-fast) var(--ease-out),
+    color var(--dur-fast) var(--ease-out);
+}
+
+.header-search:hover {
+  background: var(--surface-3);
+  border-color: var(--border-strong);
+  color: var(--text-secondary);
+}
+
+.header-search-hint {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+/* ==========================================================================
+   4.0 — Главная на ПК: Волна и «продолжить» как герой
+   ========================================================================== */
+
+.home-hero {
+  display: grid;
+  grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr);
+  gap: var(--space-4);
+  align-items: stretch;
+}
+
+@container app-content (max-width: 760px) {
+  .home-hero {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+.home-eyebrow {
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  line-height: var(--leading-xs);
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--accent);
+}
+
+/* Карточка Волны */
+.wave-card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-2);
+  min-height: 180px;
+  padding: var(--space-5);
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--border);
+  background: linear-gradient(135deg, var(--surface-2), var(--surface-1));
+  color: var(--text-primary);
+  text-align: left;
+  overflow: hidden;
+  cursor: pointer;
+  transition:
+    border-color var(--dur-fast) var(--ease-out),
+    transform var(--dur-normal) var(--ease-out);
+}
+
+.wave-card:hover {
+  border-color: var(--border-strong);
+  transform: translateY(-2px);
+}
+
+.wave-card:hover .wave-card-play {
+  transform: scale(1.06);
+}
+
+.wave-orb {
+  position: absolute;
+  right: -48px;
+  top: -72px;
+  width: 260px;
+  height: 260px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 40% 40%, color-mix(in srgb, var(--ambient, var(--accent)) 42%, transparent), transparent 66%);
+  filter: blur(8px);
+  pointer-events: none;
+  animation: wave-orb-drift 9s var(--ease-in-out) infinite alternate;
+}
+
+@keyframes wave-orb-drift {
+  to {
+    transform: translate(-18px, 14px) scale(1.08);
+  }
+}
+
+.wave-card-title {
+  position: relative;
+  margin-top: var(--space-4);
+  font-family: var(--font-display);
+  font-size: var(--text-2xl);
+  line-height: var(--leading-2xl);
+  letter-spacing: -0.01em;
+  font-weight: var(--weight-medium);
+}
+
+.wave-card-note {
+  position: relative;
+  max-width: 44ch;
+  font-size: var(--text-sm);
+  line-height: var(--leading-sm);
+  color: var(--text-secondary);
+  padding-right: 64px;
+}
+
+.wave-card-play {
+  position: absolute;
+  right: var(--space-5);
+  bottom: var(--space-5);
+  display: grid;
+  place-items: center;
+  width: var(--control-xl);
+  height: var(--control-xl);
+  border-radius: 50%;
+  background: var(--accent);
+  color: var(--text-on-accent);
+  box-shadow: 0 12px 30px -12px var(--accent);
+  transition: transform var(--dur-normal) var(--ease-spring);
+}
+
+/* Карточка «продолжить» */
+.resume-card {
+  display: grid;
+  grid-template-columns: 72px minmax(0, 1fr);
+  grid-template-rows: auto auto;
+  gap: var(--space-3) var(--space-4);
+  align-items: center;
+  padding: var(--space-4);
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--border);
+  background: var(--surface-1);
+}
+
+/* Кнопки — отдельной строкой под текстом: рядом с ними названию не хватало места. */
+.resume-card-actions {
+  grid-column: 1 / -1;
+}
+
+.resume-card .home-eyebrow {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.resume-card-art {
+  width: 72px;
+  height: 72px;
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--surface-sunken);
+  box-shadow: var(--shadow-md);
+}
+
+.resume-card-bar {
+  margin-top: var(--space-2);
+  height: 3px;
+  border-radius: 2px;
+  background: var(--border-strong);
+  overflow: hidden;
+}
+
+.resume-card-bar > span {
+  display: block;
+  height: 100%;
+  border-radius: 2px;
+  background: var(--accent);
+}
+
+@container app-content (max-width: 560px) {
+  .resume-card {
+    grid-template-columns: 56px minmax(0, 1fr);
+  }
+}
+
+/* Кнопки героя */
+.home-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-height: var(--control-lg);
+  padding: 0 var(--space-4);
+  border-radius: var(--radius-pill);
+  border: 1px solid var(--border-strong);
+  background: transparent;
+  color: var(--text-primary);
+  font-size: var(--text-sm);
+  font-weight: var(--weight-medium);
+  cursor: pointer;
+}
+
+.home-btn-primary {
+  background: var(--text-primary);
+  color: var(--bg-base);
+  border-color: transparent;
+}
+
+.home-btn:disabled {
+  opacity: 0.5;
+  cursor: default;
 }

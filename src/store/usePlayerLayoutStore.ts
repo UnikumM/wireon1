@@ -66,7 +66,8 @@ export const PLAYER_LAYOUT_SETTING_KEYS = {
   miniSkinId: 'playerLayoutMiniSkin',
   miniFormId: 'playerLayoutMiniForm',
   modules: 'playerLayoutModules',
-  fullscreenModules: 'playerLayoutFullscreenModules'
+  fullscreenModules: 'playerLayoutFullscreenModules',
+  ambientLight: 'playerLayoutAmbientLight'
 } as const;
 
 export interface DensityMetrics {
@@ -186,6 +187,12 @@ export interface PlayerLayoutState {
   miniFormId: MiniFormId;
   modules: Record<PlayerBarModuleKey, boolean>;
   fullscreenModules: Record<FullscreenModuleKey, boolean>;
+  /**
+   * Свет от обложки (4.0): цвет играющего трека мягко подсвечивает фон всего
+   * окна, а не только сцену. Это освещение, а не раскраска — поверхности
+   * остаются матовыми. Ручка нужна тем, кому любое живое пятно на фоне мешает.
+   */
+  ambientLight: boolean;
   /** Уже читали базу? Компоненты на это не подписываются, флаг для стора. */
   layoutHydrated: boolean;
 }
@@ -200,6 +207,7 @@ export interface PlayerLayoutStore extends PlayerLayoutState {
   setMiniForm: (id: MiniFormId) => void;
   toggleModule: (key: PlayerBarModuleKey) => void;
   toggleFullscreenModule: (key: FullscreenModuleKey) => void;
+  setAmbientLight: (enabled: boolean) => void;
   resetLayout: () => void;
   hydratePlayerLayout: () => Promise<void>;
 }
@@ -230,6 +238,7 @@ function createDefaults(): PlayerLayoutState {
     miniFormId: DEFAULT_MINI_FORM_ID,
     modules: allEnabled(PLAYER_BAR_MODULE_KEYS),
     fullscreenModules: allEnabled(FULLSCREEN_MODULE_KEYS),
+    ambientLight: true,
     layoutHydrated: false
   };
 }
@@ -340,6 +349,11 @@ export const usePlayerLayoutStore = create<PlayerLayoutStore>()((set, get) => ({
     persistSetting(PLAYER_LAYOUT_SETTING_KEYS.fullscreenModules, next);
   },
 
+  setAmbientLight: (enabled) => {
+    set({ ambientLight: enabled });
+    persistSetting(PLAYER_LAYOUT_SETTING_KEYS.ambientLight, enabled);
+  },
+
   resetLayout: () => {
     const defaults = createDefaults();
     // `layoutHydrated` не сбрасывается: база уже прочитана, и повторное чтение
@@ -354,6 +368,7 @@ export const usePlayerLayoutStore = create<PlayerLayoutStore>()((set, get) => ({
     persistSetting(PLAYER_LAYOUT_SETTING_KEYS.miniFormId, defaults.miniFormId);
     persistSetting(PLAYER_LAYOUT_SETTING_KEYS.modules, defaults.modules);
     persistSetting(PLAYER_LAYOUT_SETTING_KEYS.fullscreenModules, defaults.fullscreenModules);
+    persistSetting(PLAYER_LAYOUT_SETTING_KEYS.ambientLight, defaults.ambientLight);
   },
 
   hydratePlayerLayout: async () => {
@@ -381,6 +396,10 @@ export const usePlayerLayoutStore = create<PlayerLayoutStore>()((set, get) => ({
             ),
             dbService.getSetting<unknown>(PLAYER_LAYOUT_SETTING_KEYS.miniFormId, current.miniFormId)
           ]);
+        const ambientLight = await dbService.getSetting<unknown>(
+          PLAYER_LAYOUT_SETTING_KEYS.ambientLight,
+          current.ambientLight
+        );
 
         const patch: Partial<PlayerLayoutState> = {};
         const nextDensity = pickEnum(density, PLAYER_DENSITIES, current.density);
@@ -404,6 +423,7 @@ export const usePlayerLayoutStore = create<PlayerLayoutStore>()((set, get) => ({
         if (nextSkin !== current.skinId) patch.skinId = nextSkin;
         if (nextMiniSkin !== current.miniSkinId) patch.miniSkinId = nextMiniSkin;
         if (nextMiniForm !== current.miniFormId) patch.miniFormId = nextMiniForm;
+        if (typeof ambientLight === 'boolean' && ambientLight !== current.ambientLight) patch.ambientLight = ambientLight;
         // Карты сравниваются по значениям: `normalizeModules` всегда возвращает
         // новый объект, и запись «как было» иначе меняла бы ссылку — а плеер
         // подписан именно на неё и перерисовался бы на пустом месте.

@@ -2,6 +2,7 @@ import { usePlayerStore } from './store/usePlayerStore';
 import { useUIStore } from './store/useUIStore';
 import { useLibraryStore } from './store/useLibraryStore';
 import { useThemeStore } from './store/useThemeStore';
+import { usePinnedStore } from './store/usePinnedStore';
 
 /**
  * Окно отладки — только в dev-сборке.
@@ -17,6 +18,7 @@ export function exposeDevtools(): void {
     usePlayerStore,
     useUIStore,
     useLibraryStore,
-    useThemeStore
+    useThemeStore,
+    usePinnedStore
   };
 }

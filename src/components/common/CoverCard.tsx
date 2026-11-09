@@ -1,4 +1,5 @@
 import React from 'react';
+import { Play } from 'lucide-react';
 import { ICON } from '../../styles/icons';
 
 /**
@@ -63,6 +64,10 @@ export const CoverCard: React.FC<CoverCardProps> = ({
       ) : (
         fallbackIcon ?? <span style={{ fontSize: ICON.display }} />
       ))}
+      {/* Кнопка появляется на наведении: обложка остаётся картинкой, пока её не трогают. */}
+      <span className="cover-card-play">
+        <Play size={ICON.sm} fill="currentColor" />
+      </span>
     </div>
 
     <div className="cover-card-text">

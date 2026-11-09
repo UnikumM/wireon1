@@ -190,6 +190,8 @@ export const PlayerLayoutSettings: React.FC = () => {
   const setMiniForm = usePlayerLayoutStore((s) => s.setMiniForm);
   const toggleModule = usePlayerLayoutStore((s) => s.toggleModule);
   const toggleFullscreenModule = usePlayerLayoutStore((s) => s.toggleFullscreenModule);
+  const ambientLight = usePlayerLayoutStore((s) => s.ambientLight);
+  const setAmbientLight = usePlayerLayoutStore((s) => s.setAmbientLight);
   const resetLayout = usePlayerLayoutStore((s) => s.resetLayout);
 
   return (
@@ -300,6 +302,14 @@ export const PlayerLayoutSettings: React.FC = () => {
           onChange={() => toggleFullscreenModule(key)}
         />
       ))}
+
+      <ToggleSetting
+        id="setting-player-ambient-light"
+        label="Свет от обложки"
+        description="Цвет играющего трека мягко подсвечивает фон окна. Это освещение, а не раскраска: поверхности остаются матовыми."
+        checked={ambientLight}
+        onChange={setAmbientLight}
+      />
 
       <div className="divider" role="presentation" />
 

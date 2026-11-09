@@ -10,7 +10,11 @@ import { resolveParticles } from '../../styles/presets';
 import { useAppLayoutStore } from '../../store/useAppLayoutStore';
 import { CustomAppFrame } from './CustomAppFrame';
 import { TopNav } from './TopNav';
+import { Rail } from './Rail';
 import { SidePlayer } from '../player/SidePlayer';
+import { usePlayerStore } from '../../store/usePlayerStore';
+import { usePlayerLayoutStore } from '../../store/usePlayerLayoutStore';
+import { useDominantColor } from '../../hooks/useDominantColor';
 
 export interface AppShellProps {
   children: React.ReactNode;
@@ -36,6 +40,15 @@ export const AppShell: React.FC<AppShellProps> = ({
 }) => {
   const layout = useAppLayoutStore((s) => s.desktop);
   const sidePlayer = layout.playerPosition === 'left' || layout.playerPosition === 'right';
+
+  /*
+   * Свет от обложки (4.0). Цвет играющего трека ставится переменной на оболочку,
+   * а рисует его слой `.shell-light` в углу окна. Подписка только на адрес
+   * обложки: смена времени и громкости оболочку не трогает.
+   */
+  const artworkUrl = usePlayerStore((s) => s.currentTrack?.artworkUrl ?? null);
+  const ambient = useDominantColor(artworkUrl);
+  const ambientLight = usePlayerLayoutStore((s) => s.ambientLight);
   /*
    * Профиль частиц выбирается пресетом, а ручка настроек его перебивает —
    * `resolveParticles` знает этот порядок. Подписка идёт на готовое значение, а
@@ -73,8 +86,10 @@ export const AppShell: React.FC<AppShellProps> = ({
           // слоя лежат под ней.
           color: 'var(--text-primary)',
           overflow: 'hidden',
-          position: 'relative'
-        }}
+          position: 'relative',
+          ['--ambient' as string]: ambient
+        } as React.CSSProperties}
+        data-ambient={ambientLight ? 'on' : 'off'}
         data-testid="app-shell"
       >
         <div
@@ -86,9 +101,13 @@ export const AppShell: React.FC<AppShellProps> = ({
           <UpdateBanner />
 
           <CustomAppFrame layout={layout} platform="desktop"
-            navigation={layout.navigationPosition === 'top' ? null : <TopNav />}
+            navigation={
+              layout.navigationPosition === 'top' ? null : layout.navigationPosition === 'left' ? <Rail /> : <TopNav />
+            }
             player={sidePlayer ? <SidePlayer /> : playerBarSlot}>
 
+          {/* Свет лежит под содержимым, но над фоном: шапка и рейка его не закрывают. */}
+          <div className="shell-light" aria-hidden="true" data-testid="shell-light" />
           <main
             className="scrollbar-thin"
             style={{

@@ -22,7 +22,8 @@
 .custom-app-frame { display: flex; flex-direction: column; flex: 1; min-height: 0; min-width: 0; overflow: hidden; }
 .custom-app-frame[data-platform='mobile'] { --mobile-content-pad: var(--space-4); }
 .layout-body { display: flex; flex: 1; min-height: 0; min-width: 0; }
-.layout-content { display: flex; flex-direction: column; flex: 1; min-width: 0; min-height: 0; container: app-content / inline-size; }
+.layout-content { display: flex; flex-direction: column; flex: 1; min-width: 0; min-height: 0; position: relative; container: app-content / inline-size; }
+.layout-content > main { position: relative; z-index: 1; }
 .layout-content > main { min-height: 0; min-width: 0; }
 .layout-edge { display: flex; flex-direction: column; flex-shrink: 0; min-width: 0; }
 .layout-panel { min-width: 0; flex-shrink: 0; }

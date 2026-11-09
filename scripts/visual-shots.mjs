@@ -54,6 +54,31 @@ const TRACK = {
   sourceUrl: 'https://youtube.com/watch?v=demo'
 };
 
+/** Медиатека для снимков: пустая главная выглядит плохо при любом дизайне. */
+const PALETTES = [
+  ['#8f3a3a', '#f0a875'], ['#2f6b55', '#b7e3c8'], ['#4a3a6b', '#c9b6f0'], ['#6b5a2f', '#e8c48f'],
+  ['#223344', '#667788'], ['#8a2a52', '#f28ba0'], ['#1e4d5c', '#79c8d8'], ['#3a5a8f', '#9bc8ff'],
+  ['#5a3a1e', '#d9a066'], ['#2a4d2a', '#9fd39f'], ['#4d2a4d', '#d39fd3'], ['#2a2a4d', '#9f9fd3']
+];
+const TITLES = ['Город спит', 'Пыль и неон', 'Тихий берег', 'Лампа', 'Северный ветер', 'Бег по кругу', 'Стекло', 'Полночь', 'Окраина', 'Шум дождя', 'Двое', 'Фонари'];
+const ARTISTS = ['Лампа', 'Пыль и неон', 'Тихий берег', 'Северный ветер', 'Гидропоника', 'Окна'];
+const LIBRARY = TITLES.map((title, i) => ({
+  id: `yt_lib_${i}`,
+  source: i % 3 === 0 ? 'soundcloud' : 'youtube',
+  originalId: `lib_${i}`,
+  title,
+  artist: ARTISTS[i % ARTISTS.length],
+  duration: 150 + i * 17,
+  artworkUrl: ART(...PALETTES[i % PALETTES.length]),
+  sourceUrl: `https://youtube.com/watch?v=lib_${i}`
+}));
+const PLAYLISTS = [
+  { id: 'pl_night', title: 'Ночная', tracks: LIBRARY.slice(0, 8) },
+  { id: 'pl_road', title: 'В дорогу', tracks: LIBRARY.slice(3, 11) },
+  { id: 'pl_fav26', title: 'Любимое 2026', tracks: LIBRARY.slice(1, 12) },
+  { id: 'pl_run', title: 'Бег', tracks: LIBRARY.slice(5, 9) }
+].map((playlist, i) => ({ ...playlist, createdAt: 1_700_000_000_000 + i, updatedAt: 1_700_000_000_000 + i, isSynced: true }));
+
 /** Экраны: разделы приложения и сцена плеера. */
 const SCREENS = ['search', 'home', 'library', 'foryou', 'settings', 'stage'];
 
@@ -74,12 +99,15 @@ for (const [size, viewport] of Object.entries(SIZES)) {
     // Заставка играет пару секунд; снимать поверх неё бессмысленно.
     await page.waitForTimeout(3500);
     await page.evaluate(
-      ([t, depth]) => {
-        window.__wireon.usePlayerStore.setState({ currentTrack: t, duration: t.duration, currentTime: 84, isPlaying: true });
+      ([t, depth, library, playlists]) => {
+        const w = window.__wireon;
+        w.usePlayerStore.setState({ currentTrack: t, duration: t.duration, currentTime: 84, isPlaying: true, resumePosition: 84 });
+        w.useLibraryStore.setState({ history: library, favorites: library.slice(0, 7), playlists });
+        w.usePinnedStore.setState({ pinnedIds: ['pl_night', 'pl_road', 'pl_fav26'] });
         // Глубина темы — настройка приложения, а не системы: светлую включаем сами.
-        window.__wireon.useThemeStore.getState().setDepth(depth);
+        w.useThemeStore.getState().setDepth(depth);
       },
-      [TRACK, scheme === 'light' ? 'light' : 'night']
+      [TRACK, scheme === 'light' ? 'light' : 'night', LIBRARY, PLAYLISTS]
     );
     for (const name of SCREENS) {
       await page.evaluate((view) => {

@@ -141,7 +141,11 @@ describe('Главная', () => {
     await flushAsync();
 
     // Пустой ряд с заголовком хуже отсутствующего: он обещает содержимое.
+    // С 4.0 это касается и «Собрано для тебя»: без истории миксов нет, и
+    // заголовок без карточек под ним не показывается. Герой остаётся всегда.
     expect(screen.queryByTestId('home-releases')).toBeNull();
-    expect(screen.getByTestId('home-daily')).toBeInTheDocument();
+    expect(screen.queryByTestId('home-daily')).toBeNull();
+    expect(screen.getByTestId('home-hero')).toBeInTheDocument();
+    expect(screen.getByTestId('home-card-wave')).toBeInTheDocument();
   });
 });

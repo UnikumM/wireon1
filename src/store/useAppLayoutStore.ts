@@ -9,7 +9,8 @@ export type LayoutTab = typeof TAB_IDS[number];
 export const HOME_BLOCK_IDS = ['hero', 'recent', 'wave', 'stats', 'mixes', 'artists', 'releases', 'discover'] as const;
 export type HomeBlockId = typeof HOME_BLOCK_IDS[number];
 export const AVAILABLE_HOME_BLOCKS: Record<LayoutPlatform, HomeBlockId[]> = {
-  desktop: ['hero', 'wave', 'mixes', 'releases', 'discover'],
+  // 4.0: Волна на ПК стоит в герое вместе с «продолжить», отдельного блока нет.
+  desktop: ['hero', 'recent', 'mixes', 'releases', 'discover'],
   mobile: ['hero', 'recent', 'wave', 'stats', 'mixes', 'artists']
 };
 export const TAB_LABELS: Record<LayoutTab, string> = {
@@ -32,9 +33,11 @@ export interface AppLayout {
 }
 export const APP_LAYOUT_KEY = 'appLayout';
 export function defaultAppLayout(platform: LayoutPlatform): AppLayout {
-  return { navigationPosition: platform === 'mobile' ? 'bottom' : 'top', playerPosition: 'bottom',
+  // 4.0: на ПК разделы живут в рейке слева (решение владельца, см. ROADMAP-4.0.md);
+  // верхняя полоса остаётся выбором в настройках раскладки.
+  return { navigationPosition: platform === 'mobile' ? 'bottom' : 'left', playerPosition: 'bottom',
     tabs: [...TAB_IDS], hiddenTabs: platform === 'mobile' ? ['wave', 'foryou'] : [],
-    homeBlocks: [...HOME_BLOCK_IDS], hiddenHomeBlocks: [], navigationWidth: 180, playerWidth: 240, homeColumns: 1 };
+    homeBlocks: [...HOME_BLOCK_IDS], hiddenHomeBlocks: [], navigationWidth: 224, playerWidth: 240, homeColumns: 1 };
 }
 function order<T extends string>(value: unknown, keys: readonly T[]): T[] {
   const saved = Array.isArray(value) ? value.filter((item): item is T => keys.includes(item)) : [];
