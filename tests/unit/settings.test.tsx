@@ -993,6 +993,34 @@ describe('Settings (src/components/settings)', () => {
       expect(screen.getByText('YouTube Music · SoundCloud')).toBeInTheDocument();
     });
 
+    it('4.0.2: когда обновиться само не может или не смогло — есть «Скачать вручную»', async () => {
+      const { useUpdateStore } = await import('../../src/store/useUpdateStore');
+      const openExternal = vi.fn(async (_url: string) => {});
+      installDesktopBridge({ openExternal });
+      const before = useUpdateStore.getState();
+      try {
+        // Linux, распакованная копия или папка без права записи.
+        useUpdateStore.setState({ hasBridge: true, status: 'unsupported', message: 'Запущена распакованная копия' });
+        const { unmount } = render(<AboutSettings />);
+        fireEvent.click(screen.getByTestId('about-update-manual'));
+        expect(openExternal).toHaveBeenCalledWith('https://github.com/UnikumM/wireon1/releases/latest');
+        unmount();
+
+        // Ошибка проверки или установки — тот же запасной путь.
+        useUpdateStore.setState({ hasBridge: true, status: 'error', message: 'Нет связи' });
+        const second = render(<AboutSettings />);
+        expect(screen.getByTestId('about-update-manual')).toBeInTheDocument();
+        second.unmount();
+
+        // Всё в порядке — лишней кнопки нет.
+        useUpdateStore.setState({ hasBridge: true, status: 'up-to-date', message: null });
+        render(<AboutSettings />);
+        expect(screen.queryByTestId('about-update-manual')).toBeNull();
+      } finally {
+        useUpdateStore.setState(before, true);
+      }
+    });
+
     it('copies diagnostics that include the last playback error', async () => {
       const writeText = vi.fn(async (_text: string) => {});
       Object.defineProperty(navigator, 'clipboard', { value: { writeText }, configurable: true });

@@ -1,5 +1,5 @@
 import { app } from 'electron';
-import { chmodSync, copyFileSync, existsSync, renameSync, unlinkSync } from 'fs';
+import { accessSync, chmodSync, constants as fsConstants, copyFileSync, existsSync, renameSync, unlinkSync } from 'fs';
 import { createRequire } from 'module';
 import path from 'path';
 
@@ -89,6 +89,17 @@ export interface UpdateEnvironment {
   appImagePath?: string | null;
   /** Сборка из Snap: обновляется сам Snap, а не мы. */
   snap?: boolean;
+  /** Можно ли писать по этому пути. Отдельно, чтобы тест не трогал диск. */
+  canWrite?: (target: string) => boolean;
+}
+
+function canWriteTo(target: string): boolean {
+  try {
+    accessSync(target, fsConstants.W_OK);
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 /**
@@ -128,6 +139,24 @@ export function describeUpdateSupport(env: UpdateEnvironment): UpdateSupport {
         ? 'Сборка из Snap обновляется через Snap, а не из приложения.'
         : 'Запущена распакованная копия, а не файл .AppImage — обновляться нечему. Запустите сам файл Wireon-<версия>.AppImage.'
     };
+  }
+
+  /*
+   * AppImage обновляется заменой самого файла: новая версия кладётся рядом и
+   * встаёт на его место. Если файл лежит там, куда приложению писать нельзя
+   * (/opt, /usr/local/bin, смонтированный только для чтения раздел), обновление
+   * скачивалось, а на выходе молча не вставало — «автообновление не работает».
+   * Говорим об этом заранее и прямо.
+   */
+  if (env.platform === 'linux' && env.appImagePath) {
+    const writable = env.canWrite ?? canWriteTo;
+    const folder = path.dirname(env.appImagePath);
+    if (!writable(env.appImagePath) || !writable(folder)) {
+      return {
+        supported: false,
+        reason: `Файл приложения лежит в папке без права записи (${folder}) — заменить его новой версией не получится. Перенесите .AppImage в домашнюю папку или скачайте новую версию вручную.`
+      };
+    }
   }
 
   // Со своим фидом `app-update.yml` не нужен: адрес задаётся из кода.

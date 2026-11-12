@@ -31,6 +31,9 @@ export interface UpdateSummaryInput {
   checkedAt: number | null;
 }
 
+/** Страница последнего релиза: оттуда новую версию можно взять руками. */
+export const RELEASES_PAGE_URL = 'https://github.com/UnikumM/wireon1/releases/latest';
+
 /**
  * Одна строка про обновления — на человеческом.
  *
@@ -183,6 +186,25 @@ export const AboutSettings: React.FC = () => {
           </Button>
         )}
       </InfoRow>
+      )}
+
+      {/*
+        * Запасной путь, когда приложение обновиться само не может или не смогло:
+        * распакованная копия на Linux, папка без права записи, ошибка сети или
+        * установки. Раньше в этих случаях оставалась одна строка с причиной и
+        * ни одного способа получить новую версию.
+        */}
+      {!isNativeMobile() && hasBridge && (status === 'unsupported' || status === 'error') && (
+        <div>
+          <Button
+            variant="secondary"
+            size="sm"
+            onClick={() => void window.electronAPI?.openExternal?.(RELEASES_PAGE_URL)}
+            data-testid="about-update-manual"
+          >
+            Скачать вручную
+          </Button>
+        </div>
       )}
 
       {status === 'downloading' && (

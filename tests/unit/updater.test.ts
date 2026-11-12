@@ -1,3 +1,6 @@
+import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join as nodePathJoin } from 'node:path';
 import { describe, it, expect, afterEach, beforeEach, vi } from 'vitest';
 
 /**
@@ -101,6 +104,38 @@ describe('Автообновление: можно ли обновляться',
     });
     expect(support.supported).toBe(false);
     expect(support.supported === false && support.reason).toMatch(/откуда брать обновления/i);
+  });
+
+  it('4.0.2: AppImage в папке без права записи — заранее и по-человечески, с путём', () => {
+    // Обновление скачивалось, а на выходе молча не вставало: файл лежит в /opt.
+    const support = describeUpdateSupport({
+      isPackaged: true,
+      platform: 'linux',
+      appImagePath: '/opt/wireon/Wireon-4.0.1.AppImage',
+      configPath: '/tmp/app-update.yml',
+      fileExists: () => true,
+      canWrite: (target) => !target.startsWith('/opt')
+    });
+    expect(support.supported).toBe(false);
+    expect(support.supported === false && support.reason).toMatch(/без права записи \(\/opt\/wireon\)/);
+    expect(support.supported === false && support.reason).toMatch(/вручную/);
+  });
+
+  it('4.0.2: AppImage в домашней папке обновляется; файл только для чтения — нет', () => {
+    const base = {
+      isPackaged: true,
+      platform: 'linux',
+      appImagePath: '/home/u/Apps/Wireon-4.0.1.AppImage',
+      configPath: '/tmp/app-update.yml',
+      fileExists: () => true
+    };
+    expect(describeUpdateSupport({ ...base, canWrite: () => true })).toEqual({ supported: true });
+    // Папка доступна, а сам файл — нет (chmod a-w): заменить его тоже не выйдет.
+    expect(describeUpdateSupport({ ...base, canWrite: (target) => !target.endsWith('.AppImage') }).supported).toBe(false);
+    // На Windows путь к AppImage не задан, проверка записи не делается.
+    expect(
+      describeUpdateSupport({ isPackaged: true, platform: 'win32', configPath: 'C:\\app\\app-update.yml', fileExists: () => true, canWrite: () => false })
+    ).toEqual({ supported: true });
   });
 
   it('со своим адресом фида app-update.yml не нужен', () => {
@@ -420,6 +455,8 @@ describe('Автообновление: сборка сервиса под те�
 
   let previousAppImage: string | undefined;
 
+  let fakeAppImageDir = '';
+
   beforeEach(() => {
     logs = [
       vi.spyOn(console, 'info').mockImplementation(() => {}),
@@ -429,7 +466,11 @@ describe('Автообновление: сборка сервиса под те�
     // `APPIMAGE` сервис теперь честно отвечает «нечему обновляться», поэтому
     // здесь изображаем запущенный файл AppImage; на Windows переменная не читается.
     previousAppImage = process.env.APPIMAGE;
-    process.env.APPIMAGE = '/home/u/Wireon-1.2.3.AppImage';
+    // Настоящий файл во временной папке: с 4.0.2 сервис проверяет, что файл
+    // AppImage и его папка доступны на запись, — выдуманный путь не прошёл бы.
+    fakeAppImageDir = mkdtempSync(nodePathJoin(tmpdir(), 'wireon-updater-test-'));
+    process.env.APPIMAGE = nodePathJoin(fakeAppImageDir, 'Wireon-1.2.3.AppImage');
+    writeFileSync(process.env.APPIMAGE, '');
   });
 
   afterEach(() => {
@@ -439,6 +480,7 @@ describe('Автообновление: сборка сервиса под те�
     delete process.env.PORTABLE_EXECUTABLE_DIR;
     if (previousAppImage === undefined) delete process.env.APPIMAGE;
     else process.env.APPIMAGE = previousAppImage;
+    rmSync(fakeAppImageDir, { recursive: true, force: true });
   });
 
   it('в dev-режиме модуль обновлений даже не загружается', () => {
@@ -600,7 +642,7 @@ describe('3.0.1: перезапуск после обновления на Linux
 });
 
 describe('Автообновление на Linux (4.0)', () => {
-  const linuxEnv = { isPackaged: true, feedUrl: 'https://example.test/updates', platform: 'linux' };
+  const linuxEnv = { isPackaged: true, feedUrl: 'https://example.test/updates', platform: 'linux', canWrite: () => true };
 
   it('без APPIMAGE в окружении честно говорит, что обновляться нечему', () => {
     // electron-updater в этом случае отвечает на проверку `null` без единого
