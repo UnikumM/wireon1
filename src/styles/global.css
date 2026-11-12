@@ -3864,15 +3864,31 @@ svg.lucide[width='48'] {
  */
 .shell-light {
   position: absolute;
-  inset: -20% -10% auto;
+  /*
+   * Строго в границах области содержимого. Раньше слой был на 10% шире и на
+   * 20% выше родителя, а пятно не успевало погаснуть до его краёв: свет ложился
+   * на рейку и обрывался там прямой линией (на оформлениях с прозрачной рейкой
+   * это видно сразу), вторая такая линия шла под шапкой.
+   */
+  inset: 0 0 auto;
   height: 75%;
   pointer-events: none;
   z-index: 0;
   background: radial-gradient(
-    55% 60% at 22% 8%,
+    60% 85% at 30% 12%,
     color-mix(in srgb, var(--ambient, var(--accent)) 34%, transparent),
-    transparent 70%
+    color-mix(in srgb, var(--ambient, var(--accent)) 16%, transparent) 38%,
+    color-mix(in srgb, var(--ambient, var(--accent)) 5%, transparent) 68%,
+    transparent 100%
   );
+  /* Края слоя растворяются со всех сторон: у пятна не остаётся ни одной
+   * прямой границы, даже там, где градиент ещё не дошёл до нуля. */
+  -webkit-mask-image: linear-gradient(to right, transparent, black 16%, black 72%, transparent),
+    linear-gradient(to bottom, transparent, black 18%, black 60%, transparent);
+  -webkit-mask-composite: source-in;
+  mask-image: linear-gradient(to right, transparent, black 16%, black 72%, transparent),
+    linear-gradient(to bottom, transparent, black 18%, black 60%, transparent);
+  mask-composite: intersect;
   /* Вдвое дольше превращений: это смена света на сцене, а не отклик на нажатие. */
   transition: background calc(var(--dur-morph) * 2) var(--ease-out);
 }

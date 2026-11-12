@@ -169,7 +169,7 @@ export const FullscreenPlayer: React.FC<FullscreenPlayerProps> = ({ className = 
         чередой снизу — шапка, обложка, название с транспортом. Череду держит
         `--stagger`, тот же приём, что и в списках.
       */
-      className={`${hasEntered || swipe.offset > 0 ? '' : 'animate-emerge'} ${className}`}
+      className={`player-dither ${hasEntered || swipe.offset > 0 ? '' : 'animate-emerge'} ${className}`}
       onAnimationEnd={(event) => {
         if (event.target === event.currentTarget && event.animationName === 'emerge') {
           setHasEntered(true);
