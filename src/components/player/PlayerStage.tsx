@@ -165,7 +165,7 @@ const StageBody: React.FC<{ track: UnifiedTrack }> = ({ track }) => {
               className="player-stage-artwork"
               fallbackIcon={ICON.hero}
               // Обложка сцены — почти во всю ширину телефона.
-              size={400}
+              displayPx={400}
               data-testid="mobile-fullscreen-artwork"
             />
             <AnimatePresence>

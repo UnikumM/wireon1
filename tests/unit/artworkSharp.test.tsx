@@ -19,14 +19,14 @@ function loaded(image: HTMLElement, width: number, height: number) {
 }
 
 describe('NowPlayingArtwork: размер по месту', () => {
-  it('без size — только картинка из медиатеки, лишних запросов нет', () => {
+  it('без displayPx — только картинка из медиатеки, лишних запросов нет', () => {
     const { container } = render(<NowPlayingArtwork track={track} morph={false} />);
     expect(container.querySelectorAll('img')).toHaveLength(1);
     expect(container.querySelector('img')?.getAttribute('src')).toBe(SMALL);
   });
 
   it('крупная обложка: мелкая видна сразу, чёткая проявляется после загрузки', () => {
-    const { container } = render(<NowPlayingArtwork track={track} morph={false} size={460} />);
+    const { container } = render(<NowPlayingArtwork track={track} morph={false} displayPx={460} />);
     expect(container.querySelector('img')?.getAttribute('src')).toBe(SMALL);
 
     const sharp = screen.getByTestId('artwork-sharp');
@@ -38,7 +38,7 @@ describe('NowPlayingArtwork: размер по месту', () => {
   });
 
   it('вместо крупного кадра пришла заглушка 120×90 — берётся следующий, потом остаётся мелкая', () => {
-    render(<NowPlayingArtwork track={track} morph={false} size={460} />);
+    render(<NowPlayingArtwork track={track} morph={false} displayPx={460} />);
 
     loaded(screen.getByTestId('artwork-sharp'), 120, 90);
     const second = screen.getByTestId('artwork-sharp');
@@ -52,11 +52,11 @@ describe('NowPlayingArtwork: размер по месту', () => {
   });
 
   it('смена трека начинает подбор заново', () => {
-    const { rerender } = render(<NowPlayingArtwork track={track} morph={false} size={460} />);
+    const { rerender } = render(<NowPlayingArtwork track={track} morph={false} displayPx={460} />);
     loaded(screen.getByTestId('artwork-sharp'), 120, 90);
 
     const next = { ...track, id: 'yt_2', artworkUrl: 'https://i.ytimg.com/vi/aaaaaaaaaaa/mqdefault.jpg' };
-    rerender(<NowPlayingArtwork track={next} morph={false} size={460} />);
+    rerender(<NowPlayingArtwork track={next} morph={false} displayPx={460} />);
     expect(screen.getByTestId('artwork-sharp').getAttribute('src')).toBe('https://i.ytimg.com/vi/aaaaaaaaaaa/maxresdefault.jpg');
   });
 });

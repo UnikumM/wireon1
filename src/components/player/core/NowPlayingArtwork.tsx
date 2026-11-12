@@ -38,7 +38,7 @@ export interface NowPlayingArtworkProps {
    * обложка в нужном размере. Без этого пропа — только картинка из медиатеки:
    * полосе и строкам очереди крупнее не нужно.
    */
-  size?: number;
+  displayPx?: number;
   alt?: string;
   'data-testid'?: string;
   children?: React.ReactNode;
@@ -57,14 +57,14 @@ export const NowPlayingArtwork: React.FC<NowPlayingArtworkProps> = ({
   style,
   morph = true,
   fallbackIcon = ICON.lg,
-  size,
+  displayPx,
   alt = '',
   'data-testid': testId,
   children
 }) => {
   // Сохранённая обложка важнее сетевой: она в лучшем качестве и есть без
   // интернета. В списках (очередь) её не спрашиваем — там десятки строк.
-  const offlineUrl = useOfflineArtwork(track?.id, morph || Boolean(size));
+  const offlineUrl = useOfflineArtwork(track?.id, morph || Boolean(displayPx));
   const url = offlineUrl || track?.artworkUrl || null;
   const [failedUrl, setFailedUrl] = useState<string | null>(null);
   useEffect(() => setFailedUrl(null), [url]);
@@ -80,9 +80,9 @@ export const NowPlayingArtwork: React.FC<NowPlayingArtworkProps> = ({
    * моргает пустым квадратом.
    */
   const sharpCandidates = useMemo(() => {
-    if (!url || !size) return [];
-    return artworkCandidates(url, pickArtworkSize(size, currentNetworkHints())).filter((candidate) => candidate !== url);
-  }, [url, size]);
+    if (!url || !displayPx) return [];
+    return artworkCandidates(url, pickArtworkSize(displayPx, currentNetworkHints())).filter((candidate) => candidate !== url);
+  }, [url, displayPx]);
   const [sharpIndex, setSharpIndex] = useState(0);
   const [sharpReady, setSharpReady] = useState(false);
   useEffect(() => {

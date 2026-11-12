@@ -677,7 +677,7 @@ export const KaraokeView: React.FC<KaraokeViewProps> = ({ className = '', onClos
         <aside className="karaoke-side" data-testid="karaoke-side">
           <div className="karaoke-side-art">
             {/* Та же обложка с чёткой копией, что и на сцене: здесь она тоже крупная. */}
-            <NowPlayingArtwork track={currentTrack} morph={false} size={320} className="w-full h-full" fallbackIcon={ICON.hero} />
+            <NowPlayingArtwork track={currentTrack} morph={false} displayPx={320} className="w-full h-full" fallbackIcon={ICON.hero} />
           </div>
           <div className="stack gap-1 min-0">
             <div className="type-xl weight-bold text-primary font-sans" title={currentTrack.title}>{currentTrack.title}</div>

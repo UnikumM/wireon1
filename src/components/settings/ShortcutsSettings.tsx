@@ -271,7 +271,7 @@ const SystemShortcutHint: React.FC = () => {
 export const ShortcutsSettings: React.FC = () => {
   const mac = isMacLike();
   const mod = mac ? '⌘' : 'Ctrl';
-  const alt = mac ? '⌥' : 'Alt';
+  const alt = mac ? 'Option' : 'Alt';
 
   return (
     <div className="stack gap-5">
