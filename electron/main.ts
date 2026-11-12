@@ -1286,7 +1286,7 @@ export function setupIpcHandlers(
   ipc.handle('mini-set-form', async (event, form: unknown) => {
     const mini = getMiniWindow();
     if (!mini || event.sender !== mini.webContents) return false;
-    const size = typeof form === 'string' ? MINI_FORM_WINDOW_SIZES[form] : undefined;
+    const size = typeof form === 'string' ? miniWindowSizeFor(form) : undefined;
     if (!size) return false;
     miniFormSize = size;
     mini.setBounds(boundsForMiniForm(mini.getBounds(), size, workAreaFor(mini)));
@@ -1978,7 +1978,7 @@ export function createMiniWindow(): BrowserWindow {
   const win = new BrowserWindow({
     // Размер ставит форма (mini-set-form); здесь — «Карточка», пока окно не
     // прочитало свою настройку.
-    ...MINI_FORM_WINDOW_SIZES.card,
+    ...(miniWindowSizeFor('card') ?? MINI_FORM_WINDOW_SIZES.card),
     frame: false,
     // Прозрачное окно: форма мини-плеера — фигура внутри него, а не сам
     // прямоугольник окна. Такое окно Electron тянуть за край не даёт, и это
@@ -2053,6 +2053,32 @@ export const MINI_FORM_WINDOW_SIZES: Readonly<Record<string, { width: number; he
   disc: { width: 208, height: 208 }
 };
 
+/**
+ * Размеры самой фигуры по формам — копия ширины и высоты `.mini-shape` из
+ * src/styles/mini.css («Остров» — в раскрытом виде). Расхождение ловит тест.
+ *
+ * На Linux окно делается ровно по фигуре, без прозрачного поля под тень.
+ * Оконные менеджеры (Hyprland, KWin, Sway) обводят активное окно своей рамкой
+ * и рисуют её по границе окна, а не фигуры: вокруг плеера появлялась вторая
+ * рамка с пустым зазором — «выходит за рамки», «лишние отступы». Тени у
+ * прозрачного окна на Linux всё равно нет, так что поле там ничего не давало.
+ */
+export const MINI_FORM_SHAPE_SIZES: Readonly<Record<string, { width: number; height: number }>> = {
+  card: { width: 340, height: 156 },
+  island: { width: 396, height: 180 },
+  bar: { width: 380, height: 68 },
+  cover: { width: 208, height: 208 },
+  disc: { width: 176, height: 176 }
+};
+
+/** Размер окна мини-плеера для формы: на Linux — по фигуре, иначе — с полем под тень. */
+export function miniWindowSizeFor(
+  form: string,
+  platform: string = process.platform
+): { width: number; height: number } | undefined {
+  return isLinux(platform) ? MINI_FORM_SHAPE_SIZES[form] : MINI_FORM_WINDOW_SIZES[form];
+}
+
 interface Rect {
   x: number;
   y: number;
@@ -2125,7 +2151,7 @@ const MINI_HOVER_TICK_MS = 100;
  * «прочитали границы → записали границы» округляет их вверх, и окно росло на
  * пиксель-другой за каждое перетаскивание.
  */
-let miniFormSize: { width: number; height: number } = MINI_FORM_WINDOW_SIZES.card;
+let miniFormSize: { width: number; height: number } = miniWindowSizeFor('card') ?? MINI_FORM_WINDOW_SIZES.card;
 
 let miniShapeRect: Rect | null = null;
 let miniHoverTimer: ReturnType<typeof setInterval> | null = null;

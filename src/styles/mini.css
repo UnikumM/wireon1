@@ -204,6 +204,16 @@ html[data-mini-window] #root::after {
   -webkit-app-region: no-drag;
 }
 
+/*
+ * Linux: окно ровно по фигуре (electron/main.ts, MINI_FORM_SHAPE_SIZES), поэтому
+ * фигура стоит в нём без полей. «Остров» там всегда раскрыт и не прижат к верху:
+ * прижимать не к чему, окно того же размера.
+ */
+[data-platform='linux'].mini-stage[data-mini-form='island'] {
+  align-items: center;
+  padding-top: 0;
+}
+
 .mini-shape {
   position: relative;
   overflow: hidden;

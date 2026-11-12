@@ -697,6 +697,12 @@ export const MiniWindow: React.FC = () => {
 
   const Form = FORM_COMPONENTS[formId];
   const accent = state.accent ?? 'var(--accent)';
+  /*
+   * На Linux «Остров» всегда раскрыт. Окно там сделано ровно по фигуре (см.
+   * MINI_FORM_SHAPE_SIZES в electron/main.ts), а свёрнутая пилюля оставляла бы
+   * в нём пустое поле, которое оконный менеджер обводит своей рамкой.
+   */
+  const shown = expanded || (platform === 'linux' && formId === 'island');
 
   return (
     <div
@@ -717,7 +723,7 @@ export const MiniWindow: React.FC = () => {
       <div
         ref={shapeRef}
         className="mini-shape"
-        data-expanded={expanded ? 'true' : 'false'}
+        data-expanded={shown ? 'true' : 'false'}
         data-hover={expanded ? 'true' : 'false'}
         onPointerEnter={handleEnter}
         onPointerLeave={handleLeave}
@@ -745,7 +751,7 @@ export const MiniWindow: React.FC = () => {
           onScrub={setScrubTime}
           onSeek={handleSeek}
           heartPop={heartPop}
-          expanded={expanded}
+          expanded={shown}
         />
         <WindowActions formId={formId} />
         <div className="mini-hud" data-visible={hudVisible ? 'true' : 'false'} aria-hidden="true">

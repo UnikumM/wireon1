@@ -102,6 +102,31 @@ describe('Формы мини-плеера', () => {
       }
     });
 
+    it('4.0.2: на Linux окно ровно по фигуре — размеры совпадают с mini.css', () => {
+      // Оконный менеджер обводит активное окно рамкой по его границе. Прозрачное
+      // поле под тень давало вторую рамку с зазором вокруг плеера.
+      const shapeBlock = MAIN_TS.slice(MAIN_TS.indexOf('MINI_FORM_SHAPE_SIZES'));
+      const sizeIn = (id: string) => {
+        const match = new RegExp(`${id}: \\{ width: (\\d+), height: (\\d+) \\}`).exec(shapeBlock);
+        return match ? { width: Number(match[1]), height: Number(match[2]) } : null;
+      };
+      const cssSize = (selector: string) => {
+        const at = MINI_CSS.indexOf(selector);
+        expect(at, selector).toBeGreaterThan(-1);
+        const rule = MINI_CSS.slice(at, MINI_CSS.indexOf('}', at));
+        return {
+          width: Number(/width:\s*(\d+)px/.exec(rule)?.[1]),
+          height: Number(/height:\s*(\d+)px/.exec(rule)?.[1])
+        };
+      };
+      for (const id of ['card', 'bar', 'cover', 'disc']) {
+        expect(sizeIn(id), id).toEqual(cssSize(`[data-mini-form='${id}'] .mini-shape {`));
+      }
+      // «Остров» на Linux всегда раскрыт: окно — по раскрытой фигуре.
+      expect(sizeIn('island')).toEqual(cssSize(`[data-mini-form='island'] .mini-shape[data-expanded='true'] {`));
+      expect(MAIN_TS).toContain('isLinux(platform) ? MINI_FORM_SHAPE_SIZES[form] : MINI_FORM_WINDOW_SIZES[form]');
+    });
+
     it('фигура каждой формы помещается в своё окно', () => {
       // Фигура шире окна обрезалась бы краем прозрачного окна без всякого признака.
       const px = (selector: string, prop: 'width' | 'height') => {
@@ -218,6 +243,19 @@ describe('Формы мини-плеера', () => {
         width: expect.any(Number),
         height: expect.any(Number)
       });
+    });
+
+    it('4.0.2: на Linux остров раскрыт всегда — окно там по фигуре, свёрнутая пилюля оставила бы пустое поле', () => {
+      (bridge.api as unknown as { getPlatform: () => string }).getPlatform = () => 'linux';
+      render(<MiniWindow />);
+      bridge.push(snapshot({ form: 'island' }));
+      const stage = screen.getByTestId('mini-window');
+      const shape = stage.querySelector('.mini-shape') as HTMLElement;
+
+      expect(stage.getAttribute('data-platform')).toBe('linux');
+      // Курсора над фигурой нет, а остров раскрыт.
+      expect(shape.getAttribute('data-expanded')).toBe('true');
+      expect(shape.getAttribute('data-hover')).toBe('false');
     });
 
     it('курсор над фигурой раскрывает остров, уход сворачивает его с задержкой', () => {
