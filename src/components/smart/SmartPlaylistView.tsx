@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { Copy, Edit2, Play, Shuffle, Trash2, Wand2 } from 'lucide-react';
+import { ArrowLeft, Copy, Edit2, Play, Shuffle, Trash2, Wand2 } from 'lucide-react';
 import { Button } from '../common/Button';
 import { ConfirmDialog } from '../common/ConfirmDialog';
 import { EmptyState } from '../common/EmptyState';
@@ -77,6 +77,18 @@ export const SmartPlaylistView: React.FC = () => {
 
   return (
     <div className="animate-view-in stack gap-5" data-testid="smart-view">
+      {/* Тот же «Назад», что у подборки: на телефоне другого выхода с экрана не было. */}
+      <div>
+        <Button
+          variant="ghost"
+          size="sm"
+          icon={<ArrowLeft size={ICON.md} />}
+          onClick={() => useUIStore.getState().goBack()}
+          data-testid="smart-back"
+        >
+          Назад
+        </Button>
+      </div>
       <header
         className="panel row gap-5 p-5 radius-lg wrap"
       >

@@ -102,6 +102,8 @@ export const App: React.FC = () => {
     void import('./services/handoff').then(({ startHandoffPublisher }) => startHandoffPublisher());
     // Ссылки YouTube/SoundCloud, открытые в Wireon с телефона (фильтры — в AndroidManifest.xml).
     void import('./services/incomingLinks').then(({ startIncomingLinks }) => startIncomingLinks());
+    // Системная «назад» на Android: без обработчика она закрывает приложение.
+    void import('./services/backButton').then(({ startBackButton }) => startBackButton());
 
     /*
      * Просим систему не вычищать хранилище страницы — на запуске, а не только

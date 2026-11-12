@@ -13,6 +13,33 @@ export function refusedForAccount(): boolean {
   return useUIStore.getState().accountPrompt !== null;
 }
 
+type ViewId = UIStoreState['activeView'];
+
+/** Вложенные экраны: на них приходят откуда-то, и с них есть куда вернуться. */
+const DETAIL_VIEWS: ReadonlySet<ViewId> = new Set<ViewId>(['playlist', 'collection', 'artist', 'smart', 'settings']);
+
+/** Куда вернуться с вложенного экрана, если истории нет (открыт по ссылке, после перезапуска). */
+const BACK_FALLBACK: Partial<Record<ViewId, ViewId>> = {
+  playlist: 'playlists',
+  smart: 'playlists',
+  collection: 'search',
+  artist: 'search',
+  settings: 'home'
+};
+
+const BACK_STACK_LIMIT = 12;
+
+/**
+ * Переход на экран с учётом истории. На вложенный экран — запоминаем, откуда
+ * пришли; на корневой раздел — история сбрасывается: человек сам ушёл в другой
+ * раздел, и «назад» оттуда не должно возвращать в чужой плейлист.
+ */
+function enterView(state: { activeView: ViewId; viewBackStack: ViewId[] }, view: ViewId) {
+  if (view === state.activeView) return { activeView: view };
+  if (!DETAIL_VIEWS.has(view)) return { activeView: view, viewBackStack: [] as ViewId[] };
+  return { activeView: view, viewBackStack: [...state.viewBackStack, state.activeView].slice(-BACK_STACK_LIMIT) };
+}
+
 export const useUIStore = create<UIStore>((set, get) => ({
   activeView: 'search',
   activeWaveMood: 'favorite',
@@ -44,7 +71,7 @@ export const useUIStore = create<UIStore>((set, get) => ({
 
   openSmartPlaylist: (id) => {
     if (!id) return;
-    set({ activeView: 'smart', activeSmartPlaylistId: id, isFullscreenPlayerOpen: false });
+    set((s) => ({ ...enterView(s, 'smart'), activeSmartPlaylistId: id, isFullscreenPlayerOpen: false }));
   },
 
   openRecap: (period) => {
@@ -56,7 +83,27 @@ export const useUIStore = create<UIStore>((set, get) => ({
   },
 
   setActiveView: (view: UIStoreState['activeView']) => {
-    set({ activeView: view });
+    set((s) => enterView(s, view));
+  },
+
+  viewBackStack: [],
+
+  goBack: () => {
+    const { activeView, viewBackStack } = get();
+    if (viewBackStack.length > 0) {
+      set({ activeView: viewBackStack[viewBackStack.length - 1], viewBackStack: viewBackStack.slice(0, -1) });
+      return true;
+    }
+    const fallback = BACK_FALLBACK[activeView];
+    if (fallback) {
+      set({ activeView: fallback });
+      return true;
+    }
+    if (activeView !== 'home') {
+      set({ activeView: 'home' });
+      return true;
+    }
+    return false;
   },
 
   setActiveWaveMood: (mood: UIStoreState['activeWaveMood']) => {
@@ -77,7 +124,7 @@ export const useUIStore = create<UIStore>((set, get) => ({
 
   openCollection: (collection) => {
     if (!collection) return;
-    set({ activeView: 'collection', activeCollection: collection, isFullscreenPlayerOpen: false });
+    set((s) => ({ ...enterView(s, 'collection'), activeCollection: collection, isFullscreenPlayerOpen: false }));
   },
 
   startSelection: (trackId?: string) => {
@@ -106,11 +153,11 @@ export const useUIStore = create<UIStore>((set, get) => ({
   openArtist: (artistName: string) => {
     const trimmed = (artistName || '').trim();
     if (!trimmed) return;
-    set({
-      activeView: 'artist',
+    set((s) => ({
+      ...enterView(s, 'artist'),
       selectedArtistName: trimmed,
       isFullscreenPlayerOpen: false
-    });
+    }));
   },
 
   toggleQueue: () => {

@@ -315,6 +315,13 @@ export interface UIStoreState {
 
 export interface UIStoreActions {
   setActiveView: (view: UIStoreState['activeView']) => void;
+  /**
+   * Экраны, с которых пришли на вложенный (плейлист, подборка, исполнитель,
+   * умный плейлист, настройки): по ним возвращает «назад».
+   */
+  viewBackStack: UIStoreState['activeView'][];
+  /** Шаг назад по экранам. `false` — отступать некуда (уже на «Главной»). */
+  goBack: () => boolean;
   openRecap: (period: 'month' | 'year') => void;
   openSmartPlaylist: (id: string) => void;
   closeRecap: () => void;

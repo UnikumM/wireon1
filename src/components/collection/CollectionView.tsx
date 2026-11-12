@@ -120,7 +120,7 @@ export const CollectionView: React.FC = () => {
           variant="ghost"
           size="sm"
           icon={<ArrowLeft size={ICON.md} />}
-          onClick={() => setActiveView('search')}
+          onClick={() => useUIStore.getState().goBack()}
           data-testid="collection-back"
         >
           Назад

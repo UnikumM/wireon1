@@ -52,6 +52,18 @@ function popOverlay(entry: OverlayEntry): void {
   }
 }
 
+/**
+ * Закрывает верхний слой — так же, как это сделал бы Escape. `true`, если слой
+ * был (даже если он отказался закрываться: нажатие всё равно принадлежит ему).
+ * Нужен системной кнопке «назад» на телефоне: один нажим — один слой.
+ */
+export function dismissTopOverlay(): boolean {
+  const top = overlayStack[overlayStack.length - 1];
+  if (!top) return false;
+  top.onEscape?.();
+  return true;
+}
+
 /** How many dismissable layers are currently mounted. */
 export function getOpenOverlayCount(): number {
   return overlayStack.length;

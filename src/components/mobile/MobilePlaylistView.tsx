@@ -122,10 +122,12 @@ export const MobilePlaylistView: React.FC = () => {
     showToast(`Убрано ${pluralize(removed, 'повтор', 'повтора', 'повторов')}`, 'success');
   }, [playlist, removeDuplicatesFromPlaylist, showToast, syncQueue]);
 
+  // Туда, откуда пришли (медиатека, главная, поиск), а не всегда в медиатеку:
+  // тот же шаг делает системная кнопка «назад» (services/backButton.ts).
   const back = useCallback(() => {
     setActivePlaylistId(null);
-    setActiveView('playlists');
-  }, [setActiveView, setActivePlaylistId]);
+    useUIStore.getState().goBack();
+  }, [setActivePlaylistId]);
 
   const handleRename = useCallback(async () => {
     if (!playlist) return;

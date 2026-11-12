@@ -309,6 +309,7 @@ export function signInForTests(id: string = 'test-user'): void {
 export function resetUIStore(): void {
   useUIStore.setState({
     activeView: 'search',
+    viewBackStack: [],
     activePlaylistId: null,
     isQueueOpen: false,
     isFullscreenPlayerOpen: false,
