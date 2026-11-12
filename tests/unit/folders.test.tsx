@@ -154,3 +154,28 @@ describe('4.0: папки плейлистов в медиатеке', () => {
     expect(screen.queryByTestId('mobile-library-playlist-p4')).toBeNull();
   });
 });
+
+describe('4.0.2: свой плейлист можно создать и при пустой медиатеке', () => {
+  beforeEach(async () => {
+    await dbService.clearAllData();
+    resetLibraryStore();
+    resetUIStore();
+    usePinnedStore.setState({ pinnedIds: [], hydrated: true });
+    useFolderStore.setState({ folders: [], hydrated: true });
+    useLibraryStore.setState({ playlists: [] });
+    useUIStore.setState({ activeView: 'playlists' });
+  });
+
+  it('пустой экран предлагает импорт, а «Новый плейлист» стоит в шапке и зовёт создание', () => {
+    let created = 0;
+    render(<LibraryView onCreatePlaylistClick={() => (created += 1)} />);
+
+    // В 4.0 кнопку создания убрали с пустого экрана, а шапка без плейлистов была
+    // скрыта — создать свой плейлист стало нечем.
+    fireEvent.click(screen.getByTestId('library-create-playlist-btn'));
+    expect(created).toBe(1);
+    // Импорт остаётся единственным действием пустого экрана и не дублируется в шапке.
+    expect(screen.getByTestId('library-empty-import-playlist-btn')).toBeInTheDocument();
+    expect(screen.queryByTestId('library-import-playlist-btn')).toBeNull();
+  });
+});

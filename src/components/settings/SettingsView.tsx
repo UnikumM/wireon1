@@ -67,7 +67,9 @@ export const SettingsView: React.FC<{ className?: string }> = ({ className }) =>
 
   const jumpTo = useCallback((id: string) => {
     setActiveId(id);
-    const target = containerRef.current?.querySelector(`[data-testid="settings-section-${id}"]`);
+    // К обёртке раздела, а не к `settings-section-<id>`: у «Конструктора» своя
+    // разметка без этого testid, и кнопка молча никуда не вела.
+    const target = containerRef.current?.querySelector(`[data-section-id="${id}"]`);
     target?.scrollIntoView({ behavior: 'smooth', block: 'start' });
   }, []);
 

@@ -262,7 +262,7 @@ export const ShortcutsSettings: React.FC = () => {
   const mod = isMacLike() ? '⌘' : 'Ctrl';
 
   return (
-    <>
+    <div className="stack gap-5">
       <GlobalHotkeysSection />
       <SettingsSection
       id="shortcuts"
@@ -290,7 +290,7 @@ export const ShortcutsSettings: React.FC = () => {
         ))}
       </ul>
     </SettingsSection>
-    </>
+    </div>
   );
 };
 

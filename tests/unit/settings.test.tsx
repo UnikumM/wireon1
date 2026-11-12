@@ -206,6 +206,34 @@ describe('Settings (src/components/settings)', () => {
       expect(screen.getByTestId('settings-nav-playback')).toHaveAttribute('aria-pressed', 'false');
       expect(Element.prototype.scrollIntoView).toHaveBeenCalled();
     });
+
+    it('4.0.2: «Конструктор» прокручивает к своему разделу, хотя у него нет settings-section-testid', () => {
+      render(<SettingsView />);
+      const scrolled: Element[] = [];
+      const spy = vi.spyOn(Element.prototype, 'scrollIntoView').mockImplementation(function (this: Element) {
+        scrolled.push(this);
+      });
+
+      fireEvent.click(screen.getByTestId('settings-nav-layout'));
+
+      // Раньше цель искали по `settings-section-layout`, которого у раздела нет, —
+      // кнопка подсвечивалась, но страница не двигалась.
+      expect(scrolled).toHaveLength(1);
+      expect(scrolled[0].getAttribute('data-section-id')).toBe('layout');
+      expect(scrolled[0].querySelector('[data-testid="app-layout-settings"]')).not.toBeNull();
+      spy.mockRestore();
+    });
+
+    it('4.0.2: у каждой кнопки разделов есть раздел, к которому она ведёт', () => {
+      const { container } = render(<SettingsView />);
+      const ids = [...container.querySelectorAll('[data-testid^="settings-nav-"]')].map((node) =>
+        (node.getAttribute('data-testid') || '').replace('settings-nav-', '')
+      );
+      expect(ids.length).toBeGreaterThan(5);
+      for (const id of ids) {
+        expect(container.querySelector(`[data-section-id="${id}"]`), id).not.toBeNull();
+      }
+    });
   });
 
   // ==========================================================================
