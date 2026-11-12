@@ -795,8 +795,12 @@ export const PlayerBar: React.FC<PlayerBarProps> = ({ className = '' }) => {
                       transformOrigin: 'bottom right',
                       zIndex: 2,
                       width: '264px',
+                      maxWidth: 'calc(100vw - var(--space-6))',
                       maxHeight: '60vh',
                       overflowY: 'auto',
+                      // Вбок меню не прокручивается никогда: с широким шрифтом ряд
+                      // кнопок таймера раздвигал его, и внизу появлялась полоса.
+                      overflowX: 'hidden',
                       padding: 'var(--space-2)',
                       '--ring-offset-color': 'var(--surface-3)'
                     } as React.CSSProperties
@@ -820,7 +824,7 @@ export const PlayerBar: React.FC<PlayerBarProps> = ({ className = '' }) => {
                       <div
                         role="group"
                         aria-label="Таймер сна"
-                        className="grid gap-1" style={{ gridTemplateColumns: 'repeat(3, 1fr)', padding: '0 var(--space-2) var(--space-2)' }}
+                        className="sleep-timer-grid gap-1" style={{ padding: '0 var(--space-2) var(--space-2)' }}
                       >
                         <button
                           role="menuitemradio"

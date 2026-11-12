@@ -58,7 +58,7 @@ export const SleepTimerPanel: React.FC<SleepTimerPanelProps> = ({ onPicked }) =>
       <div
         role="group"
         aria-label="Таймер сна"
-        className="grid gap-2" style={{ gridTemplateColumns: 'repeat(3, 1fr)' }}
+        className="sleep-timer-grid gap-2"
       >
         {SLEEP_PANEL_OPTIONS.map((minutes) => (
           <button

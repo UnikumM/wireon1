@@ -699,3 +699,27 @@
   line-height: var(--leading-4xl);
   letter-spacing: var(--tracking-4xl);
 }
+
+/*
+ * Ряд кнопок таймера сна (меню полосы на ПК и лист на телефоне).
+ *
+ * Колонки — `minmax(0, 1fr)`, а не `1fr`: у `1fr` нижняя граница — ширина
+ * содержимого, и с широким шрифтом оформления («15 мин» на Unbounded) три
+ * кнопки не помещались в меню — оно получало горизонтальную прокрутку, а
+ * крайние кнопки обрезались. Внутри сетки пилюли уже общих: меньше поля и
+ * зазор между числом и «мин», а текст, который всё равно не влез, сжимается
+ * многоточием, а не раздвигает ряд.
+ */
+.sleep-timer-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.sleep-timer-grid .chip {
+  min-width: 0;
+  padding-inline: var(--space-2);
+  gap: var(--space-1);
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
