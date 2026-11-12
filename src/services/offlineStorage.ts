@@ -1,5 +1,6 @@
 import { db, OfflineTrackRecord } from './db';
 import { UnifiedTrack } from '../types/music';
+import { fetchBestArtwork } from './offlineArtwork';
 import { streamResolver } from './streamResolver';
 import { downloadHlsAudio, isHlsPlaylistText } from './hlsDownload';
 import {
@@ -307,6 +308,20 @@ class OfflineStorageService {
 
       await db.offlineTracks.put(record);
       reportProgress(100);
+
+      /*
+       * Обложка — после звука и не дожидаясь её: трек уже сохранён и играет, а
+       * картинка в лучшем качестве доедет следом. Не дошла — запись остаётся
+       * без неё, и плеер берёт адрес из интернета, как раньше.
+       */
+      void fetchBestArtwork(track.artworkUrl)
+        .then(async (artwork) => {
+          if (!artwork) return;
+          const saved = await db.offlineTracks.get(track.id);
+          // Трек могли удалить, пока обложка качалась.
+          if (saved) await db.offlineTracks.put({ ...saved, artwork });
+        })
+        .catch((err) => console.warn(`[OfflineStorage] Обложка для ${track.id} не сохранена:`, err));
     } catch (err) {
       if (controller.signal.aborted) {
         console.warn(`[OfflineStorage] Download cancelled for ${track.id}`);

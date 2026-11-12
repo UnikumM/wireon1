@@ -97,6 +97,12 @@ export interface OfflineTrackRecord {
   lastUsedAt?: number;
   /** Cached automatically by offline mode, as opposed to kept on purpose. */
   autoCached?: boolean;
+  /**
+   * Обложка в лучшем качестве, сохранённая вместе со звуком (с 4.0.2).
+   * Нет у записей старше и там, где её не удалось забрать, — тогда плеер
+   * берёт адрес из `track.artworkUrl`, как раньше.
+   */
+  artwork?: Blob;
 }
 
 /**

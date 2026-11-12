@@ -34,6 +34,7 @@ import { Skeleton } from '../common/Skeleton';
 import { EmptyState } from '../common/EmptyState';
 import { ICON } from '../../styles/icons';
 import { AmbientLight } from '../player/core/AmbientLight';
+import { NowPlayingArtwork } from '../player/core/NowPlayingArtwork';
 
 export interface KaraokeViewProps {
   className?: string;
@@ -675,11 +676,8 @@ export const KaraokeView: React.FC<KaraokeViewProps> = ({ className = '', onClos
       {!isMobile && currentTrack && (
         <aside className="karaoke-side" data-testid="karaoke-side">
           <div className="karaoke-side-art">
-            {currentTrack.artworkUrl ? (
-              <img src={currentTrack.artworkUrl} alt="" className="fill-cover" />
-            ) : (
-              <Music2 size={ICON.hero} aria-hidden="true" className="text-faint" />
-            )}
+            {/* Та же обложка с чёткой копией, что и на сцене: здесь она тоже крупная. */}
+            <NowPlayingArtwork track={currentTrack} morph={false} size={320} className="w-full h-full" fallbackIcon={ICON.hero} />
           </div>
           <div className="stack gap-1 min-0">
             <div className="type-xl weight-bold text-primary font-sans" title={currentTrack.title}>{currentTrack.title}</div>

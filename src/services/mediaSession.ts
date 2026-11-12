@@ -1,4 +1,5 @@
 import { UnifiedTrack, PlaybackState } from '../types/music';
+import { artworkGuaranteed } from '../utils/artworkUrl';
 import { startBackgroundAudio, stopBackgroundAudio, updateBackgroundAudioPosition } from './backgroundAudio';
 
 export interface MediaSessionCallbacks {
@@ -52,7 +53,7 @@ export class MediaSessionService {
      */
     const changed = (this.nowPlaying?.title ?? '') !== (track?.title ?? '') || (this.nowPlaying?.artist ?? '') !== (track?.artist ?? '');
     this.nowPlaying = track
-      ? { title: track.title, artist: track.artist, artwork: track.artworkUrl || '' }
+      ? { title: track.title, artist: track.artist, artwork: artworkGuaranteed(track.artworkUrl, 500) }
       : null;
     /*
      * Новый трек — полоса с нуля и с длительностью из сведений о треке. Настоящая
@@ -77,8 +78,8 @@ export class MediaSessionService {
       const artworkList = [
         { src: artworkSrc, sizes: '96x96', type: 'image/png' },
         { src: artworkSrc, sizes: '128x128', type: 'image/png' },
-        { src: artworkSrc, sizes: '256x256', type: 'image/png' },
-        { src: artworkSrc, sizes: '512x512', type: 'image/png' }
+        { src: artworkGuaranteed(artworkSrc, 240), sizes: '256x256', type: 'image/png' },
+        { src: artworkGuaranteed(artworkSrc, 500), sizes: '512x512', type: 'image/png' }
       ];
 
       if (typeof MediaMetadata !== 'undefined') {

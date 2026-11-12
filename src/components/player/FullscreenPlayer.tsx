@@ -349,6 +349,8 @@ export const FullscreenPlayer: React.FC<FullscreenPlayerProps> = ({ className = 
                     className="w-full h-full"
                     style={{ borderRadius: FULLSCREEN_ARTWORK_RADIUS[artworkShape] }}
                     fallbackIcon={ICON.hero}
+                    // Рамка обложки — до 460 px (player.css, .fullscreen-artwork-frame).
+                    size={460}
                     alt={`Обложка «${currentTrack.title}»`}
                     data-testid="fullscreen-artwork"
                   />

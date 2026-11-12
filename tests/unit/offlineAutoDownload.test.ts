@@ -189,7 +189,10 @@ describe('Офлайн 2.0: избранное скачивается само',
       expect(await offlineStorage.isDownloaded('yt_need')).toBe(true);
       // Отрывок в 30 секунд не считается ни скачанным, ни ожидающим.
       expect(await offlineStorage.isDownloaded('sc_clip')).toBe(false);
-      expect(global.fetch).toHaveBeenCalledTimes(1);
+      // Звук скачан один раз; второй запрос — обложка того же трека (с 4.0.2
+      // она сохраняется вместе со звуком). Лишних треков не тронуто.
+      const requested = (global.fetch as unknown as { mock: { calls: unknown[][] } }).mock.calls.map((call) => String(call[0]));
+      expect(requested.filter((url) => !url.includes('/art.jpg'))).toHaveLength(1);
       // Чужая копия на месте: выселять при незаполненном лимите нечего.
       expect(await offlineStorage.isDownloaded('yt_other')).toBe(true);
 

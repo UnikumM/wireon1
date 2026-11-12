@@ -758,3 +758,16 @@
   display: none;
 }
 
+/* Чёткая копия крупной обложки: лежит поверх мелкой и проявляется, когда
+ * загрузилась (core/NowPlayingArtwork). */
+.artwork-sharp {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  transition: opacity var(--dur-normal) var(--ease-out);
+}
+
+.artwork-sharp[data-ready='true'] {
+  opacity: 1;
+}
+
