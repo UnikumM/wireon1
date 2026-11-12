@@ -4,10 +4,11 @@ import { useLibraryStore } from '../store/useLibraryStore';
 import { useUIStore } from '../store/useUIStore';
 import { recommendationEngine } from '../services/recommendationEngine';
 import { getOpenOverlayCount } from './useDismissable';
+import { isMobileShellNow } from './useMobileShell';
+import { isSlashKey, shortcutLetter } from '../utils/physicalKey';
 
 const SEEK_STEP_SECONDS = 5;
 
-/** Keys the user is typing into must never be stolen. */
 /**
  * Элементы, которым клавиши нужны самим.
  *
@@ -89,9 +90,13 @@ function isFromTextEntry(target: EventTarget | null): boolean {
 }
 
 /**
- * The single global shortcut listener. Keys with no modifier only fire when no
- * modifier is held, so `Ctrl+F`, `Alt+Q` and friends still reach the browser and
- * the OS.
+ * Единственный слушатель сочетаний на всё окно.
+ *
+ * Буквы сверяются по клавише, а не по тому, что она печатает (`shortcutLetter`):
+ * на русской раскладке `event.key` у `M` — «ь», у `K` — «л», и сравнение с
+ * латиницей молчало. Клавиши без модификатора срабатывают только без
+ * модификаторов, так что `Ctrl+F`, `Alt+Q` и прочие по-прежнему доходят до
+ * браузера и системы.
  */
 export function useKeyboardShortcuts(): void {
   useEffect(() => {
@@ -99,65 +104,159 @@ export function useKeyboardShortcuts(): void {
       if (event.defaultPrevented) return;
       // Открыты «Итоги»: клавиши листают истории, а не управляют плеером.
       if (useUIStore.getState().recapPeriod) return;
+
+      const player = usePlayerStore.getState();
+      const ui = useUIStore.getState();
+      const isMod = event.ctrlKey || event.metaKey;
+      const letter = shortcutLetter(event);
+
+      /*
+       * Палитра команд — единственное сочетание с Ctrl/Cmd, и оно стоит ДО
+       * проверки «человек печатает». Раньше стояло после, а курсор в этом
+       * приложении почти всегда в поиске шапки: Ctrl+K оттуда не открывал
+       * ничего, а из строки самой палитры — не закрывал её. Буквы Ctrl+K не
+       * печатает, так что отнимать у поля тут нечего.
+       *
+       * В телефонной оболочке палитры нет вовсе — там сочетание не трогаем,
+       * иначе флаг «открыта» взводился бы впустую и съедал следующий Esc.
+       */
+      if (isMod && !event.altKey && letter === 'k') {
+        if (isMobileShellNow()) return;
+        event.preventDefault();
+        // Зажатая клавиша шлёт повторы — без этого палитра мигала бы.
+        if (!event.repeat) ui.toggleCommandPalette();
+        return;
+      }
+
       if (isFromTextEntry(event.target)) return;
       // Уступаем только те клавиши, которыми элемент под фокусом реально
       // управляется. Раньше уступали все подряд, и после щелчка по кнопке или
       // ползунку переставало работать вообще всё, включая `M`.
       if (CONTROL_KEYS.has(event.key) && isFromInteractiveControl(event.target)) return;
 
-      const player = usePlayerStore.getState();
-      const ui = useUIStore.getState();
-      const isMod = event.ctrlKey || event.metaKey;
-
-      // Command palette is the only chorded shortcut with Ctrl/Cmd.
-      if (isMod && !event.altKey && (event.key === 'k' || event.key === 'K')) {
-        event.preventDefault();
-        ui.toggleCommandPalette();
-        return;
-      }
-
-      // Alt+W / KeyW: Navigate to «Поток» tab or toggle Wave playback
-      if (event.altKey && !isMod && !event.shiftKey && (event.key === 'w' || event.key === 'W' || event.code === 'KeyW')) {
-        event.preventDefault();
-        if (ui.activeView !== 'wave') {
-          ui.setActiveView('wave');
-          if (player.queueMode !== 'my_wave') {
-            void player.startMyWave(ui.activeWaveMood, ui.activeWaveGenre);
+      // Сочетания с Alt: Alt+W, Alt+R, Alt+M.
+      if (event.altKey && !isMod && !event.shiftKey) {
+        switch (letter) {
+          // Alt+W: вкладка «Поток», а на ней — пуск и пауза волны.
+          case 'w': {
+            event.preventDefault();
+            if (ui.activeView !== 'wave') {
+              ui.setActiveView('wave');
+              if (player.queueMode !== 'my_wave') {
+                void player.startMyWave(ui.activeWaveMood, ui.activeWaveGenre);
+              }
+            } else if (player.queueMode === 'my_wave' && player.currentTrack) {
+              void player.togglePlayPause();
+            } else {
+              void player.startMyWave(ui.activeWaveMood, ui.activeWaveGenre);
+            }
+            return;
           }
-        } else {
-          if (player.queueMode === 'my_wave' && player.currentTrack) {
-            void player.togglePlayPause();
-          } else {
-            void player.startMyWave(ui.activeWaveMood, ui.activeWaveGenre);
+
+          // Alt+R: радио по играющему треку.
+          case 'r': {
+            event.preventDefault();
+            if (player.currentTrack) {
+              void player.startTrackRadio(player.currentTrack);
+              ui.showToast(`Запущено радио по треку "${player.currentTrack.title}"`, 'success');
+            }
+            return;
           }
-        }
-        return;
-      }
 
-      // Alt+R: Start Track Radio on current track
-      if (event.altKey && !isMod && !event.shiftKey && (event.key === 'r' || event.key === 'R' || event.code === 'KeyR')) {
-        event.preventDefault();
-        if (player.currentTrack) {
-          void player.startTrackRadio(player.currentTrack);
-          ui.showToast(`Запущено радио по треку "${player.currentTrack.title}"`, 'success');
-        }
-        return;
-      }
+          // Alt+M: мини-плеер.
+          case 'm': {
+            event.preventDefault();
+            void ui.toggleMiniPlayer();
+            return;
+          }
 
-      // Alt+M: Toggle Mini Player
-      if (event.altKey && !isMod && !event.shiftKey && (event.key === 'm' || event.key === 'M' || event.code === 'KeyM')) {
-        event.preventDefault();
-        void ui.toggleMiniPlayer();
-        return;
+          default:
+            break;
+        }
       }
 
       if (isMod || event.altKey) return;
 
+      // Одиночные буквы: M, F, Q, L, D — по клавише, в любой раскладке.
+      if (letter && !event.shiftKey) {
+        switch (letter) {
+          case 'm': {
+            event.preventDefault();
+            player.toggleMute();
+            return;
+          }
+
+          case 'f': {
+            event.preventDefault();
+            ui.toggleFullscreenPlayer();
+            return;
+          }
+
+          case 'q': {
+            event.preventDefault();
+            ui.toggleQueue();
+            return;
+          }
+
+          case 'l': {
+            event.preventDefault();
+            const current = player.currentTrack;
+            if (current) {
+              const lib = useLibraryStore.getState();
+              const wasFav = lib.isFavorite(current.id);
+              void lib.toggleFavorite(current).then((ok) => {
+                if (ok) {
+                  if (!wasFav) {
+                    void recommendationEngine.recordFeedback(current, 'like');
+                    ui.showToast(`Добавлено в любимое: "${current.title}"`, 'success');
+                  } else {
+                    ui.showToast(`Удалено из любимого: "${current.title}"`, 'info');
+                  }
+                }
+              });
+            }
+            return;
+          }
+
+          case 'd': {
+            event.preventDefault();
+            const current = player.currentTrack;
+            if (current) {
+              const trackTitle = current.title;
+              void player.dislikeAndSkipCurrentTrack().then(() => {
+                ui.showToast(`"${trackTitle}" больше не будет рекомендоваться`, 'info');
+              }).catch(() => {
+                ui.showToast('Ошибка при пропуске трека', 'error');
+              });
+            }
+            return;
+          }
+
+          default:
+            break;
+        }
+      }
+
+      // Поиск: клавиша `/`. На русской раскладке она печатает точку, поэтому
+      // сверяется по месту, а не по знаку.
+      if (isSlashKey(event)) {
+        event.preventDefault();
+        if (ui.activeView !== 'search') ui.setActiveView('search');
+        // Поле появляется вместе с экраном поиска, поэтому фокус — на следующем кадре.
+        requestAnimationFrame(() => {
+          const input = document.querySelector<HTMLInputElement>('[data-testid="search-input"]');
+          input?.focus();
+          input?.select();
+        });
+        return;
+      }
+
+      // Остальное — именованные клавиши, от раскладки они не зависят.
       switch (event.key) {
         case ' ':
         case 'Spacebar': {
           if (event.shiftKey) return;
-          // Space would otherwise scroll the view behind the player.
+          // Иначе пробел прокрутил бы экран за плеером.
           event.preventDefault();
           void player.togglePlayPause();
           return;
@@ -181,81 +280,6 @@ export function useKeyboardShortcuts(): void {
             const limit = player.duration > 0 ? player.duration : player.currentTime + SEEK_STEP_SECONDS;
             player.seekTo(Math.min(limit, player.currentTime + SEEK_STEP_SECONDS));
           }
-          return;
-        }
-
-        case 'm':
-        case 'M': {
-          if (event.shiftKey) return;
-          event.preventDefault();
-          player.toggleMute();
-          return;
-        }
-
-        case 'f':
-        case 'F': {
-          if (event.shiftKey) return;
-          event.preventDefault();
-          ui.toggleFullscreenPlayer();
-          return;
-        }
-
-        case 'q':
-        case 'Q': {
-          if (event.shiftKey) return;
-          event.preventDefault();
-          ui.toggleQueue();
-          return;
-        }
-
-        case 'l':
-        case 'L': {
-          if (event.shiftKey) return;
-          event.preventDefault();
-          const current = player.currentTrack;
-          if (current) {
-            const lib = useLibraryStore.getState();
-            const wasFav = lib.isFavorite(current.id);
-            void lib.toggleFavorite(current).then((ok) => {
-              if (ok) {
-                if (!wasFav) {
-                  void recommendationEngine.recordFeedback(current, 'like');
-                  ui.showToast(`Добавлено в любимое: "${current.title}"`, 'success');
-                } else {
-                  ui.showToast(`Удалено из любимого: "${current.title}"`, 'info');
-                }
-              }
-            });
-          }
-          return;
-        }
-
-        case 'd':
-        case 'D': {
-          if (event.shiftKey) return;
-          event.preventDefault();
-          const current = player.currentTrack;
-          if (current) {
-            const trackTitle = current.title;
-            void player.dislikeAndSkipCurrentTrack().then(() => {
-              ui.showToast(`"${trackTitle}" больше не будет рекомендоваться`, 'info');
-            }).catch(() => {
-              ui.showToast('Ошибка при пропуске трека', 'error');
-            });
-          }
-          return;
-        }
-
-        case '/': {
-          if (event.shiftKey) return;
-          event.preventDefault();
-          if (ui.activeView !== 'search') ui.setActiveView('search');
-          // The field mounts with the search view, so focus on the next frame.
-          requestAnimationFrame(() => {
-            const input = document.querySelector<HTMLInputElement>('[data-testid="search-input"]');
-            input?.focus();
-            input?.select();
-          });
           return;
         }
 

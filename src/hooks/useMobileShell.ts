@@ -25,9 +25,21 @@ import { detectPlatform } from '../services/nativeBridge';
  * ширине, — но теперь это осознанный выбор, а не совпадение. Узкому окну
  * телефонная раскладка идёт больше, чем сжатая настольная.
  */
+const NARROW_QUERY = '(max-width: 768px)';
+
 export function useMobileShell(): boolean {
-  const isNarrow = useMediaQuery('(max-width: 768px)');
+  const isNarrow = useMediaQuery(NARROW_QUERY);
   // Платформа за время работы приложения не меняется, поэтому хук ей не нужен;
   // ширина меняется, и её обязан слушать `useMediaQuery`.
   return detectPlatform() === 'mobile' || isNarrow;
+}
+
+/**
+ * То же решение, но разовым вопросом — для обработчиков событий, которым
+ * подписка не нужна: «телефонная ли оболочка на экране прямо сейчас».
+ */
+export function isMobileShellNow(): boolean {
+  if (detectPlatform() === 'mobile') return true;
+  if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') return false;
+  return window.matchMedia(NARROW_QUERY).matches;
 }

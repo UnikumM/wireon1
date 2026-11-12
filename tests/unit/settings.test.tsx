@@ -925,7 +925,7 @@ describe('Settings (src/components/settings)', () => {
       expect(within(cheatsheet).getByText('Ctrl')).toBeInTheDocument();
       expect(within(cheatsheet).queryByText('⌘')).toBeNull();
       // One row per binding, so the cheatsheet cannot silently lose one.
-      expect(within(cheatsheet).getAllByRole('listitem')).toHaveLength(11);
+      expect(within(cheatsheet).getAllByRole('listitem')).toHaveLength(16);
     });
 
     it('даёт назначить своё сочетание поверх других программ', async () => {

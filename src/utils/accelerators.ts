@@ -7,8 +7,32 @@
  * происходит — и непонятно, кто виноват, запись или регистрация.
  */
 
-/** Клавиши, которые сами по себе сочетанием быть не могут. */
-const MODIFIER_KEYS = new Set(['Control', 'Alt', 'Shift', 'Meta', 'OS', 'AltGraph', 'Dead']);
+/**
+ * Клавиши, которые сами по себе сочетанием быть не могут.
+ *
+ * `Dead` здесь нет нарочно: так называет себя «мёртвая» клавиша (на macOS это
+ * Alt+E, Alt+U), но место у неё обычное буквенное, и оно читается из `code`.
+ */
+const MODIFIER_KEYS = new Set(['Control', 'Alt', 'Shift', 'Meta', 'OS', 'AltGraph']);
+
+/**
+ * Знаки препинания по месту клавиши: слева — `event.code`, справа — как клавишу
+ * зовёт система. На русской раскладке на этих местах буквы (х, ъ, ж, э, б, ю,
+ * ё), и в сочетание уезжало `Ctrl+Alt+Х` — строка, которую система не понимает.
+ */
+const PUNCTUATION_BY_CODE: Readonly<Record<string, string>> = {
+  Minus: '-',
+  Equal: '=',
+  BracketLeft: '[',
+  BracketRight: ']',
+  Backslash: '\\',
+  Semicolon: ';',
+  Quote: "'",
+  Comma: ',',
+  Period: '.',
+  Slash: '/',
+  Backquote: '`'
+};
 
 /** Как называется клавиша в сочетании: слева — `event.key`, справа — имя для системы. */
 const KEY_NAMES: Record<string, string> = {
@@ -77,14 +101,33 @@ export function eventToAccelerator(event: KeyboardEvent): string | null {
     return parts.join('+');
   }
 
-  if (event.key.length === 1) {
-    // Буква приводится к верхнему регистру латиницей: система знает `A`, но не
-    // знает `ф`, а раскладку в момент нажатия человек не выбирает.
-    const code = /^Key([A-Z])$/.exec(event.code);
-    const digit = /^Digit(\d)$/.exec(event.code);
-    if (code) parts.push(code[1]);
-    else if (digit) parts.push(digit[1]);
-    else parts.push(event.key.toUpperCase());
+  /*
+   * Дальше — печатающие клавиши, и для них важно место, а не знак: раскладку в
+   * момент нажатия человек не выбирает, а система знает `A`, но не знает `ф`.
+   *
+   * Латинская буква берётся как есть: на Dvorak и AZERTY она стоит не там, где
+   * на QWERTY, и система ищет клавишу именно по букве. Всё остальное — кириллица,
+   * значки от Alt и Shift, «мёртвые» клавиши — читается из `event.code`.
+   */
+  if (/^[a-zA-Z]$/.test(event.key)) {
+    parts.push(event.key.toUpperCase());
+    return parts.join('+');
+  }
+
+  const code = event.code || '';
+  const physical =
+    /^Key([A-Z])$/.exec(code)?.[1] ?? /^Digit(\d)$/.exec(code)?.[1] ?? PUNCTUATION_BY_CODE[code];
+  if (physical) {
+    parts.push(physical);
+    return parts.join('+');
+  }
+
+  // `code` пуст (старые WebView): верим знаку, но только тому, который система
+  // поймёт. Буква не из латиницы сюда не проходит — лучше подождать другого
+  // нажатия, чем записать сочетание, которое никогда не сработает.
+  if (/^[!-~]$/.test(event.key)) {
+    // Плюс разделяет части сочетания, поэтому сам пишется словом.
+    parts.push(event.key === '+' ? 'Plus' : event.key);
     return parts.join('+');
   }
 

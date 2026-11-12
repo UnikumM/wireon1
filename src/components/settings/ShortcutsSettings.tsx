@@ -14,8 +14,13 @@ function isMacLike(): boolean {
   return /mac|iphone|ipad/i.test(navigator.userAgent);
 }
 
-/** Mirrors `useKeyboardShortcuts` exactly — update both together. */
-function shortcuts(mod: string): Shortcut[] {
+/**
+ * Повторяет `useKeyboardShortcuts` один в один — менять только вместе.
+ *
+ * Буквы названы по клавишам: в русской раскладке `M` — это клавиша с «Ь», и
+ * срабатывает она так же.
+ */
+function shortcuts(mod: string, alt: string): Shortcut[] {
   return [
     { keys: ['Space'], action: 'Играть / пауза' },
     { keys: ['←'], action: 'Назад на 5 секунд' },
@@ -23,8 +28,13 @@ function shortcuts(mod: string): Shortcut[] {
     { keys: ['Shift', '←'], action: 'Предыдущий трек' },
     { keys: ['Shift', '→'], action: 'Следующий трек' },
     { keys: ['M'], action: 'Выключить / включить звук' },
+    { keys: ['L'], action: 'В любимое / убрать' },
+    { keys: ['D'], action: 'Не нравится — пропустить' },
     { keys: ['F'], action: 'Полноэкранный режим' },
     { keys: ['Q'], action: 'Очередь' },
+    { keys: [alt, 'M'], action: 'Мини-плеер' },
+    { keys: [alt, 'W'], action: 'Поток: открыть, пуск / пауза' },
+    { keys: [alt, 'R'], action: 'Радио по текущему треку' },
     { keys: ['/'], action: 'Перейти к поиску' },
     { keys: [mod, 'K'], action: 'Палитра команд' },
     { keys: ['Esc'], action: 'Закрыть верхнее окно' }
@@ -257,9 +267,11 @@ const SystemShortcutHint: React.FC = () => {
   );
 };
 
-/** A read-only cheatsheet. Shortcuts themselves live in `useKeyboardShortcuts`. */
+/** Шпаргалка только для чтения. Сами сочетания живут в `useKeyboardShortcuts`. */
 export const ShortcutsSettings: React.FC = () => {
-  const mod = isMacLike() ? '⌘' : 'Ctrl';
+  const mac = isMacLike();
+  const mod = mac ? '⌘' : 'Ctrl';
+  const alt = mac ? '⌥' : 'Alt';
 
   return (
     <div className="stack gap-5">
@@ -267,12 +279,12 @@ export const ShortcutsSettings: React.FC = () => {
       <SettingsSection
       id="shortcuts"
       title="Горячие клавиши"
-      description="Не срабатывают, пока курсор стоит в поле ввода."
+      description={`Работают в любой раскладке — по клавише, а не по букве на ней. Пока курсор в поле ввода, срабатывает только ${mod} + K.`}
     >
       <ul
         className="m-0 p-0 grid list-none" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: 'var(--space-2) var(--space-6)' }}
       >
-        {shortcuts(mod).map((shortcut) => (
+        {shortcuts(mod, alt).map((shortcut) => (
           <li
             key={shortcut.action}
             className="row justify-between gap-4 text-sm text-primary leading-sm"
