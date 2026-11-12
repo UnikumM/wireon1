@@ -146,12 +146,14 @@ export const App: React.FC = () => {
      * «Моя волна» живут там. Нативная сторона намеренно ничего не решает сама —
      * второй плеер пришлось бы согласовывать с первым.
      */
-    const unsubscribeBackground = onBackgroundAudioCommand((command) => {
+    const unsubscribeBackground = onBackgroundAudioCommand((command, seconds) => {
       const player = usePlayerStore.getState();
       if (command === 'play') void player.play();
       else if (command === 'pause') player.pause();
       else if (command === 'next') void player.nextTrack();
       else if (command === 'prev') void player.prevTrack();
+      // Перемотка полосой в шторке.
+      else if (command === 'seek' && typeof seconds === 'number') player.seekTo(seconds);
     });
 
     return () => {

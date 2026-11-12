@@ -2322,7 +2322,7 @@ export const usePlayerStore = create<PlayerStore>((set, get) => {
       const safeBuffered = typeof buffered === 'number' && Number.isFinite(buffered) && buffered > 0 ? buffered : 0;
 
       set({ currentTime: safeTime, duration: safeDuration, buffered: safeBuffered });
-      MediaSessionService.updatePositionState(safeDuration, safeTime);
+      MediaSessionService.updatePositionState(safeDuration, safeTime, state.playbackRate || 1);
       rememberSession();
       playbackTracker.noteProgress(safeTime);
 

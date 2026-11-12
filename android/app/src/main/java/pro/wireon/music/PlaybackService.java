@@ -10,6 +10,7 @@ import android.content.Intent;
 import android.graphics.Bitmap;
 import android.os.Build;
 import android.os.IBinder;
+import android.support.v4.media.MediaMetadataCompat;
 import android.support.v4.media.session.MediaSessionCompat;
 import android.support.v4.media.session.PlaybackStateCompat;
 import android.util.Log;
@@ -65,6 +66,37 @@ public class PlaybackService extends Service {
         listener = next;
     }
 
+    /** Работающая служба — чтобы позицию можно было передать без нового intent. */
+    private static PlaybackService running;
+
+    /*
+     * Что известно о позиции. Статические, потому что позиция может прийти
+     * раньше, чем служба поднялась: тогда она применит их при запуске.
+     * Длительность не больше нуля — «неизвестна»: полосы в шторке тогда нет.
+     */
+    private static long durationMs = -1L;
+    private static long positionMs = 0L;
+    private static float rate = 1f;
+    private static long positionAt = 0L;
+
+    /**
+     * Длительность и позиция от плеера. До 4.0.2 сюда не приходило ничего:
+     * сессия сообщала «позиция неизвестна», длительности не называла вовсе, и
+     * полоса в уведомлении стояла на «00:00 / 00:00».
+     */
+    public static void updatePosition(long nextDurationMs, long nextPositionMs, float nextRate, boolean nowPlaying) {
+        durationMs = nextDurationMs > 0 ? nextDurationMs : -1L;
+        positionMs = Math.max(0L, durationMs > 0 ? Math.min(nextPositionMs, durationMs) : nextPositionMs);
+        rate = nextRate > 0f ? nextRate : 1f;
+        positionAt = android.os.SystemClock.elapsedRealtime();
+
+        PlaybackService current = running;
+        if (current == null) return;
+        current.playing = nowPlaying;
+        current.updateSessionMetadata();
+        current.updateSessionState();
+    }
+
     private MediaSessionCompat session;
     private String title = "Wireon";
     private String artist = "";
@@ -117,8 +149,16 @@ public class PlaybackService extends Service {
                 public void onStop() {
                     dispatch("pause");
                 }
+
+                @Override
+                public void onSeekTo(long position) {
+                    // Перемотка полосой в шторке. Решает по-прежнему плеер в
+                    // WebView: сюда новая позиция вернётся его же сообщением.
+                    dispatch("seek:" + Math.max(0L, position));
+                }
             });
             session.setActive(true);
+            running = this;
         } catch (Throwable error) {
             // Без сессии останутся кнопки уведомления, но не блокировка экрана.
             Log.w(TAG, "не удалось поднять медиасессию: " + error.getMessage());
@@ -156,6 +196,7 @@ public class PlaybackService extends Service {
             } else {
                 startForeground(NOTIFICATION_ID, notification);
             }
+            updateSessionMetadata();
             updateSessionState();
         } catch (Throwable error) {
             Log.w(TAG, "фоновый режим не поднялся: " + error.getMessage());
@@ -168,6 +209,7 @@ public class PlaybackService extends Service {
 
     @Override
     public void onDestroy() {
+        if (running == this) running = null;
         try {
             if (loader != null) {
                 loader.shutdownNow();
@@ -206,6 +248,7 @@ public class PlaybackService extends Service {
             Bitmap loaded = fetchBitmap(url);
             if (loaded == null || !url.equals(artworkUrl)) return;
             artwork = loaded;
+            updateSessionMetadata();
             try {
                 NotificationManager manager = (NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE);
                 if (manager != null) manager.notify(NOTIFICATION_ID, buildNotification());
@@ -312,20 +355,47 @@ public class PlaybackService extends Service {
         return new NotificationCompat.Action(icon, label, pending);
     }
 
+    /**
+     * Название, исполнитель, обложка и длительность — в саму сессию.
+     *
+     * Полосу в шторке система строит по длительности из сведений сессии, а не
+     * из уведомления. Неизвестная длительность передаётся как -1: так полоса
+     * скрыта, а не показывает «00:00».
+     */
+    private void updateSessionMetadata() {
+        if (session == null) return;
+        try {
+            MediaMetadataCompat.Builder metadata = new MediaMetadataCompat.Builder()
+                .putString(MediaMetadataCompat.METADATA_KEY_TITLE, title)
+                .putString(MediaMetadataCompat.METADATA_KEY_ARTIST, artist)
+                .putLong(MediaMetadataCompat.METADATA_KEY_DURATION, durationMs > 0 ? durationMs : -1L);
+            if (artwork != null) metadata.putBitmap(MediaMetadataCompat.METADATA_KEY_ALBUM_ART, artwork);
+            session.setMetadata(metadata.build());
+        } catch (Throwable error) {
+            Log.w(TAG, "сведения сессии не обновлены: " + error.getMessage());
+        }
+    }
+
     private void updateSessionState() {
         if (session == null) return;
         try {
+            boolean known = durationMs > 0;
+            long actions = PlaybackStateCompat.ACTION_PLAY
+                | PlaybackStateCompat.ACTION_PAUSE
+                | PlaybackStateCompat.ACTION_SKIP_TO_NEXT
+                | PlaybackStateCompat.ACTION_SKIP_TO_PREVIOUS;
+            // Перематывать можно только там, где известно, докуда.
+            if (known) actions |= PlaybackStateCompat.ACTION_SEEK_TO;
+
+            // Позицию система экстраполирует сама: от `positionMs` со скоростью
+            // `rate`, считая с `positionAt`. На паузе скорость нулевая — полоса стоит.
             PlaybackStateCompat state = new PlaybackStateCompat.Builder()
-                .setActions(
-                    PlaybackStateCompat.ACTION_PLAY
-                        | PlaybackStateCompat.ACTION_PAUSE
-                        | PlaybackStateCompat.ACTION_SKIP_TO_NEXT
-                        | PlaybackStateCompat.ACTION_SKIP_TO_PREVIOUS
-                )
+                .setActions(actions)
                 .setState(
                     playing ? PlaybackStateCompat.STATE_PLAYING : PlaybackStateCompat.STATE_PAUSED,
-                    PlaybackStateCompat.PLAYBACK_POSITION_UNKNOWN,
-                    1.0f
+                    known ? positionMs : PlaybackStateCompat.PLAYBACK_POSITION_UNKNOWN,
+                    playing ? rate : 0f,
+                    positionAt > 0L ? positionAt : android.os.SystemClock.elapsedRealtime()
                 )
                 .build();
             session.setPlaybackState(state);

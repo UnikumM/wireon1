@@ -1,5 +1,5 @@
 import { UnifiedTrack, PlaybackState } from '../types/music';
-import { startBackgroundAudio, stopBackgroundAudio } from './backgroundAudio';
+import { startBackgroundAudio, stopBackgroundAudio, updateBackgroundAudioPosition } from './backgroundAudio';
 
 export interface MediaSessionCallbacks {
   onPlay: () => void;
@@ -22,8 +22,15 @@ export class MediaSessionService {
    */
   private static nowPlaying: { title: string; artist: string; artwork: string } | null = null;
 
+  /** Играет ли сейчас — от этого зависит, идёт ли полоса в уведомлении. */
+  private static playing = false;
+
+  /** Последние известные длительность и позиция: нужны, когда меняется только пуск/пауза. */
+  private static lastPosition: { duration: number; position: number; rate: number } | null = null;
+
   private static get isSupported(): boolean {
-    return typeof window !== 'undefined' && typeof navigator !== 'undefined' && 'mediaSession' in navigator;
+    // Именно значение, а не наличие ключа: в части WebView свойство объявлено, но пусто.
+    return typeof navigator !== 'undefined' && !!(navigator as Navigator & { mediaSession?: MediaSession }).mediaSession;
   }
 
   /**
@@ -43,9 +50,20 @@ export class MediaSessionService {
      * Отсюда правило: `nowPlaying` — наше состояние для нашей же нативной
      * службы, и от наличия браузерного API оно зависеть не должно.
      */
+    const changed = (this.nowPlaying?.title ?? '') !== (track?.title ?? '') || (this.nowPlaying?.artist ?? '') !== (track?.artist ?? '');
     this.nowPlaying = track
       ? { title: track.title, artist: track.artist, artwork: track.artworkUrl || '' }
       : null;
+    /*
+     * Новый трек — полоса с нуля и с длительностью из сведений о треке. Настоящая
+     * придёт, когда загрузится звук, но у потоков HLS (SoundCloud) она до того
+     * бывает `Infinity`, а полоса прошлого трека в шторке держаться не должна.
+     */
+    if (changed) {
+      const known = track && Number.isFinite(track.duration) && track.duration > 0 ? track.duration : 0;
+      this.lastPosition = track ? { duration: known, position: 0, rate: 1 } : null;
+      if (track) updateBackgroundAudioPosition({ duration: known, position: 0, rate: 1, playing: false });
+    }
 
     if (!this.isSupported) return;
 
@@ -103,6 +121,12 @@ export class MediaSessionService {
      * Уведомление держится на паузе тоже: снятое, оно уносит с собой и пульт на
      * экране блокировки — а пауза не значит, что слушать перестали.
      */
+    // Пуск и пауза меняют ход полосы в уведомлении: на паузе она стоит.
+    this.playing = mappedState === 'playing';
+    if (mappedState !== 'none' && this.lastPosition) {
+      updateBackgroundAudioPosition({ ...this.lastPosition, playing: this.playing });
+    }
+
     if (mappedState === 'none' || !this.nowPlaying) {
       void stopBackgroundAudio();
     } else {
@@ -127,6 +151,14 @@ export class MediaSessionService {
    * Updates position and duration state in OS timeline
    */
   public static updatePositionState(duration: number, currentTime: number, playbackRate = 1): void {
+    /*
+     * Нативной службе Android — раньше проверки поддержки, по той же причине,
+     * что и `nowPlaying`: в Android WebView `navigator.mediaSession` нет вовсе,
+     * и ранний выход оставлял полосу в уведомлении на «00:00 / 00:00».
+     */
+    this.lastPosition = { duration, position: currentTime, rate: playbackRate };
+    updateBackgroundAudioPosition({ duration, position: currentTime, rate: playbackRate, playing: this.playing });
+
     if (!this.isSupported || typeof navigator.mediaSession.setPositionState !== 'function') {
       return;
     }

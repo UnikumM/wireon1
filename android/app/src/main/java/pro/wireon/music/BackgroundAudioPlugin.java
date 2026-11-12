@@ -124,6 +124,33 @@ public class BackgroundAudioPlugin extends Plugin {
     }
 
     /** Выключает фоновый режим: воспроизведение кончилось или его остановили. */
+    /**
+     * Длительность и позиция для полосы в уведомлении. Секунды.
+     *
+     * Служба уже запущена `start`-ом; сюда приходят только существенные
+     * изменения (пуск, пауза, перемотка, новая длительность) — обычное течение
+     * времени система считает сама от позиции и скорости.
+     */
+    @PluginMethod
+    public void setPosition(PluginCall call) {
+        try {
+            Double duration = call.getDouble("duration", 0d);
+            Double position = call.getDouble("position", 0d);
+            Double rate = call.getDouble("rate", 1d);
+            boolean playing = Boolean.TRUE.equals(call.getBoolean("playing", true));
+            PlaybackService.updatePosition(
+                duration == null ? 0L : Math.round(duration * 1000d),
+                position == null ? 0L : Math.round(position * 1000d),
+                rate == null ? 1f : rate.floatValue(),
+                playing
+            );
+            call.resolve(ok(true));
+        } catch (Throwable error) {
+            Log.w(TAG, "позиция не дошла до уведомления: " + error.getMessage());
+            call.resolve(ok(false));
+        }
+    }
+
     @PluginMethod
     public void stop(PluginCall call) {
         try {
