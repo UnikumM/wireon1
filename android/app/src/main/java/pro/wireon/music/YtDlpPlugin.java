@@ -352,13 +352,19 @@ public class YtDlpPlugin extends Plugin {
                 String message = error.getMessage() == null ? "" : error.getMessage();
                 failures.add(label + ": " + message);
 
-                if (isBotCheck(message)) sawBotCheck = true;
+                // Проверка «вы не робот» — не про видео: другой клиент или сервер
+                // её могут пройти, поэтому перебор идёт дальше, а окончательные
+                // коды на таком отказе не ищем вовсе.
+                if (isBotCheck(message)) {
+                    sawBotCheck = true;
+                    continue;
+                }
 
                 // Возраст, регион, удалённое видео — одинаковы для всех клиентов.
                 // Продолжать перебор незачем, а точный ответ человеку полезнее,
                 // чем «ничего не вышло».
                 String terminal = terminalCode(message);
-                if (terminal != null) throw new IllegalStateException(terminal + ": " + message);
+                if (terminal != null) throw new IllegalStateException(terminal + ": " + errorPart(message));
             }
         }
 
@@ -382,6 +388,10 @@ public class YtDlpPlugin extends Plugin {
          * запасные варианты, и то, манифест это или нет.
          */
         request.addOption("--no-playlist");
+        // Предупреждения в отказ не попадают: библиотека всегда передаёт yt-dlp путь
+        // к ffmpeg, которого в APK нет, и его «does not exist» разбор кода ниже
+        // принимал за «видео не существует» (см. errorPart).
+        request.addOption("--no-warnings");
         // Мобильная сеть отваливается чаще домашней, а ждать полминуты молча
         // хуже, чем перейти к следующей ступени.
         request.addOption("--socket-timeout", "12");
@@ -535,10 +545,26 @@ public class YtDlpPlugin extends Plugin {
             || lower.contains("confirm your identity");
     }
 
+    /**
+     * Сама ошибка без предупреждений перед ней.
+     *
+     * yt-dlp пишет в один поток «WARNING: … WARNING: … ERROR: …». Причину отказа
+     * ищем только после `ERROR:`: в предупреждениях встречаются те же слова
+     * («ffmpeg location … does not exist»), и по ним любой отказ на Android
+     * считался «видео недоступно» — после чего не пробовали ни других клиентов,
+     * ни сервер.
+     */
+    private String errorPart(String message) {
+        int at = message.indexOf("ERROR:");
+        return at >= 0 ? message.substring(at) : message;
+    }
+
     /** Код отказа, одинакового для любого клиента, или null — тогда перебор идёт дальше. */
     private String terminalCode(String message) {
-        String lower = message.toLowerCase(Locale.ROOT);
         if (message.startsWith("YT_")) return message.split(":", 2)[0];
+        String lower = errorPart(message).toLowerCase(Locale.ROOT);
+        // Без строки ERROR судить не по чему: одни предупреждения — не приговор.
+        if (!lower.contains("error:") && lower.contains("warning:")) return null;
         if (lower.contains("age-restricted") || lower.contains("confirm your age")
             || lower.contains("inappropriate for some users")) return "YT_AGE_RESTRICTED";
         if (lower.contains("private video") || lower.contains("granted access")) return "YT_PRIVATE";

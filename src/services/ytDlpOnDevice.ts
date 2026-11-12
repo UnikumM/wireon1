@@ -58,6 +58,37 @@ export interface ResolveOnDeviceOptions {
   rejectUrl?: string;
 }
 
+/**
+ * Приводит отказ нативного yt-dlp к честному коду.
+ *
+ * yt-dlp пишет в один поток и предупреждения, и ошибку, а библиотека на Android
+ * всегда передаёт ему путь к ffmpeg, которого в APK нет. В каждом отказе поэтому
+ * стояло «WARNING: ffmpeg location … does not exist!» — и по словам «does not
+ * exist» нативная сторона принимала любой отказ за «видео недоступно»
+ * (`YT_UNAVAILABLE`). Этот код безнадёжный: после него не пробуют ни других
+ * клиентов, ни сервер. Так проверка «вы не робот» превращалась в «трека нет», и
+ * офлайн-очередь из 88 треков не сохраняла ни одного.
+ *
+ * Здесь смотрим только на часть после `ERROR:`: проверка на робота получает
+ * свой код, а «недоступно», подтверждённое одним лишь предупреждением про
+ * ffmpeg, становится обычным «не вышло» — с ним лестница идёт дальше.
+ */
+export function normalizeYtDlpFailure(message: string): string {
+  const raw = (message || '').trim();
+  const code = /^([A-Z][A-Z0-9]*(?:_[A-Z0-9]+)+):/.exec(raw)?.[1] ?? '';
+  const errorAt = raw.indexOf('ERROR:');
+  const errorPart = errorAt >= 0 ? raw.slice(errorAt) : raw.replace(/WARNING:[^]*?(?=WARNING:|ERROR:|$)/g, ' ');
+
+  if (/not a bot|bot check|confirm your identity/i.test(raw)) {
+    return 'YT_BOT_CHECK: YouTube просит подтвердить, что вы не робот';
+  }
+  if (code === 'YT_UNAVAILABLE') {
+    const reallyGone = /video unavailable|has been removed|been terminated|(?:video|account|channel)[^.]*does not exist/i.test(errorPart);
+    if (!reallyGone) return `YT_ALL_ATTEMPTS_FAILED: ${errorPart.replace(/\s+/g, ' ').trim().slice(0, 300)}`;
+  }
+  return raw;
+}
+
 /** Ошибка в форме `КОД: подробности` — её ждёт `describePlaybackError`. */
 export class YtDlpError extends Error {
   public readonly code: string;
@@ -137,7 +168,7 @@ export async function resolveWithYtDlp(
   } catch (error) {
     // Capacitor отдаёт сообщение отказа как есть — а нативная сторона пишет
     // его в форме `КОД: подробности` именно для этого.
-    throw new YtDlpError(error instanceof Error ? error.message : String(error));
+    throw new YtDlpError(normalizeYtDlpFailure(error instanceof Error ? error.message : String(error)));
   }
 
   const streamUrl = typeof payload?.streamUrl === 'string' ? payload.streamUrl : '';

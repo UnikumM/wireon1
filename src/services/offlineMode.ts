@@ -11,6 +11,7 @@
  * {@link OfflineModeService.noteListened} unconditionally.
  */
 
+import { describeOfflineFailure } from './offlineErrors';
 import type { UnifiedTrack } from '../types/music';
 import { db, getSetting, setSetting } from './db';
 import { offlineStorage } from './offlineStorage';
@@ -386,7 +387,7 @@ class OfflineModeService {
           this.lastError = null;
         } catch (err) {
           // A single unavailable stream must not stop the queue behind it.
-          this.lastError = err instanceof Error ? err.message : 'Не удалось сохранить трек';
+          this.lastError = describeOfflineFailure(err);
           console.warn(`[OfflineMode] Трек ${track.id} не сохранён:`, err);
         } finally {
           this.cachingTrackId = null;

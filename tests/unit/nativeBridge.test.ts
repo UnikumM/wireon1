@@ -552,6 +552,29 @@ describe('nativeBridge: yt-dlp на самом устройстве', () => {
     });
   }
 
+  it('4.0.2: yt-dlp телефона упёрся в «вы не робот» с шумом про ffmpeg — ссылку даёт сервер', async () => {
+    // Живой отказ с телефона пользователя. Нативная сторона ставила на него
+    // безнадёжный YT_UNAVAILABLE (в предупреждении про ffmpeg есть «does not
+    // exist»), лестница обрывалась, и офлайн не сохранял ничего.
+    const SERVER_URL = 'https://rr1---sn-x.googlevideo.com/videoplayback?expire=1900000000';
+    innertubeFails();
+    withYtDlp(async () => {
+      throw new Error(
+        "YT_UNAVAILABLE: WARNING: ffmpeg location /data/app/x/lib/arm64/libffmpeg.so does not exist! Continuing without ffmpeg " +
+          "ERROR: [youtube] dQw4w9WgXcQ: Sign in to confirm you're not a bot. Use --cookies-from-browser"
+      );
+    });
+    const fetchSpy = vi.fn(async () =>
+      okResponse({ streamUrl: SERVER_URL, format: 'm4a', bitrate: 128, expiresAt: 1, ipLocked: false })
+    );
+    const bridge = createServerBridge(CONFIG, fetchSpy as unknown as typeof fetch);
+
+    const resolved = (await bridge.resolveYouTubeStream!(VIDEO_ID, 'prefetch')) as { streamUrl: string };
+
+    expect(resolved.streamUrl).toBe(SERVER_URL);
+    expect(fetchSpy).toHaveBeenCalled();
+  });
+
   it('удача быстрой ступени — ни yt-dlp, ни сервер не спрашиваются', async () => {
     // Ради этого порядок и поменян: 0,3 с вместо Python на каждый трек.
     const ytDlp = withYtDlp(async () => ({ streamUrl: YTDLP_URL, format: 'm4a', bitrate: 129, expiresAt: 1 }));

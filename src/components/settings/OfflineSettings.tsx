@@ -295,7 +295,7 @@ export const OfflineSettings: React.FC = () => {
           className="row gap-2 radius-sm text-xs text-secondary py-2 px-3 bg-surface-2 border-subtle"
         >
           <WifiOff size={ICON.sm} aria-hidden="true" className="shrink-0" />
-          <span>Последняя проблема: {favState.lastError}</span>
+          <span className="min-0 offline-error-text">Последняя проблема: {favState.lastError}</span>
         </div>
       )}
 
@@ -366,7 +366,7 @@ export const OfflineSettings: React.FC = () => {
           className="row gap-2 radius-sm text-xs text-secondary py-2 px-3 bg-surface-2 border-subtle"
         >
           <WifiOff size={ICON.sm} aria-hidden="true" className="shrink-0" />
-          <span>Последняя проблема: {state.lastError}</span>
+          <span className="min-0 offline-error-text">Последняя проблема: {state.lastError}</span>
         </div>
       )}
 

@@ -226,6 +226,53 @@ describe('Офлайн 2.0: избранное скачивается само',
       expect(offlineAutoDownload.getState().favoritesOffline).toBe(3);
     });
 
+    it('4.0.2: в «последней проблеме» — фраза для человека, а не вывод yt-dlp', async () => {
+      setFavorites([makeTrack('yt_bot')]);
+      await offlineAutoDownload.init();
+      enable();
+      vi.spyOn(offlineStorage, 'downloadTrack').mockRejectedValue(
+        new Error(
+          "YT_BOT_CHECK: YouTube просит подтвердить, что вы не робот; ios: WARNING: ffmpeg location /data/app/x/libffmpeg.so does not exist! ERROR: [youtube] abc: Sign in to confirm you're not a bot. See https://github.com/yt-dlp/yt-dlp/wiki/FAQ"
+        )
+      );
+
+      await offlineAutoDownload.sync();
+
+      const text = offlineAutoDownload.getState().lastError || '';
+      expect(text).toBe('YouTube попросил подтвердить, что запросы идут не от робота. Попробуем позже.');
+      expect(text).not.toMatch(/https?:|\/data\/|WARNING|ERROR|ffmpeg/);
+    });
+
+    it('4.0.2: источник не пускает три раза подряд — проход окончен, остальные не трогаем', async () => {
+      setFavorites(['yt_a', 'yt_b', 'yt_c', 'yt_d', 'yt_e', 'yt_f'].map((id) => makeTrack(id)));
+      await offlineAutoDownload.init();
+      enable();
+      const spy = vi
+        .spyOn(offlineStorage, 'downloadTrack')
+        .mockRejectedValue(new Error('YT_BOT_CHECK: YouTube просит подтвердить, что вы не робот'));
+
+      await offlineAutoDownload.sync();
+
+      // Восемьдесят запросов в ответ на «вы не робот» только продлили бы проверку.
+      expect(spy).toHaveBeenCalledTimes(3);
+      expect(offlineAutoDownload.getState().queued).toBe(6);
+    });
+
+    it('4.0.2: отказ конкретной песни серию не считает — очередь идёт до конца', async () => {
+      setFavorites(['yt_a', 'yt_b', 'yt_c', 'yt_d', 'yt_e'].map((id) => makeTrack(id)));
+      await offlineAutoDownload.init();
+      enable();
+      const spy = vi.spyOn(offlineStorage, 'downloadTrack').mockImplementation(async (track) => {
+        if (track.id !== 'yt_e') throw new Error('YT_PRIVATE: это приватное видео');
+        await seedCached(track.id, { sizeBytes: KIB });
+      });
+
+      await offlineAutoDownload.sync();
+
+      expect(spy).toHaveBeenCalledTimes(5);
+      expect(await offlineStorage.isDownloaded('yt_e')).toBe(true);
+    });
+
     it('недоступный трек не останавливает остальные и попадает в «последнюю проблему»', async () => {
       setFavorites([makeTrack('yt_broken'), makeTrack('yt_fine')]);
       await offlineAutoDownload.init();

@@ -19,12 +19,16 @@
  * таймер старта безопасно живут всегда.
  */
 
+import { describeOfflineFailure, isBlockingFailure } from './offlineErrors';
 import type { UnifiedTrack } from '../types/music';
 import { db, getSetting, setSetting, type OfflineTrackRecord } from './db';
 import { offlineStorage } from './offlineStorage';
 import { offlineMode } from './offlineMode';
 import { detectPlatform, type PlatformKind } from './nativeBridge';
 import { useLibraryStore } from '../store/useLibraryStore';
+
+/** Сколько отказов «источник не пускает» подряд останавливают проход очереди. */
+export const BLOCKED_STREAK_LIMIT = 3;
 
 export const FAVORITES_AUTO_SETTING = 'offline.favorites.auto';
 export const FAVORITES_WIFI_ONLY_SETTING = 'offline.favorites.wifiOnly';
@@ -359,6 +363,8 @@ class OfflineAutoDownloadService {
     // Неудачники этого прохода: повторять их тут же бессмысленно — ответ будет
     // тот же. Следующий проход начнёт с чистого листа.
     const failed = new Set<string>();
+    // Подряд идущие отказы «источник не пускает» (проверка на робота, нет сети).
+    let blockedInRow = 0;
     // Ошибка живёт до следующего прохода, а не до следующего удачного трека:
     // сломанный остаётся в очереди, и человеку важно знать, почему он там.
     this.lastError = null;
@@ -408,18 +414,28 @@ class OfflineAutoDownloadService {
         }
         // Не `autoCached`: офлайн-режим под своим лимитом избранное не трогает.
         await this.stamp(next.id);
+        blockedInRow = 0;
       } catch (err) {
         // Один недоступный трек не останавливает остальные: он остаётся в
         // очереди и будет пробоваться на следующем проходе.
-        this.lastError = err instanceof Error ? err.message : 'Не удалось сохранить трек';
+        this.lastError = describeOfflineFailure(err);
         console.warn(`[OfflineAutoDownload] Трек ${next.id} не сохранён:`, err);
         failed.add(next.id);
+        blockedInRow = isBlockingFailure(err) ? blockedInRow + 1 : 0;
       } finally {
         this.downloadingTrackId = null;
         this.downloadingProgress = 0;
       }
 
       await this.refreshStats();
+      /*
+       * Источник не пускает три раза подряд — проход окончен. Дело уже не в
+       * песне: следующие восемьдесят получили бы тот же ответ, а каждый лишний
+       * запрос только продлевает проверку «вы не робот». Очередь никуда не
+       * девается и продолжится со следующего прохода (запуск, новое сердечко,
+       * «Скачать сейчас»).
+       */
+      if (blockedInRow >= BLOCKED_STREAK_LIMIT) break;
       // Пауза между треками — только если есть что качать дальше.
       const remaining = this.queued - failed.size;
       if (remaining > 0 && this.deps.pauseBetweenTracksMs > 0) {

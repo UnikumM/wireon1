@@ -5,6 +5,7 @@ import {
   isYtDlpAvailable,
   resetYtDlpAvailability,
   resolveWithYtDlp,
+  normalizeYtDlpFailure,
   updateYtDlp,
   YtDlpError
 } from '../../src/services/ytDlpOnDevice';
@@ -149,6 +150,44 @@ describe('ytDlpOnDevice: ссылка', () => {
     await expect(resolveWithYtDlp('dQw4w9WgXcQ')).rejects.toMatchObject({
       code: 'YT_BINARY_MISSING'
     });
+  });
+});
+
+describe('4.0.2: отказ yt-dlp на телефоне получает честный код', () => {
+  /** Текст со скриншота пользователя: предупреждение про ffmpeg и проверка на робота. */
+  const FROM_PHONE =
+    "YT_UNAVAILABLE: WARNING: ffmpeg location /data/app/~~w7HQ==/pro.wireon.music-RLf==/lib/arm64/libffmpeg.so does not exist! " +
+    'Continuing without ffmpeg WARNING: [youtube] No title found in player responses; falling back to title from initial data. ' +
+    "Other metadata may also be missing ERROR: [youtube] g5DjoZ7K-eU: Sign in to confirm you're not a bot. This helps protect our community. " +
+    'Use --cookies-from-browser or --cookies for the authentication. See https://github.com/yt-dlp/yt-dlp/wiki/FAQ#how-do-i-pass-cookies-to-yt-dlp';
+
+  it('проверка «вы не робот» — это YT_BOT_CHECK, а не «видео недоступно»', async () => {
+    // Из-за слов «does not exist» в предупреждении про ffmpeg нативная сторона
+    // ставила безнадёжный YT_UNAVAILABLE, и к серверу за ссылкой уже не шли.
+    expect(normalizeYtDlpFailure(FROM_PHONE)).toBe('YT_BOT_CHECK: YouTube просит подтвердить, что вы не робот');
+
+    pretendMobile({
+      available: vi.fn(async () => ({ available: true })),
+      resolve: vi.fn(async () => {
+        throw new Error(FROM_PHONE);
+      }),
+      update: vi.fn()
+    });
+    await expect(resolveWithYtDlp('g5DjoZ7K-eU')).rejects.toMatchObject({ code: 'YT_BOT_CHECK' });
+  });
+
+  it('«недоступно», подтверждённое только предупреждением про ffmpeg, перестаёт быть приговором', () => {
+    const noisy =
+      'YT_UNAVAILABLE: WARNING: ffmpeg location /data/app/x/lib/arm64/libffmpeg.so does not exist! Continuing without ffmpeg ' +
+      'ERROR: [youtube] abc: Requested format is not available';
+    expect(normalizeYtDlpFailure(noisy).startsWith('YT_ALL_ATTEMPTS_FAILED: ERROR: [youtube] abc')).toBe(true);
+  });
+
+  it('настоящее «видео удалено» остаётся как есть, как и остальные коды', () => {
+    const gone = 'YT_UNAVAILABLE: ERROR: [youtube] abc: Video unavailable. This video has been removed by the uploader';
+    expect(normalizeYtDlpFailure(gone)).toBe(gone);
+    expect(normalizeYtDlpFailure('YT_PRIVATE: ERROR: Private video')).toBe('YT_PRIVATE: ERROR: Private video');
+    expect(normalizeYtDlpFailure('YT_NETWORK: нет связи с YouTube')).toBe('YT_NETWORK: нет связи с YouTube');
   });
 });
 
